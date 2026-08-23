@@ -497,9 +497,11 @@ const dragon = { spawned: false, active: false, ridden: false,
                  gustCd: 0, ballCd: 0, valkT: 0, valkSeen: false, mountCd: 0 };
 
 // the house dog — woken by the first table, never far behind after that.
-// it is a good dog. it will not die. it just wants her out.
+// three good hits and it barks, thinks better of it, and runs — but this is
+// its house: ten seconds later it comes back.
 const dog = { active: false, x: 0, y: 0, w: 16, h: 10, vx: 0, vy: 0,
-              face: 1, t: 0, onGround: false, retreatT: 0, barkCd: 0, lastHit: -1 };
+              face: 1, t: 0, onGround: false, retreatT: 0, barkCd: 0,
+              lastHit: -1, hp: 3, deadT: 0, fleeT: 0, flashT: 0 };
 const fireballs = [];
 let playTime = 0;
 
@@ -1160,6 +1162,7 @@ function resetGame() {
   dragon.valkT = 0; dragon.valkSeen = false; dragon.mountCd = 0;
   dog.active = false; dog.vx = dog.vy = 0; dog.t = 0;
   dog.retreatT = 0; dog.barkCd = 0; dog.lastHit = -1;
+  dog.hp = 3; dog.deadT = 0; dog.fleeT = 0; dog.flashT = 0;
 }
 
 function togglePause() {
@@ -2462,8 +2465,45 @@ function updateDog() {
     setTimeout(() => sfx(200, 0.12, 'sawtooth', 0.06, 110), 130);
   }
   if (!dog.active) return;
+
+  // driven off, but never gone — it runs barking, and ten seconds later
+  // it remembers whose house this is
+  if (dog.deadT > 0) {
+    dog.deadT--;
+    if (dog.fleeT > 0) {                     // the visible part: tail, gone
+      dog.t += 2;                            // legs like a cartoon
+      const away = Math.sign(dog.x - player.x) || -1;
+      dog.vx = away * 2.2;
+      dog.face = away;
+      const aheadX = away > 0 ? dog.x + dog.w + 4 : dog.x - 4;
+      if (dog.onGround &&
+          (solidAt(aheadX, dog.y + dog.h - 4) || !solidAt(aheadX, dog.y + dog.h + 6)))
+        dog.vy = -5.6;
+      dog.vy = Math.min(dog.vy + 0.3, 6.5);
+      moveAndCollide(dog);
+      if (--dog.barkCd <= 0) {               // barking the whole way out
+        dog.barkCd = 26;
+        sfx(200, 0.07, 'sawtooth', 0.045, 150);
+      }
+      if (dog.x < camX - 40 || dog.x > camX + VIEW_W + 40 ||
+          dog.y > MAP_H * TILE + 20)
+        dog.fleeT = 0;                       // out of sight, licking its pride
+    }
+    if (dog.deadT === 0) {
+      dog.hp = 3; dog.fleeT = 0;
+      dog.x = Math.max(8, camX - 24);
+      dog.y = 9 * TILE - dog.h - 1;
+      dog.vx = 0; dog.vy = 0; dog.retreatT = 0;
+      flashText = { msg: 'the dog is back.', t: 120 };
+      sfx(180, 0.1, 'sawtooth', 0.06, 140);
+      setTimeout(() => sfx(200, 0.12, 'sawtooth', 0.06, 110), 130);
+    }
+    return;
+  }
+
   dog.t++;
   if (dog.barkCd > 0) dog.barkCd--;
+  if (dog.flashT > 0) dog.flashT--;
 
   if (dog.retreatT > 0) {
     dog.retreatT--;
@@ -2498,26 +2538,41 @@ function updateDog() {
   if (dog.retreatT <= 0 && player.respawnT <= 0 && rectsOverlap(dog, player))
     hurtPlayer(dog.x + dog.w / 2);
 
-  // her fists push it back — but it is a good dog and it will not die
+  // her fists push it back — and the third one puts it down
   const hb = attackHitbox();
   if (hb && dog.lastHit !== hb.id && rectsOverlap(hb, dog)) {
     dog.lastHit = hb.id;
+    dog.hp--;
+    dog.flashT = 6;
     dog.retreatT = 70;
     dog.vx = player.face * 3;
     dog.vy = -1.5;
-    sfx(300, 0.15, 'sawtooth', 0.05, 200);   // a yelp, nothing worse
+    sfx(300, 0.15, 'sawtooth', 0.05, 200);   // a yelp
     burst(dog.x + 8, dog.y + 4, '#c9a06a', 5, player.face * 1.5);
+    if (dog.hp <= 0) {
+      dog.deadT = 600;                       // ten seconds before it dares again
+      dog.fleeT = 1;                         // visible until it clears the screen
+      dog.retreatT = 0;
+      dog.barkCd = 0;
+      score += 250;
+      sfx(210, 0.07, 'sawtooth', 0.055, 170);            // two sharp barks
+      setTimeout(() => sfx(230, 0.07, 'sawtooth', 0.05, 160), 120);
+      flashText = { msg: 'it barks, and thinks better of it.', t: 110 };
+    }
   }
 }
 
 function drawDog() {
-  if (!dog.active) return;
+  if (!dog.active || (dog.deadT > 0 && dog.fleeT <= 0)) return;
   const x = Math.round(dog.x - camX), y = Math.round(dog.y);
   if (x < -30 || x > VIEW_W + 30) return;
   ctx.save();
   if (dog.face < 0) { ctx.translate(x + dog.w, y); ctx.scale(-1, 1); }
   else ctx.translate(x, y);
-  const B = '#8a5a32', D = '#6d4526', E = '#2a1c10';
+  const flash = dog.flashT > 0 && !assist.calm;
+  const B = flash ? '#ffffff' : '#8a5a32',
+        D = flash ? '#ffffff' : '#6d4526',
+        E = flash ? '#ffffff' : '#2a1c10';
   const run = (dog.t >> 2) % 2;
   ctx.fillStyle = D; ctx.fillRect(0, run ? 0 : 2, 2, 2);        // tail wag
   ctx.fillStyle = B; ctx.fillRect(2, 2, 10, 5);                 // body

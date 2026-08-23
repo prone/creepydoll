@@ -599,7 +599,44 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await tap('z');
   await frames(6);
   check(await ev(() => dog.active && (dog.retreatT > 0 || dog.x > player.x + 20)),
-        'a punch backs it off — but it will not die');
+        'a punch backs it off');
+  // three hits put it down for ten seconds — position and punch atomically
+  const dogDown = await page.evaluate(async () => {
+    dog.hp = 3; dog.deadT = 0; dog.retreatT = 0;
+    let hits = 0;
+    for (let h = 0; h < 3; h++) {
+      dog.x = player.x + 12; dog.y = player.y + 6;
+      dog.vx = 0; dog.vy = 0; dog.retreatT = 0;
+      player.attack = null; player.face = 1; player.vx = 0;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (i === 5) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+        if (dog.deadT > 0) return { hits: hits + 1, deadT: dog.deadT };
+        if (dog.hp <= 2 - h) {
+          hits++;
+          // release and let punchHeld clear, or the next press won't register
+          window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+          for (let j = 0; j < 3; j++) await new Promise(r => requestAnimationFrame(r));
+          break;
+        }
+      }
+    }
+    return { hits, deadT: dog.deadT };
+  });
+  check(dogDown.hits === 3 && dogDown.deadT > 500,
+        'the third hit makes it bark and bolt (' + dogDown.deadT + 'f until it dares again)');
+  check(await ev(() => dog.fleeT > 0 &&
+        Math.sign(dog.vx) === Math.sign(dog.x - player.x)),
+        'it runs away from her, visibly, barking');
+  const fled0 = await ev(() => Math.abs(dog.x - player.x));
+  await frames(40);
+  check((await ev(() => Math.abs(dog.x - player.x))) > fled0,
+        'and it keeps going');
+  await ev(() => { dog.deadT = 20; dog.fleeT = 0; });   // fast-forward the ten seconds
+  await frames(30);
+  check(await ev(() => dog.deadT === 0 && dog.hp === 3 && dog.active),
+        'ten seconds later, the dog is back');
 
   /* ---------- the infestation ---------- */
   section('infestation');

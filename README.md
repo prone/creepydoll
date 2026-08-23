@@ -82,8 +82,9 @@ jump launches her about twice as high.
   the door. She knows the way. Inside: a properly lit house — chandelier over
   the landing, sconces, windows onto the night — with oak tables to jump,
   shelves to climb, and candle checkpoints. Jumping the first table wakes the
-  **dog**, and it chases her the rest of the way: it bites, it hops the
-  furniture, it will not die. The walls hold ants, cockroaches, rats, and
+  **dog**, and it chases her the rest of the way: it bites and it hops the
+  furniture. Land three hits and it barks, thinks better of it, and runs off
+  barking (+250) — but this is its house: ten seconds later it's back. The walls hold ants, cockroaches, rats, and
   ceiling spiders. A slow waltz plays, cozy with something wrong underneath.
   Corner the boy at his bedroom door to end it — this time there's nowhere
   left to run.
