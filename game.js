@@ -438,6 +438,11 @@ const lastCP = { x: 40, y: 100 };
 const dragon = { spawned: false, active: false, ridden: false,
                  x: 0, y: 0, w: 30, h: 13, vx: 0, vy: 0, face: 1, t: 0,
                  gustCd: 0, ballCd: 0, valkT: 0, valkSeen: false, mountCd: 0 };
+
+// the house dog — woken by the first table, never far behind after that.
+// it is a good dog. it will not die. it just wants her out.
+const dog = { active: false, x: 0, y: 0, w: 16, h: 10, vx: 0, vy: 0,
+              face: 1, t: 0, onGround: false, retreatT: 0, barkCd: 0, lastHit: -1 };
 const fireballs = [];
 let playTime = 0;
 
@@ -1023,6 +1028,8 @@ function resetGame() {
   dragon.spawned = dragon.active = dragon.ridden = false;
   dragon.vx = dragon.vy = 0; dragon.t = 0;
   dragon.valkT = 0; dragon.valkSeen = false; dragon.mountCd = 0;
+  dog.active = false; dog.vx = dog.vy = 0; dog.t = 0;
+  dog.retreatT = 0; dog.barkCd = 0; dog.lastHit = -1;
 }
 
 function togglePause() {
@@ -2253,6 +2260,90 @@ function drawFireballs() {
   }
 }
 
+/* ---------------- the house dog ---------------- */
+function updateDog() {
+  if (level !== 2) return;
+  // the first cleared table wakes it
+  if (!dog.active && tables.length && player.x > tables[0] + 52) {
+    dog.active = true;
+    dog.x = Math.max(8, camX - 24);
+    dog.y = 9 * TILE - dog.h - 1;
+    dog.vx = 0; dog.vy = 0; dog.face = 1; dog.retreatT = 0;
+    flashText = { msg: 'the dog knows what she is.', t: 150 };
+    sfx(180, 0.1, 'sawtooth', 0.06, 140);
+    setTimeout(() => sfx(200, 0.12, 'sawtooth', 0.06, 110), 130);
+  }
+  if (!dog.active) return;
+  dog.t++;
+  if (dog.barkCd > 0) dog.barkCd--;
+
+  if (dog.retreatT > 0) {
+    dog.retreatT--;
+    dog.vx *= 0.9;
+  } else {
+    const dir = Math.sign(player.x - dog.x) || 1;
+    dog.vx = Math.max(-1.55, Math.min(1.55, dog.vx + dir * 0.06));
+    dog.face = dir;
+    // hop tables and stairwells like it has a thousand times
+    const aheadX = dog.face > 0 ? dog.x + dog.w + 4 : dog.x - 4;
+    if (dog.onGround &&
+        (solidAt(aheadX, dog.y + dog.h - 4) || !solidAt(aheadX, dog.y + dog.h + 6)))
+      dog.vy = -5.6;
+    // it knows the house — it is never truly left behind
+    if (player.x - dog.x > 460) dog.x = player.x - 420;
+  }
+  dog.vy = Math.min(dog.vy + 0.3, 6.5);
+  moveAndCollide(dog);
+  if (dog.y > MAP_H * TILE + 20) {          // fell down a stairwell; scrabbles back up
+    dog.x = Math.max(8, player.x - 260);
+    dog.y = 60; dog.vy = 0;
+  }
+
+  // barks when it closes in
+  if (dog.barkCd <= 0 && Math.abs(player.x - dog.x) < 140) {
+    dog.barkCd = 90 + Math.random() * 120;
+    sfx(180, 0.08, 'sawtooth', 0.05, 120);
+    setTimeout(() => sfx(160, 0.1, 'sawtooth', 0.05, 90), 110);
+  }
+
+  // teeth
+  if (dog.retreatT <= 0 && player.respawnT <= 0 && rectsOverlap(dog, player))
+    hurtPlayer(dog.x + dog.w / 2);
+
+  // her fists push it back — but it is a good dog and it will not die
+  const hb = attackHitbox();
+  if (hb && dog.lastHit !== hb.id && rectsOverlap(hb, dog)) {
+    dog.lastHit = hb.id;
+    dog.retreatT = 70;
+    dog.vx = player.face * 3;
+    dog.vy = -1.5;
+    sfx(300, 0.15, 'sawtooth', 0.05, 200);   // a yelp, nothing worse
+    burst(dog.x + 8, dog.y + 4, '#c9a06a', 5, player.face * 1.5);
+  }
+}
+
+function drawDog() {
+  if (!dog.active) return;
+  const x = Math.round(dog.x - camX), y = Math.round(dog.y);
+  if (x < -30 || x > VIEW_W + 30) return;
+  ctx.save();
+  if (dog.face < 0) { ctx.translate(x + dog.w, y); ctx.scale(-1, 1); }
+  else ctx.translate(x, y);
+  const B = '#8a5a32', D = '#6d4526', E = '#2a1c10';
+  const run = (dog.t >> 2) % 2;
+  ctx.fillStyle = D; ctx.fillRect(0, run ? 0 : 2, 2, 2);        // tail wag
+  ctx.fillStyle = B; ctx.fillRect(2, 2, 10, 5);                 // body
+  ctx.fillStyle = D; ctx.fillRect(2, 6, 10, 1);
+  ctx.fillStyle = B; ctx.fillRect(10, -1, 5, 5);                // head
+  ctx.fillStyle = D; ctx.fillRect(10, -2, 2, 4);                // floppy ear
+  ctx.fillStyle = E; ctx.fillRect(13, 0, 1, 1);                 // eye
+  ctx.fillStyle = D; ctx.fillRect(15, 1, 1, 2);                 // nose
+  ctx.fillStyle = D;                                            // legs
+  if (run) { ctx.fillRect(3, 7, 2, 3); ctx.fillRect(9, 7, 2, 3); }
+  else     { ctx.fillRect(4, 7, 2, 3); ctx.fillRect(8, 7, 2, 3); }
+  ctx.restore();
+}
+
 /* ---------------- carnival doors & minigame worlds ---------------- */
 let mini = null;
 
@@ -2818,6 +2909,7 @@ function tick() {
     updatePlayer();
     if (state === 'play') {
       updateDragon();
+      updateDog();
       updateKid();
     }
     updateEnemies();
@@ -2845,6 +2937,7 @@ function tick() {
   drawKid();
   drawEnemies();
   drawDragon();
+  drawDog();
   drawPlayer();
   drawFireballs();
   drawParticles();

@@ -580,6 +580,27 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   }
   await page.keyboard.up('ArrowRight');
   check(await ev(() => player.x > tables[0] + 40), 'a jump carries her over it');
+
+  /* ---------- the dog ---------- */
+  section('the dog');
+  check(await ev(() => dog.active), 'clearing the first table wakes the dog');
+  const dgap0 = await ev(() => player.x - dog.x);
+  await frames(50);
+  const dgap1 = await ev(() => player.x - dog.x);
+  check(dgap1 < dgap0, 'it closes the distance (' +
+        Math.round(dgap0) + 'px to ' + Math.round(dgap1) + 'px)');
+  await ev(() => { player.invuln = 0; player.hp = 5; dog.retreatT = 0;
+                   dog.x = player.x - 4; dog.y = player.y; dog.vy = 0; });
+  await frames(4);
+  check(await ev(() => player.hp === 4), 'its teeth cost a heart');
+  await ev(() => { player.invuln = 999999; player.vx = 0;
+                   dog.x = player.x + 12; dog.y = player.y + 6;
+                   dog.vy = 0; dog.retreatT = 0; player.face = 1; });
+  await tap('z');
+  await frames(6);
+  check(await ev(() => dog.active && (dog.retreatT > 0 || dog.x > player.x + 20)),
+        'a punch backs it off — but it will not die');
+
   // death in the house retries the house
   await ev(() => { player.invuln = 0; player.hp = 1; player.y = 400; player.vy = 3; });
   await page.waitForFunction(() => state === 'gameover', null, { timeout: 5000 });
