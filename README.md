@@ -31,9 +31,12 @@ browsers require a keypress before audio can play), then **Enter** to begin.
 | Z (or J) | punch |
 | X (or K) | kick |
 | C | crouch (toggle) |
+| ↓ (or S), held 2s | charge a power jump |
 
 That's everything she can do. Crouching shrinks her, lets her duck under
-swooping bats, and slows her walk to a wary shuffle.
+swooping bats, and slows her walk to a wary shuffle. Holding ↓ on the
+ground makes her coil up — after two seconds she trembles, and the next
+jump launches her about twice as high.
 
 ## The rules of the night
 

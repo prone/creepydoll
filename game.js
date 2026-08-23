@@ -502,7 +502,7 @@ function makeSnake(x, segEnd) {
 
 const player = {
   x: 40, y: 100, w: 10, h: 18, vx: 0, vy: 0,
-  face: 1, onGround: false, hp: 5, invuln: 0, crouch: false,
+  face: 1, onGround: false, hp: 5, invuln: 0, crouch: false, chargeT: 0,
   attack: null,        // {type:'punch'|'kick', t, id}
   attackId: 0,
   animT: 0, maxX: 0,
@@ -627,6 +627,7 @@ const kJump  = () => keys[' '] || keys['arrowup'] || keys['w'];
 const kPunch  = () => keys['z'] || keys['j'];
 const kKick   = () => keys['x'] || keys['k'];
 const kCrouch = () => keys['c'];
+const kDown   = () => keys['arrowdown'] || keys['s'];
 
 /* ---------------- game state ---------------- */
 let state = 'title';    // title | play | gameover | win
@@ -651,7 +652,7 @@ function resetGame() {
   genLevel();
   player.x = 40; player.y = 100; player.vx = 0; player.vy = 0;
   player.hp = 5; player.invuln = 0; player.attack = null;
-  player.crouch = false; player.h = 18;
+  player.crouch = false; player.h = 18; player.chargeT = 0;
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
   particles.length = 0;
@@ -751,9 +752,29 @@ function updatePlayer() {
     else player.vx *= player.onGround ? 0.6 : 0.95;
   } else player.vx *= 0.5;
 
-  // jump
+  // power-jump charge: hold Down on the ground for 2 seconds to coil up
+  const CHARGE_FRAMES = 120;
+  if (kDown() && player.onGround && !player.crouch && !player.attack) {
+    player.chargeT++;
+    player.vx *= 0.5;                                  // she plants her feet
+    if (player.chargeT === CHARGE_FRAMES)
+      sfx(880, 0.15, 'square', 0.06);                  // fully coiled
+    else if (player.chargeT < CHARGE_FRAMES && player.chargeT % 30 === 0)
+      sfx(260 + player.chargeT * 2, 0.05, 'square', 0.04);
+    if (player.chargeT >= CHARGE_FRAMES && frame % 10 === 0)
+      burst(player.x + 5, player.y + 14, '#e8d8f0', 1);
+  } else if (!kDown()) player.chargeT = 0;
+
+  // jump (half-speed launch; gravity scaled to keep the same height)
   if (kJump() && !jumpHeld && player.onGround) {
-    player.vy = -3.45; sndJump();  // half-speed launch; gravity scaled to keep the same height
+    if (player.chargeT >= CHARGE_FRAMES) {
+      player.vy = -4.9;                                // power jump — ~2x height
+      player.chargeT = 0;
+      sfx(180, 0.4, 'square', 0.08, 420);
+      burst(player.x + 5, player.y + 16, '#e8d8f0', 10);
+    } else {
+      player.vy = -3.45; sndJump();
+    }
   }
   jumpHeld = kJump();
 
@@ -1070,14 +1091,18 @@ function drawPlayer() {
   if (player.invuln > 0 && (frame >> 2) % 2) return;  // hit flicker
   const st = creepStage();
   const set = DOLL[st];
+  const charging = player.chargeT > 0 && player.onGround;
   let img;
   if (player.crouch) img = set.crouch[Math.abs(player.vx) > 0.3 ? (player.animT >> 5) % 2 : 0];
+  else if (charging) img = set.crouch[0];               // coiled for the power jump
   else if (!player.onGround) img = set.jump;
   else if (Math.abs(player.vx) > 0.3) img = set.walk[(player.animT >> 4) % 2];
   else img = set.idle;
 
-  const dx = Math.round(player.x - camX - 2);
-  const dy = Math.round(player.y - (player.crouch ? 4 : 2)) + (player.twitch > 3 ? 1 : 0);
+  const tremble = player.chargeT >= 120 ? ((frame >> 1) % 2 ? 1 : -1) : 0;
+  const dx = Math.round(player.x - camX - 2) + tremble;
+  const dy = Math.round(player.y - (player.crouch ? 4 : charging ? 0 : 2)) +
+             (player.twitch > 3 ? 1 : 0);
   ctx.save();
   if (player.face < 0) {
     ctx.translate(dx + 14, dy); ctx.scale(-1, 1);
@@ -1246,8 +1271,9 @@ function drawTitle() {
   if (!AC) pixelText('press any key to wake her', 82, 128, '#9a8fb0');
   else if ((titleT >> 5) % 2) pixelText('press ENTER to play', 100, 128, '#e8d8f0');
 
-  pixelText('arrows move   space jump', 82, 148, '#6a5f80');
-  pixelText('z punch  x kick  c crouch', 88, 158, '#6a5f80');
+  pixelText('arrows move   space jump', 82, 146, '#6a5f80');
+  pixelText('z punch  x kick  c crouch', 88, 156, '#6a5f80');
+  pixelText('hold down 2s: power jump', 84, 166, '#6a5f80');
 }
 
 function drawGameOver() {
