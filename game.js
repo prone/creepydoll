@@ -869,6 +869,12 @@ function updateEnemies() {
         e.dead = 1;
         score += e.kind === 'snake' ? 200 : 100;
         sfx(90, 0.25, 'triangle', 0.07, -40);
+        // a bat's life feeds hers — one heart back, if she's hurt
+        if (e.kind === 'bat' && player.hp < 5) {
+          player.hp++;
+          sndHeal();
+          burst(player.x + 5, player.y + 6, '#e8506a', 8);
+        }
       } else {
         e.x += player.face * 6;
       }
