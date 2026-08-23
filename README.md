@@ -32,6 +32,8 @@ browsers require a keypress before audio can play), then **Enter** to begin.
 | X (or K) | kick |
 | C | crouch (toggle) |
 | ↓ (or S), held 2s | charge a power jump |
+| ↑ at a glowing door | enter a minigame world |
+| Esc | pause / resume |
 
 That's everything she can do. Crouching shrinks her, lets her duck under
 swooping bats, and slows her walk to a wary shuffle. Holding ↓ on the
@@ -67,6 +69,18 @@ jump launches her about twice as high.
 
 ![Mid-level](screenshots/midgame.png)
 ![The chase](screenshots/endgame.png)
+
+## Tests
+
+An end-to-end suite drives the real game in headless Chromium with real
+keyboard input — movement, crouch, combat, the heart rules, pause, the pit,
+all three minigame worlds, the dragon, and the final chase (43 checks).
+
+```sh
+npm install
+npx playwright install chromium   # first time only
+npm test
+```
 
 ## Tech
 

@@ -1,0 +1,11 @@
+{
+  "name": "creepydoll",
+  "version": "1.0.0",
+  "description": "8-bit platformer: a porcelain doll who gets creepier the further she goes.",
+  "scripts": {
+    "test": "node test/e2e.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

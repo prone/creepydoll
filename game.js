@@ -550,6 +550,15 @@ const LULLABY = [
 ];
 const STEP_LEN = 0.30;
 
+// inside the carnival doors: a tinny, slightly wrong waltz
+const CARNIVAL = [
+  50, 69, 69, 50, 69, 69, 49, 68, 68, 49, 68, 68,
+  50, 69, 69, 52, 71, 71, 53, 74, 71, 50, 69, 66,
+  50, 69, 69, 50, 69, 69, 55, 71, 71, 55, 70, 70,
+  50, 69, 69, 52, 71, 71, 48, 67, 67, 50, 69, -1,
+];
+const CARNIVAL_STEP = 0.17;
+
 function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
 function startAudio() {
@@ -580,32 +589,45 @@ function initAudio() {
   musicTimer = setInterval(scheduleMusic, 120);
 }
 
-function musicBoxNote(midi, when, vol, detune) {
+function musicBoxNote(midi, when, vol, detune, type, decay) {
   const o = AC.createOscillator();
-  o.type = 'triangle';
+  o.type = type || 'triangle';
   o.frequency.value = midiHz(midi);
   if (detune) o.detune.value = detune;
   const g = AC.createGain();
   g.gain.setValueAtTime(0.0001, when);
   g.gain.exponentialRampToValueAtTime(vol, when + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, when + 0.9);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + (decay || 0.9));
   o.connect(g); g.connect(masterGain);
-  o.start(when); o.stop(when + 1);
+  o.start(when); o.stop(when + (decay || 0.9) + 0.1);
 }
 
 function scheduleMusic() {
   while (nextNoteTime < AC.currentTime + 0.3) {
-    const m = LULLABY[musicStep % LULLABY.length];
-    if (m > 0) {
-      // the music box goes further out of tune the creepier the doll gets
-      const sour = creepStage() * (Math.random() < 0.3 ? 18 : 6);
-      musicBoxNote(m, nextNoteTime, 0.10, (Math.random() - 0.5) * sour);
-      musicBoxNote(m + 12, nextNoteTime + 0.02, 0.03, (Math.random() - 0.5) * sour);
-      // ghost echo
-      musicBoxNote(m, nextNoteTime + STEP_LEN * 1.5, 0.025, -8);
+    if (state === 'mini') {
+      // carnival organ, cheerful in the way taxidermy is lifelike
+      const m = CARNIVAL[musicStep % CARNIVAL.length];
+      if (m > 0) {
+        const bass = m < 60;
+        musicBoxNote(m, nextNoteTime, bass ? 0.06 : 0.05,
+                     (Math.random() - 0.5) * 12, 'square', bass ? 0.3 : 0.22);
+        if (!bass) musicBoxNote(m + 12, nextNoteTime + 0.01, 0.015, 6, 'square', 0.2);
+      }
+      musicStep++;
+      nextNoteTime += CARNIVAL_STEP;
+    } else {
+      const m = LULLABY[musicStep % LULLABY.length];
+      if (m > 0) {
+        // the music box goes further out of tune the creepier the doll gets
+        const sour = creepStage() * (Math.random() < 0.3 ? 18 : 6);
+        musicBoxNote(m, nextNoteTime, 0.10, (Math.random() - 0.5) * sour);
+        musicBoxNote(m + 12, nextNoteTime + 0.02, 0.03, (Math.random() - 0.5) * sour);
+        // ghost echo
+        musicBoxNote(m, nextNoteTime + STEP_LEN * 1.5, 0.025, -8);
+      }
+      musicStep++;
+      nextNoteTime += STEP_LEN * (creepStage() >= 3 && Math.random() < 0.12 ? 1.6 : 1);
     }
-    musicStep++;
-    nextNoteTime += STEP_LEN * (creepStage() >= 3 && Math.random() < 0.12 ? 1.6 : 1);
   }
 }
 
@@ -636,7 +658,8 @@ const keys = {};
 window.addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
   startAudio();
-  if (AC && AC.state === 'suspended') AC.resume();
+  if (e.key === 'Escape') { togglePause(); return; }
+  if (AC && AC.state === 'suspended' && !paused) AC.resume();
   keys[e.key.toLowerCase()] = true;
   handleMenuKeys(e.key);
 });
@@ -652,7 +675,8 @@ const kCrouch = () => keys['c'];
 const kDown   = () => keys['arrowdown'] || keys['s'];
 
 /* ---------------- game state ---------------- */
-let state = 'title';    // title | play | gameover | win
+let state = 'title';    // title | play | mini | gameover | win
+let paused = false;     // Esc freezes play and mini worlds
 let score = 0;
 let camX = 0;
 let frame = 0;
@@ -682,12 +706,27 @@ function resetGame() {
   fireballs.length = 0;
   playTime = 0;
   mini = null;
+  paused = false;
   dragon.spawned = dragon.active = dragon.ridden = false;
   dragon.vx = dragon.vy = 0; dragon.t = 0;
 }
 
+function togglePause() {
+  if (state !== 'play' && state !== 'mini') return;
+  paused = !paused;
+  if (AC) { if (paused) AC.suspend(); else AC.resume(); }
+  Object.keys(keys).forEach(k => { keys[k] = false; });  // drop held inputs
+}
+
+function drawPauseOverlay() {
+  ctx.fillStyle = 'rgba(6,3,10,0.62)';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  bigText('PAUSED', 116, 70, '#cfc3e8', 20);
+  if ((frame >> 5) % 2) pixelText('ESC TO RESUME', 122, 100, '#9a8fb0');
+}
+
 function handleMenuKeys(key) {
-  if (key !== 'Enter') return;
+  if (paused || key !== 'Enter') return;
   if (state === 'mini') {
     if (mini && mini.over) endMini();
     return;
@@ -1472,6 +1511,7 @@ function startMini(door) {
   jumpHeld = true;
   mini = { kind: door.kind, t: 0, over: false, won: false, msg: '',
            msg2: '', msg2T: 0, doneT: 0, held: {}, parts: [] };
+  musicStep = 0;                       // the carnival waltz starts at the top
   if (door.kind === 'toss')
     Object.assign(mini, { throws: 3, hits: 0, proj: null, bucketX: 190, bucketDir: 1 });
   if (door.kind === 'balloon')
@@ -1498,6 +1538,7 @@ function endMini() {
   mini = null;
   state = 'play';
   jumpHeld = punchHeld = kickHeld = true;
+  musicStep = 0;                       // back to the lullaby
   sfx(200, 0.3, 'sine', 0.07, 320);
 }
 
@@ -1860,13 +1901,14 @@ function tick() {
   }
 
   if (state === 'mini') {
-    updateMini();
+    if (!paused) updateMini();
     drawMini();
+    if (paused) drawPauseOverlay();
     requestAnimationFrame(tick);
     return;
   }
 
-  if (state === 'play') {
+  if (state === 'play' && !paused) {
     playTime++;
     updatePlayer();
     if (state === 'play') {
@@ -1905,6 +1947,7 @@ function tick() {
 
   if (state === 'gameover') drawGameOver();
   if (state === 'win') drawWin();
+  if (paused && state === 'play') drawPauseOverlay();
 
   requestAnimationFrame(tick);
 }
