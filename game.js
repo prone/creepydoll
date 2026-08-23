@@ -955,8 +955,9 @@ function updatePlayer() {
   jumpHeld = kJump();
 
   // jump (half-speed launch; gravity scaled to keep the same height)
-  // fires while grounded OR within the coyote window just after a ledge
-  if (player.jumpBufT > 0 &&
+  // fires while grounded OR within the coyote window just after a ledge.
+  // never from a crouch — stand up (C) first
+  if (player.jumpBufT > 0 && !player.crouch &&
       (player.onGround || (player.coyoteT <= 6 && player.vy >= 0))) {
     player.jumpBufT = 0;
     player.coyoteT = 99;

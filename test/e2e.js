@@ -70,8 +70,25 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.keyboard.up('ArrowRight');
   const crouchDist = (await ev(() => player.x)) - cx;
   check(crouchDist > 5 && crouchDist < 32, 'crouch walk is slow (' + Math.round(crouchDist) + 'px/30f)');
+  await tap('Space');
+  await frames(10);
+  check(await ev(() => player.crouch && player.onGround), 'no jumping from a crouch');
   await tap('c');
   check(await ev(() => !player.crouch && player.h === 18), 'C again stands her up');
+
+  /* ---------- power jump (hold Down, not crouch) ---------- */
+  section('power jump');
+  await page.keyboard.down('ArrowDown');
+  await frames(125);
+  check(await ev(() => player.chargeT >= 120 && !player.crouch),
+        'holding Down 2s coils her without crouching');
+  await page.keyboard.down('Space');
+  await frames(2);
+  await page.keyboard.up('Space');
+  await page.keyboard.up('ArrowDown');
+  await frames(2);
+  check(await ev(() => player.vy < -4), 'the coiled jump launches ~2x height');
+  await frames(120);
 
   /* ---------- forgiving controls ---------- */
   section('forgiving controls');
