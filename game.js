@@ -2510,7 +2510,7 @@ function updateDog() {
     dog.vx *= 0.9;
   } else {
     const dir = Math.sign(player.x - dog.x) || 1;
-    dog.vx = Math.max(-1.55, Math.min(1.55, dog.vx + dir * 0.06));
+    dog.vx = Math.max(-1.25, Math.min(1.25, dog.vx + dir * 0.05));
     dog.face = dir;
     // hop tables and stairwells like it has a thousand times
     const aheadX = dog.face > 0 ? dog.x + dog.w + 4 : dog.x - 4;
