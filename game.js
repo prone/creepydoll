@@ -753,7 +753,7 @@ function updatePlayer() {
 
   // jump
   if (kJump() && !jumpHeld && player.onGround) {
-    player.vy = -6.9; sndJump();
+    player.vy = -3.45; sndJump();  // half-speed launch; gravity scaled to keep the same height
   }
   jumpHeld = kJump();
 
@@ -774,7 +774,7 @@ function updatePlayer() {
     if (player.attack.t > dur) player.attack = null;
   }
 
-  player.vy = Math.min(player.vy + 0.38, 7);
+  player.vy = Math.min(player.vy + 0.095, 3.5);
   moveAndCollide(player);
 
   // fell into a pit — the dark keeps her. One fall, no coming back.
