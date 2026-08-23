@@ -482,7 +482,8 @@ function makeBat(x, y) {
 }
 function makeSpider(x, anchorY) {
   return { kind: 'spider', x, y: anchorY, w: 10, h: 8, hp: 1,
-           anchorY, len: rint(30, 70), t: rng() * 100, dead: 0, lastHit: -1 };
+           anchorY, len: rint(30, 70), t: rng() * 100, dead: 0, lastHit: -1,
+           webHp: 3, lastWebHit: -1, webWobble: 0 };
 }
 function makeSnake(x, segEnd) {
   return { kind: 'snake', x, y: 0, w: 20, h: 8, hp: 2, dir: 1,
@@ -852,6 +853,25 @@ function updateEnemies() {
       const drop = Math.abs(pcx - (e.x + 5)) < 26 ? 46 : 0;
       const target = e.anchorY + e.len + Math.sin(e.t / 25) * 10 + drop;
       e.y += (target - e.y) * 0.06;
+      if (e.webWobble > 0) e.webWobble--;
+
+      // striking the silk thread — three hits and it snaps
+      if (hb && e.lastWebHit !== hb.id && !rectsOverlap(hb, e)) {
+        const web = { x: e.x + 4, y: e.anchorY, w: 3, h: Math.max(0, e.y - e.anchorY) };
+        if (rectsOverlap(hb, web)) {
+          e.lastWebHit = hb.id;
+          e.webHp--;
+          e.webWobble = 25;
+          sfx(720, 0.07, 'square', 0.05, -260);      // twang
+          burst(e.x + 5, Math.max(e.anchorY + 2, Math.min(hb.y + 3, e.y)), '#cfc9dd', 4);
+          if (e.webHp <= 0) {                        // the web and the spider die
+            e.dead = 1;
+            score += 200;
+            sfx(220, 0.2, 'sawtooth', 0.06, -160);   // snap
+            burst(e.x + 5, e.y + 4, '#cfc9dd', 8);
+          }
+        }
+      }
     }
 
     if (e.kind === 'snake') {
@@ -1109,12 +1129,15 @@ function drawEnemies() {
       else ctx.drawImage(img, x - 1, y);
       ctx.restore();
     } else if (e.kind === 'spider') {
-      ctx.strokeStyle = '#8f8a9e';
+      const wob = e.webWobble > 0 ? Math.sin(frame * 1.3) * 1.5 : 0;
+      ctx.strokeStyle = e.webHp >= 3 ? '#8f8a9e' : e.webHp === 2 ? '#6f6a80' : '#4f4a60';
+      if (e.webHp < 3) ctx.setLineDash(e.webHp === 2 ? [4, 2] : [2, 3]);  // fraying
       ctx.beginPath();
       ctx.moveTo(x + 5.5, e.anchorY);
-      ctx.lineTo(x + 5.5, y + 2);
+      ctx.quadraticCurveTo(x + 5.5 + wob * 2, (e.anchorY + y) / 2, x + 5.5 + wob, y + 2);
       ctx.stroke();
-      ctx.drawImage(SPIDER_FRAMES[(e.t >> 4) % 2], x - 1, y - 1);
+      ctx.setLineDash([]);
+      ctx.drawImage(SPIDER_FRAMES[(e.t >> 4) % 2], x - 1 + Math.round(wob), y - 1);
     } else if (e.kind === 'snake') {
       const img = SNAKE_FRAMES[(e.t >> 4) % 2];
       ctx.save();
