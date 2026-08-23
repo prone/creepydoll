@@ -542,22 +542,22 @@ function solidAt(px, py) {
 /* ---------------- entities ---------------- */
 function makeBat(x, y) {
   return { kind: 'bat', x, y, w: 12, h: 7, hp: 1, t: rng() * 100,
-           homeY: y, vx: 0, vy: 0, dead: 0, lastHit: -1, face: 1 };
+           homeY: y, vx: 0, vy: 0, dead: 0, lastHit: -1, face: 1, flashT: 0 };
 }
 function makeSpider(x, anchorY) {
   return { kind: 'spider', x, y: anchorY, w: 10, h: 8, hp: 1,
            anchorY, len: rint(30, 70), t: rng() * 100, dead: 0, lastHit: -1,
-           webHp: 3, lastWebHit: -1, webWobble: 0 };
+           webHp: 3, lastWebHit: -1, webWobble: 0, flashT: 0 };
 }
 function makeValkyrie(x, y) {
   return { kind: 'valkyrie', x, y, w: 12, h: 12, hp: 2, vx: 0, vy: 0,
-           t: Math.random() * 100, dead: 0, lastHit: -1, face: 1 };
+           t: Math.random() * 100, dead: 0, lastHit: -1, face: 1, flashT: 0 };
 }
 
 function makeSnake(x, segEnd) {
   return { kind: 'snake', x, y: 0, w: 20, h: 8, hp: 2, dir: 1,
            minX: x - TILE, maxX: (segEnd - 1) * TILE, t: rng() * 100,
-           dead: 0, lastHit: -1, placed: false };
+           dead: 0, lastHit: -1, placed: false, flashT: 0 };
 }
 
 const player = {
@@ -571,10 +571,30 @@ const player = {
 };
 
 const particles = [];
-function burst(x, y, color, n) {
+// dirX/dirY (optional) bias the spray so debris flies away from the blow
+function burst(x, y, color, n, dirX, dirY) {
   for (let i = 0; i < n; i++)
-    particles.push({ x, y, vx: (Math.random() - .5) * 3,
-                     vy: -Math.random() * 2.5, t: 20 + Math.random() * 15, color });
+    particles.push({ x, y,
+                     vx: (Math.random() - .5) * 3 + (dirX || 0) * (0.5 + Math.random()),
+                     vy: -Math.random() * 2.5 + (dirY || 0) * (0.5 + Math.random()),
+                     t: 20 + Math.random() * 15, color });
+}
+
+// white-out copies of enemy frames for the hit flash
+const WHITE_CACHE = new Map();
+function whiten(img) {
+  let w = WHITE_CACHE.get(img);
+  if (!w) {
+    w = document.createElement('canvas');
+    w.width = img.width; w.height = img.height;
+    const g = w.getContext('2d');
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = 'source-in';
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, w.width, w.height);
+    WHITE_CACHE.set(img, w);
+  }
+  return w;
 }
 
 /* ---------------- audio ---------------- */
@@ -827,7 +847,7 @@ function hurtPlayer(fromX) {
   player.vx = player.x + player.w / 2 < fromX ? -2.5 : 2.5;
   sndHurt();
   addShake(3, 14);
-  burst(player.x + 5, player.y + 8, '#efe2cf', 8);
+  burst(player.x + 5, player.y + 8, '#efe2cf', 8, player.vx * 0.6);
   if (player.hp <= 0) {
     state = 'gameover';
     addShake(5, 25);
@@ -1094,6 +1114,7 @@ function updateEnemies() {
   for (const e of enemies) {
     if (e.dead) { e.dead++; continue; }
     e.t++;
+    if (e.flashT > 0) e.flashT--;
 
     if (e.kind === 'bat') {
       const d = Math.abs(e.x - player.x);
@@ -1170,8 +1191,9 @@ function updateEnemies() {
     if (hb && e.lastHit !== hb.id && rectsOverlap(hb, e)) {
       e.lastHit = hb.id;
       e.hp -= hb.dmg;
+      e.flashT = 6;
       sndHitE();
-      burst(e.x + e.w / 2, e.y + e.h / 2, '#ff3040', 6);
+      burst(e.x + e.w / 2, e.y + e.h / 2, '#ff3040', 6, player.face * 1.6);
       if (e.hp <= 0) killEnemy(e);
       else e.x += player.face * 6;
     }
@@ -1396,8 +1418,10 @@ function drawEnemies() {
       continue;
     }
 
+    const flash = e.flashT > 0;
     if (e.kind === 'bat') {
-      const img = BAT_FRAMES[(e.t >> 3) % 2];
+      let img = BAT_FRAMES[(e.t >> 3) % 2];
+      if (flash) img = whiten(img);
       ctx.save();
       if (e.face < 0) { ctx.translate(x + 14, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
       else ctx.drawImage(img, x - 1, y);
@@ -1411,18 +1435,22 @@ function drawEnemies() {
       ctx.quadraticCurveTo(x + 5.5 + wob * 2, (e.anchorY + y) / 2, x + 5.5 + wob, y + 2);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.drawImage(SPIDER_FRAMES[(e.t >> 4) % 2], x - 1 + Math.round(wob), y - 1);
+      let img = SPIDER_FRAMES[(e.t >> 4) % 2];
+      if (flash) img = whiten(img);
+      ctx.drawImage(img, x - 1 + Math.round(wob), y - 1);
     } else if (e.kind === 'valkyrie') {
-      const img = VALK_FRAMES[(e.t >> 3) % 2];
+      let img = VALK_FRAMES[(e.t >> 3) % 2];
+      if (flash) img = whiten(img);
       ctx.save();
       if (e.face < 0) { ctx.translate(x + 14, y - 1); ctx.scale(-1, 1); }
       else ctx.translate(x - 2, y - 1);
       ctx.drawImage(img, 0, 0);
-      ctx.fillStyle = '#8f95a8'; ctx.fillRect(12, 5, 9, 1);   // spear shaft
-      ctx.fillStyle = '#e8e4f4'; ctx.fillRect(21, 4, 2, 3);   // spear tip
+      ctx.fillStyle = flash ? '#ffffff' : '#8f95a8'; ctx.fillRect(12, 5, 9, 1);   // spear shaft
+      ctx.fillStyle = flash ? '#ffffff' : '#e8e4f4'; ctx.fillRect(21, 4, 2, 3);   // spear tip
       ctx.restore();
     } else if (e.kind === 'snake') {
-      const img = SNAKE_FRAMES[(e.t >> 4) % 2];
+      let img = SNAKE_FRAMES[(e.t >> 4) % 2];
+      if (flash) img = whiten(img);
       ctx.save();
       if (e.dir < 0) ctx.drawImage(img, x - 2, y);
       else { ctx.translate(x + 22, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
@@ -1562,7 +1590,10 @@ function updateRiding() {
                        vx: dragon.face * (1.5 + Math.random() * 1.5), vy: (Math.random() - 0.5),
                        t: 12 + Math.random() * 8, color: Math.random() < 0.5 ? '#ffa030' : '#ffce6a' });
     for (const e of enemies)
-      if (!e.dead && rectsOverlap(gust, e)) { e.hp--; if (e.hp <= 0) killEnemy(e); }
+      if (!e.dead && rectsOverlap(gust, e)) {
+        e.hp--; e.flashT = 6;
+        if (e.hp <= 0) killEnemy(e);
+      }
   }
   // kick: a flame ball
   if (kKick() && !kickHeld && dragon.ballCd <= 0) {
@@ -1591,12 +1622,13 @@ function updateFireballs() {
     for (const e of enemies) {
       if (!e.dead && rectsOverlap({ x: f.x, y: f.y, w: 5, h: 5 }, e)) {
         e.hp -= 2;
+        e.flashT = 6;
         if (e.hp <= 0) killEnemy(e); else e.x += Math.sign(f.vx) * 6;
         gone = true; break;
       }
     }
     if (gone) {
-      burst(f.x + 2, f.y + 2, '#ff8030', 6);
+      burst(f.x + 2, f.y + 2, '#ff8030', 6, Math.sign(f.vx) * 1.8);
       addShake(1.5, 6);
       fireballs.splice(i, 1);
     }

@@ -149,6 +149,32 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => shakeT === 0 && shakeMag === 0), 'the shake dies back down');
   await ev(() => { player.invuln = 999999; });
 
+  /* ---------- juice: hit flash & directional sparks ---------- */
+  section('hit feedback');
+  const flashSeen = await page.evaluate(async () => {
+    const s = enemies.find(e => e.kind === 'snake' && e.placed && !e.dead && e.hp > 1);
+    if (!s) return 'no-snake';
+    player.x = s.x - 12; player.y = s.y + s.h - player.h; player.vy = 0; player.face = 1;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    let seen = 0;
+    for (let i = 0; i < 25; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 3) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      seen = Math.max(seen, s.flashT || 0);
+    }
+    return seen;
+  });
+  check(flashSeen !== 'no-snake' && flashSeen > 0,
+        'a struck enemy flashes white (' + flashSeen + 'f)');
+  check(await ev(() => whiten(BAT_FRAMES[0]).width === BAT_FRAMES[0].width),
+        'white flash frames render at sprite size');
+  await ev(() => { particles.length = 0; burst(0, 0, '#fff', 40, 2); });
+  const meanVx = await ev(() =>
+    particles.reduce((a, p) => a + p.vx, 0) / particles.length);
+  check(meanVx > 1, 'impact sparks fly away from the blow (mean vx ' +
+        meanVx.toFixed(2) + ')');
+  await ev(() => { particles.length = 0; });
+
   /* ---------- heart pickup ---------- */
   section('heart pickup');
   await ev(() => { player.hp = 5; player.x = heartPickup.x - 2; player.y = 90; player.vy = 0; });
