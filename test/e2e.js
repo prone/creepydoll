@@ -232,18 +232,39 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(10);
   check(await ev(() => !paused && playTime > 0), 'Esc again resumes');
 
-  /* ---------- pit death ---------- */
+  /* ---------- checkpoints & pit respawn ---------- */
+  section('checkpoints');
+  check(await ev(() => checkpoints.length >= 4),
+        'lanterns dot the level (' + (await ev(() => checkpoints.length)) + ')');
+  check(await ev(() => checkpoints.every(cp => map[9][Math.floor(cp.x / TILE)] === 1)),
+        'every lantern stands on solid ground');
+  check(await ev(() => checkpoints.some(cp => cp.reached)),
+        'lanterns she passed are lit');
+
   section('pit');
-  await ev(() => { player.invuln = 0; player.x = 670; player.y = 126; player.vy = 0; });
+  await ev(() => { player.invuln = 0; player.hp = 3; player.x = 670; player.y = 126; player.vy = 0; });
   await page.keyboard.down('ArrowRight');
-  await page.waitForFunction(() => state === 'gameover', null, { timeout: 15000 });
+  await page.waitForFunction(() => player.respawnT > 0 || state === 'gameover',
+                             null, { timeout: 15000 });
   await page.keyboard.up('ArrowRight');
-  check(true, 'walking into a ravine ends the game with one fall');
-  check(await ev(() => player.y > 176), 'no respawn after the fall');
+  check(await ev(() => state === 'play'), 'a pit fall no longer ends the run');
+  check(await ev(() => player.hp === 2), 'the dark takes one heart');
+  await page.waitForFunction(() => player.respawnT === 0, null, { timeout: 5000 });
+  check(await ev(() => {
+    const lit = checkpoints.filter(cp => cp.reached);
+    const cp = lit[lit.length - 1];
+    return cp && Math.abs(player.x - cp.x) < 20 && player.y < 176;
+  }), 'she returns at the last lit lantern');
+  check(await ev(() => player.invuln > 0), 'grace frames cover the way back');
+  // her last heart is still her last heart
+  await ev(() => { player.hp = 1; player.y = 400; player.vy = 3; });
+  await page.waitForFunction(() => state === 'gameover', null, { timeout: 5000 });
+  check(true, 'a pit fall on her last heart still breaks her');
   await page.keyboard.press('Enter');
   await frames(3);
-  check(await ev(() => state === 'play' && player.hp === 5 && player.x === 40),
-        'Enter restarts a fresh run');
+  check(await ev(() => state === 'play' && player.hp === 5 && player.x === 40 &&
+        checkpoints.every(cp => !cp.reached)),
+        'Enter restarts a fresh run with unlit lanterns');
 
   /* ---------- carnival doors & minigames ---------- */
   section('carnival doors');

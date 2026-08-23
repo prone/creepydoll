@@ -414,6 +414,10 @@ const heartPickup = { x: 0, y: 0, taken: false, t: 0 };
 const doors = [];
 const DOOR_KINDS = ['toss', 'balloon', 'coffin'];
 
+// lantern checkpoints — passing one lights it and saves the spot
+const checkpoints = [];
+const lastCP = { x: 40, y: 100 };
+
 // the eyeless dragon — purple like a bruise, appears after a minute
 const dragon = { spawned: false, active: false, ridden: false,
                  x: 0, y: 0, w: 30, h: 13, vx: 0, vy: 0, face: 1, t: 0,
@@ -521,6 +525,19 @@ function genLevel() {
                  kind: DOOR_KINDS[i % DOOR_KINDS.length], used: false });
   });
 
+  // lantern checkpoints every couple of screens, on solid open ground
+  // (clear of the doors so the furniture doesn't stack)
+  checkpoints.length = 0;
+  for (let target = 34; target < MAP_W - 22; target += 32) {
+    let c = target;
+    while (c < MAP_W - 18 &&
+           !(map[9][c] === 1 && !map[8][c] &&
+             doors.every(d => Math.abs(d.x - c * TILE) > 40)))
+      c++;
+    checkpoints.push({ x: c * TILE + 4, reached: false });
+  }
+  lastCP.x = 40; lastCP.y = 100;
+
   houseX = (MAP_W - 6) * TILE;
 
   // the healthy kid roams ahead — glimpsed, never caught, until the end
@@ -564,7 +581,7 @@ const player = {
   x: 40, y: 100, w: 10, h: 18, vx: 0, vy: 0,
   face: 1, onGround: false, hp: 5, invuln: 0, crouch: false, chargeT: 0,
   coyoteT: 99, jumpBufT: 0, pJump: false,
-  stretchT: 0, squashT: 0,
+  stretchT: 0, squashT: 0, respawnT: 0,
   attack: null,        // {type:'punch'|'kick', t, id}
   attackId: 0,
   animT: 0, maxX: 0,
@@ -766,7 +783,7 @@ function resetGame() {
   player.hp = 5; player.invuln = 0; player.attack = null;
   player.crouch = false; player.h = 18; player.chargeT = 0;
   player.coyoteT = 99; player.jumpBufT = 0; player.pJump = false;
-  player.stretchT = 0; player.squashT = 0;
+  player.stretchT = 0; player.squashT = 0; player.respawnT = 0;
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
   shakeT = 0; shakeMag = 0;
@@ -870,6 +887,18 @@ function attackHitbox() {
 }
 
 function updatePlayer() {
+  // a second in the dark, then the last lit lantern pulls her back
+  if (player.respawnT > 0) {
+    player.respawnT--;
+    if (player.respawnT % 5 === 0)
+      burst(player.x + 5, player.y + 9, '#e8c66a', 1);
+    if (player.respawnT === 0) {
+      sfx(500, 0.2, 'triangle', 0.06, 200);
+      burst(player.x + 5, player.y + 9, '#e8c66a', 12);
+    }
+    return;
+  }
+
   const prevStage = creepStage();
 
   if (dragon.ridden) {
@@ -983,13 +1012,24 @@ function updatePlayer() {
   if (player.onGround) { player.coyoteT = 0; player.pJump = false; }
   else if (player.coyoteT < 99) player.coyoteT++;
 
-  // fell into a pit — the dark keeps her. One fall, no coming back.
+  // fell into a pit — a heart for the dark, and the lantern pulls her back.
+  // on her last heart the dark keeps her.
   if (player.y > MAP_H * TILE + 30) {
-    player.hp = 0;
+    player.hp--;
     sndHurt();
-    state = 'gameover';
     addShake(5, 25);
-    sfx(120, 1.2, 'sawtooth', 0.09, -90);
+    if (player.hp <= 0) {
+      state = 'gameover';
+      sfx(120, 1.2, 'sawtooth', 0.09, -90);
+      return;
+    }
+    player.respawnT = 55;
+    player.x = lastCP.x; player.y = lastCP.y;
+    player.vx = 0; player.vy = 0;
+    player.crouch = false; player.h = 18;
+    player.chargeT = 0; player.attack = null;
+    player.invuln = 140;             // grace through the return
+    sfx(220, 0.5, 'sine', 0.06, -160);
     return;
   }
 
@@ -1001,6 +1041,16 @@ function afterMove(prevStage) {
   if (player.invuln > 0) player.invuln--;
   if (player.stretchT > 0) player.stretchT--;
   if (player.squashT > 0) player.squashT--;
+  // light any lantern she passes
+  for (const cp of checkpoints) {
+    if (!cp.reached && player.x + player.w > cp.x) {
+      cp.reached = true;
+      lastCP.x = cp.x - 2; lastCP.y = 9 * TILE - 19;
+      sfx(660, 0.12, 'triangle', 0.05);
+      sfx(990, 0.2, 'sine', 0.03);
+      burst(cp.x + 4, 9 * TILE - 20, '#e8c66a', 8);
+    }
+  }
   player.maxX = Math.max(player.maxX, player.x);
   player.animT += Math.abs(player.vx) > 0.3 ? 1 : 0;
 
@@ -1333,6 +1383,26 @@ function drawTiles() {
   }
 }
 
+function drawCheckpoints() {
+  for (const cp of checkpoints) {
+    const x = Math.round(cp.x - camX);
+    if (x < -12 || x > VIEW_W + 12) continue;
+    const y = 9 * TILE - 26;                      // lantern post
+    ctx.fillStyle = '#3a3244';
+    ctx.fillRect(x + 3, y + 8, 2, 16);
+    ctx.fillRect(x + 1, y + 24, 6, 2);
+    ctx.fillStyle = cp.reached ? '#5a4a2a' : '#2e2738';
+    ctx.fillRect(x, y, 8, 9);                     // housing
+    const lit = cp.reached && (frame >> 3) % 5 !== 4;   // lazy flicker
+    ctx.fillStyle = lit ? '#e8c66a' : '#1c1626';
+    ctx.fillRect(x + 2, y + 2, 4, 5);
+    if (cp.reached) {
+      ctx.fillStyle = 'rgba(232,198,106,0.10)';
+      ctx.fillRect(x - 3, y - 3, 14, 15);
+    }
+  }
+}
+
 function drawHouse() {
   const x = houseX - camX, y = 9 * TILE - 46;
   if (x < -60 || x > VIEW_W) return;
@@ -1350,6 +1420,7 @@ function drawHouse() {
 }
 
 function drawPlayer() {
+  if (player.respawnT > 0) return;                    // still in the dark
   if (player.invuln > 0 && (frame >> 2) % 2) return;  // hit flicker
   const st = creepStage();
   const set = DOLL[st];
@@ -2192,6 +2263,7 @@ function tick() {
   ctx.translate(shX, shY);
   drawBackground(st);
   drawTiles();
+  drawCheckpoints();
   drawDoors();
   drawHouse();
   drawHeartPickup();

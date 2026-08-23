@@ -47,8 +47,11 @@ jump launches her about twice as high.
   Defeating a bat gives one heart back if she's hurt. A spider's silk thread can be
   struck instead of the spider — three hits snap the web, the spider dies with it,
   and it's worth 200 points.
-- **Hearts:** you have five. Enemy contact costs one. Falling into a pit ends the
-  run outright — the dark keeps her.
+- **Hearts:** you have five. Enemy contact costs one. Falling into a pit costs a
+  heart too — after a second in the dark, the last lit lantern pulls her back.
+  On her last heart, the dark keeps her.
+- **Lanterns:** checkpoint posts stand every couple of screens. Walking past one
+  lights it and saves her spot for the next fall.
 - **Creep meter:** advancing through the level raises her creepiness through four
   stages. Each stage cracks the porcelain a little more, stains the dress, reddens
   the moon — and sours the lullaby.
@@ -77,8 +80,9 @@ jump launches her about twice as high.
 ## Tests
 
 An end-to-end suite drives the real game in headless Chromium with real
-keyboard input — movement, crouch, combat, the heart rules, pause, the pit,
-all three minigame worlds, the dragon, and the final chase (43 checks).
+keyboard input — movement, crouch, combat, the juice layer (screen shake,
+hit-flash, squash & stretch), the heart rules, pause, checkpoints and the pit,
+all three minigame worlds, the dragon, and the final chase.
 
 ```sh
 npm install
