@@ -420,6 +420,15 @@ function genLevel() {
       enemies.push(makeSpider((pc + (len >> 1)) * TILE, (pr + 1) * TILE));
   }
 
+  // hand-tweak: the spider platform at the first snake encounter sat one
+  // tile too high (row 5, cols 56-58) — drop it to row 6 so it lines up
+  // with the neighboring ledge, and lower its spider's anchor with it
+  for (let j = 56; j <= 58; j++) {
+    if (map[5][j] === 2) { map[5][j] = 0; map[6][j] = 2; }
+  }
+  for (const e of enemies)
+    if (e.kind === 'spider' && e.x === 912 && e.anchorY === 96) e.anchorY = 112;
+
   houseX = (MAP_W - 6) * TILE;
 
   // the healthy kid waits near the dollhouse, unaware
