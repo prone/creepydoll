@@ -46,6 +46,21 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(true, 'Enter starts the game');
   check(await ev(() => AC !== null), 'audio engine started on first key');
 
+  /* ---------- pacing ---------- */
+  section('pacing');
+  check(await ev(() => enemies.filter(e => e.x < LEVEL_W * 0.25)
+        .every(e => e.kind === 'snake')),
+        'the opening quarter teaches with snakes alone');
+  check(await ev(() => doors.every(d =>
+        enemies.every(e => e.x <= d.x - 64 || e.x >= d.x + 176))),
+        'the ground near every doorway rests quiet');
+  check(await ev(() =>
+        enemies.filter(e => e.x > LEVEL_W * 0.55).length >
+        enemies.filter(e => e.x < LEVEL_W * 0.45).length),
+        'the back half crowds harder than the front');
+  check(await ev(() => enemies.every(e => e.x < (MAP_W - 26) * TILE)),
+        'a quiet breath before the dollhouse');
+
   /* ---------- movement ---------- */
   section('movement');
   const x0 = await ev(() => player.x);
@@ -404,17 +419,23 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => fireballs.length > 0), 'kick launches a flame ball');
   await frames(90);
   // punch breathes a gust at a snake
-  const gustHit = await ev(() => {
-    const s = enemies.find(e => e.kind === 'snake' && e.placed && !e.dead);
+  // position and punch inside one evaluate — the dragon's idle bob drifts
+  // it vertically if real frames pass between the two
+  const gustHit = await page.evaluate(async () => {
+    // a GROUND snake: at that height the air beside it is guaranteed clear,
+    // while platform snakes can have neighboring tiles that shove the dragon
+    const s = enemies.find(e => e.kind === 'snake' && e.placed && !e.dead && e.y > 120);
     if (!s) return 'no-snake';
-    dragon.x = s.x - dragon.w - 12; dragon.y = 128; dragon.face = 1; dragon.gustCd = 0;
-    return s.hp;
+    const hp0 = s.hp;
+    dragon.x = s.x - dragon.w - 12;
+    dragon.y = Math.max(10, Math.min(132, s.y - 6));   // level with the snake
+    dragon.face = 1; dragon.gustCd = 0;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    for (let i = 0; i < 4; i++) await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    return s.dead > 0 || s.hp < hp0 ? 'hit' : 'miss';
   });
-  await tap('z');
-  check(gustHit === 'no-snake' || (await ev(() => {
-    const s = enemies.find(e => e.kind === 'snake' && e.placed);
-    return !s || s.dead > 0 || s.hp < 2;
-  })), 'punch breathes a flame gust');
+  check(gustHit === 'no-snake' || gustHit === 'hit', 'punch breathes a flame gust');
   // valkyries hunt while she rides
   await ev(() => { dragon.valkT = 1000; });
   await frames(8);

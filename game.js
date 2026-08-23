@@ -585,6 +585,24 @@ function genLevel() {
   }
   eyePickups.push({ x: houseX + 64, y: 9 * TILE - 12, taken: false, t: 0 });  // behind the dollhouse
 
+  // ---- pacing pass (post-generation, layout untouched) ----
+  // teach first, rest at the doors, escalate through the back half,
+  // and go quiet just before the dollhouse so the finale lands.
+  const nearDoor = x => doors.some(d => x > d.x - 64 && x < d.x + 176);
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    if (nearDoor(e.x) ||                                  // rest beats
+        (e.x < LEVEL_W * 0.25 && e.kind !== 'snake') ||   // teaching zone
+        e.x > (MAP_W - 26) * TILE)                        // breath before the end
+      enemies.splice(i, 1);
+  }
+  // escalation: extra bats thicken toward the end of the road
+  for (let cc = Math.floor(MAP_W * 0.5); cc < MAP_W - 26; cc += 7) {
+    if (map[9][cc] !== 1 || nearDoor(cc * TILE)) continue;
+    if (tileNoise(cc, 3) < (cc / MAP_W - 0.35) * 0.9)
+      enemies.push(makeBat(cc * TILE, 36 + Math.floor(tileNoise(cc, 5) * 60)));
+  }
+
   // the healthy kid roams ahead — glimpsed, never caught, until the end
   kid.x = -1000; kid.y = 0;
   kid.vx = 0; kid.vy = 0;
