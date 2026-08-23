@@ -37,7 +37,7 @@ That's everything she can do.
 
 - **Enemies:** bats swoop at you, spiders drop from silk threads, snakes patrol the
   ground (snakes take two hits). Punch or kick them before they touch you.
-- **Hearts:** you have three. Enemy contact or falling into a pit costs one.
+- **Hearts:** you have five. Enemy contact or falling into a pit costs one.
 - **Creep meter:** advancing through the level raises her creepiness through four
   stages. Each stage cracks the porcelain a little more, stains the dress, reddens
   the moon — and sours the lullaby.

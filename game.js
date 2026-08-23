@@ -463,7 +463,7 @@ function makeSnake(x, segEnd) {
 
 const player = {
   x: 40, y: 100, w: 10, h: 18, vx: 0, vy: 0,
-  face: 1, onGround: false, hp: 3, invuln: 0,
+  face: 1, onGround: false, hp: 5, invuln: 0,
   attack: null,        // {type:'punch'|'kick', t, id}
   attackId: 0,
   animT: 0, maxX: 0, safeX: 40, safeY: 100,
@@ -609,7 +609,7 @@ function creepStage() {
 function resetGame() {
   genLevel();
   player.x = 40; player.y = 100; player.vx = 0; player.vy = 0;
-  player.hp = 3; player.invuln = 0; player.attack = null;
+  player.hp = 5; player.invuln = 0; player.attack = null;
   player.face = 1; player.maxX = 0; player.safeX = 40; player.safeY = 100;
   score = 0; camX = 0; flashText = null;
   particles.length = 0;
@@ -1075,7 +1075,7 @@ function drawParticles() {
 
 function drawHUD() {
   // hearts
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) {
     const hx = 6 + i * 12;
     ctx.fillStyle = i < player.hp ? '#c9304a' : '#3a2530';
     ctx.fillRect(hx, 6, 3, 3); ctx.fillRect(hx + 4, 6, 3, 3);
