@@ -264,6 +264,39 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(10);
   check(await ev(() => !paused && playTime > 0), 'Esc again resumes');
 
+  /* ---------- assist mode ---------- */
+  section('assist mode');
+  await ev(() => { assistSel = 0; Object.assign(assist,
+    { invuln: false, speed: 1, hearts: false, calm: false, skipMini: false }); });
+  await page.keyboard.press('Escape');
+  await frames(3);
+  await page.keyboard.press('ArrowRight');          // invincible ON
+  await frames(2);
+  check(await ev(() => assist.invuln), 'pause menu: invincibility switches on');
+  await page.keyboard.press('ArrowDown');           // down to game speed
+  await page.keyboard.press('ArrowRight');          // 80%
+  await page.keyboard.press('ArrowRight');          // 60%
+  await frames(2);
+  check(await ev(() => assist.speed === 0.6), 'game speed steps down to 60%');
+  await page.keyboard.press('Escape');              // resume
+  await frames(3);
+  await ev(() => { player.invuln = 0; player.hp = 5; hurtPlayer(player.x + 20); });
+  check(await ev(() => player.hp === 5), 'invincible: a hit costs nothing');
+  const spd0 = await ev(() => playTime);
+  await frames(40);
+  const spdT = (await ev(() => playTime)) - spd0;
+  check(spdT >= 18 && spdT <= 30, '60% speed: ~24 updates across 40 frames (' + spdT + ')');
+  await ev(() => { assist.speed = 1; assist.invuln = false; assist.hearts = true;
+                   player.invuln = 0; player.hp = 2; hurtPlayer(player.x + 20); });
+  check(await ev(() => player.hp === 5), 'infinite hearts refuse to empty');
+  await ev(() => { assist.calm = true; shakeT = 0; shakeMag = 0; addShake(4, 20); });
+  check(await ev(() => shakeT === 0), 'reduced flash: no screen shake');
+  check(await ev(() => JSON.parse(localStorage.getItem('creepydoll-assist')).invuln === true),
+        'assist choices persist in localStorage');
+  await ev(() => { Object.assign(assist,
+    { invuln: false, speed: 1, hearts: false, calm: false, skipMini: false });
+    player.hp = 5; player.invuln = 0; });
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
@@ -391,6 +424,15 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.keyboard.press('Enter');
   await frames(3);
   check(await ev(() => state === 'play' && doors[3].used), 'the hollow seals behind her');
+
+  // assist: skip-minigames walks straight out
+  await ev(() => { assist.skipMini = true; startMini(doors[0]); });
+  await frames(3);
+  await page.keyboard.press('Enter');
+  await frames(3);
+  check(await ev(() => state === 'play' && mini === null),
+        'assist: Enter skips a minigame outright');
+  await ev(() => { assist.skipMini = false; });
 
   /* ---------- minigame music ---------- */
   section('music');

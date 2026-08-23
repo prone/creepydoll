@@ -78,6 +78,12 @@ jump launches her about twice as high.
   night after her — up to three at a time, spear-first, tougher than bats
   (300 points each). Dismount and they withdraw into the dark above.
 
+- **Assist mode:** press **Esc** — the pause screen is also the assist menu
+  (↑/↓ pick, ←/→ set): invincibility, game speed (100/80/60%), infinite
+  hearts, reduced flash (no screen shake or hit-strobe), and skip-minigames
+  (Enter walks straight out of one). Choices persist between sessions.
+  No shame in any of it.
+
 ![Mid-level](screenshots/midgame.png)
 ![The chase](screenshots/endgame.png)
 

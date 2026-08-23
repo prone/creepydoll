@@ -830,6 +830,10 @@ window.addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
   startAudio();
   if (e.key === 'Escape') { togglePause(); return; }
+  if (paused && (state === 'play' || state === 'mini')) {
+    handleAssistKeys(e.key);               // the pause screen is the assist menu
+    return;
+  }
   if (AC && AC.state === 'suspended' && !paused) AC.resume();
   keys[e.key.toLowerCase()] = true;
   handleMenuKeys(e.key);
@@ -853,8 +857,39 @@ let camX = 0;
 let frame = 0;
 let shakeT = 0, shakeMag = 0;   // screen shake: frames left, pixel magnitude
 function addShake(mag, frames) {
+  if (assist.calm) return;      // reduced-flash mode keeps the camera still
   shakeMag = Math.max(shakeMag, mag);
   shakeT = Math.max(shakeT, frames);
+}
+
+// assist mode — options a player can tune without shame (Esc opens them)
+const assist = { invuln: false, speed: 1, hearts: false, calm: false, skipMini: false };
+const SPEEDS = [1, 0.8, 0.6];
+let assistSel = 0;
+let speedAcc = 0;               // fractional update accumulator for game speed
+function saveAssist() {
+  try { localStorage.setItem('creepydoll-assist', JSON.stringify(assist)); } catch (e) {}
+}
+try { Object.assign(assist, JSON.parse(localStorage.getItem('creepydoll-assist') || '{}')); } catch (e) {}
+
+function handleAssistKeys(key) {
+  const ROWS = 5;
+  if (key === 'ArrowUp')        { assistSel = (assistSel + ROWS - 1) % ROWS; sfx(300, 0.04, 'square', 0.03); }
+  else if (key === 'ArrowDown') { assistSel = (assistSel + 1) % ROWS; sfx(300, 0.04, 'square', 0.03); }
+  else if (key === 'ArrowLeft' || key === 'ArrowRight') {
+    const on = key === 'ArrowRight';        // right turns it on / slows further
+    if (assistSel === 0) assist.invuln = on;
+    else if (assistSel === 1) {
+      const i = SPEEDS.indexOf(assist.speed);
+      assist.speed = SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1,
+                                                 (i < 0 ? 0 : i) + (on ? 1 : -1)))];
+    }
+    else if (assistSel === 2) assist.hearts = on;
+    else if (assistSel === 3) assist.calm = on;
+    else assist.skipMini = on;
+    saveAssist();
+    sfx(500, 0.05, 'square', 0.03);
+  }
 }
 let flashText = null;   // {msg, t}
 let jumpHeld = false, punchHeld = false, kickHeld = false, crouchHeld = false,
@@ -899,16 +934,32 @@ function togglePause() {
 }
 
 function drawPauseOverlay() {
-  ctx.fillStyle = 'rgba(6,3,10,0.62)';
+  ctx.fillStyle = 'rgba(6,3,10,0.72)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-  bigText('PAUSED', 116, 70, '#cfc3e8', 20);
-  if ((frame >> 5) % 2) pixelText('ESC TO RESUME', 122, 100, '#9a8fb0');
+  bigText('PAUSED', 116, 34, '#cfc3e8', 20);
+  pixelText('ASSIST — no shame in any of it', 74, 66, '#9a8fb0');
+  const rows = [
+    ['invincible',        assist.invuln ? 'ON' : 'OFF'],
+    ['game speed',        Math.round(assist.speed * 100) + '%'],
+    ['infinite hearts',   assist.hearts ? 'ON' : 'OFF'],
+    ['reduced flash',     assist.calm ? 'ON' : 'OFF'],
+    ['skip minigames',    assist.skipMini ? 'ON' : 'OFF'],
+  ];
+  rows.forEach((r, i) => {
+    const y = 82 + i * 12, sel = i === assistSel;
+    if (sel) pixelText('>', 82, y, '#e8c66a');
+    pixelText(r[0], 94, y, sel ? '#e8d8f0' : '#8a7f9e');
+    pixelText(r[1], 208, y, sel ? '#e8c66a' : '#8a7f9e');
+  });
+  pixelText('UP DOWN PICK   LEFT RIGHT SET', 78, 148, '#6a5f80');
+  if ((frame >> 5) % 2) pixelText('ESC TO RESUME', 122, 162, '#9a8fb0');
 }
 
 function handleMenuKeys(key) {
   if (paused || key !== 'Enter') return;
   if (state === 'mini') {
     if (mini && mini.over) endMini();
+    else if (mini && assist.skipMini) endMini();   // assist: walk out any time
     return;
   }
   if (state === 'title' || state === 'gameover' || state === 'win') {
@@ -953,8 +1004,9 @@ function rectsOverlap(a, b) {
 }
 
 function hurtPlayer(fromX) {
-  if (player.invuln > 0 || state !== 'play') return;
+  if (player.invuln > 0 || state !== 'play' || assist.invuln) return;
   player.hp--;
+  if (assist.hearts && player.hp < 5) player.hp = 5;   // the hearts refuse to empty
   player.invuln = 80;
   player.vy = -3.5;
   player.vx = player.x + player.w / 2 < fromX ? -2.5 : 2.5;
@@ -1110,7 +1162,8 @@ function updatePlayer() {
   // fell into a pit — a heart for the dark, and the lantern pulls her back.
   // on her last heart the dark keeps her.
   if (player.y > MAP_H * TILE + 30) {
-    player.hp--;
+    if (!assist.invuln) player.hp--;
+    if (assist.hearts && player.hp < 5) player.hp = 5;
     sndHurt();
     addShake(5, 25);
     if (player.hp <= 0) {
@@ -1669,7 +1722,7 @@ function drawEnemies() {
       continue;
     }
 
-    const flash = e.flashT > 0;
+    const flash = e.flashT > 0 && !assist.calm;
     if (e.kind === 'bat') {
       let img = BAT_FRAMES[(e.t >> 3) % 2];
       if (flash) img = whiten(img);
@@ -2476,14 +2529,22 @@ function tick() {
   }
 
   if (state === 'mini') {
-    if (!paused) updateMini();
+    if (!paused) {
+      speedAcc += assist.speed;
+      if (speedAcc >= 1) { speedAcc -= 1; updateMini(); }
+    }
     drawMini();
     if (paused) drawPauseOverlay();
     requestAnimationFrame(tick);
     return;
   }
 
+  let runUpdate = false;
   if (state === 'play' && !paused) {
+    speedAcc += assist.speed;
+    if (speedAcc >= 1) { speedAcc -= 1; runUpdate = true; }
+  }
+  if (runUpdate) {
     playTime++;
     // the night murmurs now and then
     if (AC && --ambientCd <= 0) {
