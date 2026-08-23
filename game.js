@@ -432,6 +432,14 @@ function genLevel() {
   for (const e of enemies)
     if (e.kind === 'spider' && e.x === 912 && e.anchorY === 96) e.anchorY = 112;
 
+  // hand-tweak: cut the second spider, and the platform it hung from
+  // (row 6, cols 68-71 — the small ravine beneath is jumpable without it)
+  for (let j = 68; j <= 71; j++) if (map[6][j] === 2) map[6][j] = 0;
+  for (let i = enemies.length - 1; i >= 0; i--)
+    if (enemies[i].kind === 'spider' && enemies[i].x === 1120 &&
+        enemies[i].anchorY === 112)
+      enemies.splice(i, 1);
+
   // hang the healing heart over the second ravine
   heartPickup.taken = false; heartPickup.t = 0;
   let gapCount = 0, inGap = false;
