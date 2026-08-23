@@ -140,6 +140,15 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(8);
   check(await ev(() => player.hp) === 4, 'defeating a bat heals one heart when hurt');
 
+  /* ---------- juice: screen shake ---------- */
+  section('screen shake');
+  await ev(() => { shakeT = 0; shakeMag = 0; player.hp = 5; player.invuln = 0;
+                   hurtPlayer(player.x + 20); });
+  check(await ev(() => shakeT > 0 && shakeMag >= 3), 'getting hurt shakes the screen');
+  await frames(40);
+  check(await ev(() => shakeT === 0 && shakeMag === 0), 'the shake dies back down');
+  await ev(() => { player.invuln = 999999; });
+
   /* ---------- heart pickup ---------- */
   section('heart pickup');
   await ev(() => { player.hp = 5; player.x = heartPickup.x - 2; player.y = 90; player.vy = 0; });

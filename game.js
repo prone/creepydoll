@@ -719,6 +719,11 @@ let paused = false;     // Esc freezes play and mini worlds
 let score = 0;
 let camX = 0;
 let frame = 0;
+let shakeT = 0, shakeMag = 0;   // screen shake: frames left, pixel magnitude
+function addShake(mag, frames) {
+  shakeMag = Math.max(shakeMag, mag);
+  shakeT = Math.max(shakeT, frames);
+}
 let flashText = null;   // {msg, t}
 let jumpHeld = false, punchHeld = false, kickHeld = false, crouchHeld = false,
     upHeld = false;
@@ -742,6 +747,7 @@ function resetGame() {
   player.coyoteT = 99; player.jumpBufT = 0; player.pJump = false;
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
+  shakeT = 0; shakeMag = 0;
   particles.length = 0;
   fireballs.length = 0;
   playTime = 0;
@@ -820,9 +826,11 @@ function hurtPlayer(fromX) {
   player.vy = -3.5;
   player.vx = player.x + player.w / 2 < fromX ? -2.5 : 2.5;
   sndHurt();
+  addShake(3, 14);
   burst(player.x + 5, player.y + 8, '#efe2cf', 8);
   if (player.hp <= 0) {
     state = 'gameover';
+    addShake(5, 25);
     sfx(120, 1.2, 'sawtooth', 0.09, -90);
   }
 }
@@ -905,6 +913,7 @@ function updatePlayer() {
       player.vy = -4.9;                                // power jump — ~2x height
       player.pJump = true;
       player.chargeT = 0;
+      addShake(2, 10);
       sfx(180, 0.4, 'square', 0.08, 420);
       burst(player.x + 5, player.y + 16, '#e8d8f0', 10);
     } else {
@@ -945,6 +954,7 @@ function updatePlayer() {
     player.hp = 0;
     sndHurt();
     state = 'gameover';
+    addShake(5, 25);
     sfx(120, 1.2, 'sawtooth', 0.09, -90);
     return;
   }
@@ -963,6 +973,7 @@ function afterMove(prevStage) {
   if (st > prevStage && STAGE_MSGS[st]) {
     flashText = { msg: STAGE_MSGS[st], t: 150 };
     sndStage();
+    addShake(2, 12);
     burst(player.x + 5, player.y + 6, '#3b3b3b', 12);
   }
   // she twitches when she's far gone
@@ -1067,6 +1078,7 @@ function killEnemy(e) {
   e.dead = 1;
   score += e.kind === 'snake' ? 200 : e.kind === 'valkyrie' ? 300 : 100;
   sfx(90, 0.25, 'triangle', 0.07, -40);
+  addShake(2, 8);
   // a bat's life feeds hers — one heart back, if she's hurt
   if (e.kind === 'bat' && player.hp < 5) {
     player.hp++;
@@ -1116,6 +1128,7 @@ function updateEnemies() {
           if (e.webHp <= 0) {                        // the web and the spider die
             e.dead = 1;
             score += 200;
+            addShake(2, 8);
             sfx(220, 0.2, 'sawtooth', 0.06, -160);   // snap
             burst(e.x + 5, e.y + 4, '#cfc9dd', 8);
           }
@@ -1582,7 +1595,11 @@ function updateFireballs() {
         gone = true; break;
       }
     }
-    if (gone) { burst(f.x + 2, f.y + 2, '#ff8030', 6); fireballs.splice(i, 1); }
+    if (gone) {
+      burst(f.x + 2, f.y + 2, '#ff8030', 6);
+      addShake(1.5, 6);
+      fireballs.splice(i, 1);
+    }
   }
 }
 
@@ -2104,6 +2121,11 @@ function tick() {
   }
 
   const st = creepStage();
+  if (!paused && shakeT > 0 && --shakeT === 0) shakeMag = 0;
+  const shX = shakeT > 0 ? Math.round((Math.random() - 0.5) * 2 * shakeMag) : 0;
+  const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
+  ctx.save();
+  ctx.translate(shX, shY);
   drawBackground(st);
   drawTiles();
   drawDoors();
@@ -2115,6 +2137,7 @@ function tick() {
   drawPlayer();
   drawFireballs();
   drawParticles();
+  ctx.restore();
   drawHUD();
 
   // vignette creeps in with her
