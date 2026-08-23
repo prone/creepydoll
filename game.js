@@ -410,6 +410,11 @@ let houseX = 0;
 // a lone heart floating over the second ravine — heals one heart, once
 const heartPickup = { x: 0, y: 0, taken: false, t: 0 };
 
+// five lost button eyes — four hidden in the overworld, one in the hollow
+const eyePickups = [];
+let eyesFound = 0;
+const EYES_TOTAL = 5;
+
 // carnival doorways into minigame worlds (press Up to enter, once each)
 const doors = [];
 const DOOR_KINDS = ['toss', 'balloon', 'coffin'];
@@ -538,7 +543,47 @@ function genLevel() {
   }
   lastCP.x = 40; lastCP.y = 100;
 
+  // a hairline crack in the world, easy to walk past — the hollow
+  {
+    let c = 128;
+    while (c < MAP_W - 20 &&
+           !(map[9][c] === 1 && map[9][c + 1] === 1 && !map[8][c] && !map[8][c + 1]))
+      c++;
+    doors.push({ x: c * TILE + 1, y: 9 * TILE - 22, w: 14, h: 22,
+                 kind: 'hollow', used: false });
+  }
+
   houseX = (MAP_W - 6) * TILE;
+
+  // four lost button eyes, hidden where a careful doll can reach
+  eyePickups.length = 0;
+  eyesFound = 0;
+  outerA:                                       // atop the first floating platform
+  for (let cc = 18; cc < MAP_W; cc++)
+    for (let r = 4; r <= 7; r++)
+      if (map[r][cc] === 2) {
+        eyePickups.push({ x: cc * TILE + 4, y: (r - 2) * TILE, taken: false, t: 0 });
+        break outerA;
+      }
+  {                                             // high over the first ravine
+    let inGap = false;
+    for (let cc = 0; cc < MAP_W; cc++) {
+      if (map[9][cc] === 0 && !inGap) {
+        let end = cc;
+        while (end < MAP_W && map[9][end] === 0) end++;
+        eyePickups.push({ x: Math.round((cc + end) / 2 * TILE) - 4,
+                          y: 4 * TILE, taken: false, t: 0 });
+        break;
+      }
+      inGap = map[9][cc] === 0;
+    }
+  }
+  {                                             // impossibly high mid-road:
+    let cc = Math.floor(MAP_W / 2);             // power jump or dragonback
+    while (cc < MAP_W - 18 && map[9][cc] !== 1) cc++;
+    eyePickups.push({ x: cc * TILE + 4, y: 24, taken: false, t: 0 });
+  }
+  eyePickups.push({ x: houseX + 64, y: 9 * TILE - 12, taken: false, t: 0 });  // behind the dollhouse
 
   // the healthy kid roams ahead — glimpsed, never caught, until the end
   kid.x = -1000; kid.y = 0;
@@ -681,7 +726,7 @@ function musicBoxNote(midi, when, vol, detune, type, decay) {
 
 function scheduleMusic() {
   while (nextNoteTime < AC.currentTime + 0.3) {
-    if (state === 'mini') {
+    if (state === 'mini' && mini && mini.kind !== 'hollow') {
       // carnival organ, cheerful in the way taxidermy is lifelike
       const m = CARNIVAL[musicStep % CARNIVAL.length];
       if (m > 0) {
@@ -1157,6 +1202,7 @@ function updateKid() {
   if (rectsOverlap(kid, player)) {
     state = 'win';
     score += 1000;
+    if (eyesFound >= EYES_TOTAL) score += 1000;   // she found every eye
     sndWin();
     burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
   }
@@ -1285,6 +1331,25 @@ function updateHeartPickup() {
     player.hp++;
     sndHeal();
     burst(heartPickup.x + 4, hy + 4, '#e8506a', 10);
+  }
+}
+
+function updateEyePickups() {
+  for (const ep of eyePickups) {
+    if (ep.taken) continue;
+    ep.t++;
+    const ey = ep.y + Math.sin(ep.t / 25) * 3;
+    if (rectsOverlap({ x: ep.x - 1, y: ey - 1, w: 9, h: 9 }, player)) {
+      ep.taken = true;
+      eyesFound++;
+      score += 200;
+      sfx(1046, 0.15, 'triangle', 0.06);
+      sfx(1568, 0.25, 'sine', 0.04);
+      burst(ep.x + 3, ey + 3, '#e8c66a', 10);
+      flashText = eyesFound >= EYES_TOTAL
+        ? { msg: 'all her eyes... she sees.', t: 150 }
+        : { msg: 'a lost button eye (' + eyesFound + '/' + EYES_TOTAL + ')', t: 120 };
+    }
   }
 }
 
@@ -1571,6 +1636,29 @@ function drawParticles() {
   }
 }
 
+function drawButtonEye(x, y, glow) {
+  if (glow) {
+    ctx.fillStyle = 'rgba(232,198,106,0.12)';
+    ctx.fillRect(x - 2, y - 2, 11, 11);
+  }
+  ctx.fillStyle = '#171717';
+  ctx.fillRect(x + 1, y, 5, 7); ctx.fillRect(x, y + 1, 7, 5);
+  ctx.fillStyle = '#3a3a3a'; ctx.fillRect(x + 1, y + 1, 1, 1);   // sheen
+  ctx.fillStyle = '#8a7a5c';                                     // thread holes
+  ctx.fillRect(x + 2, y + 2, 1, 1); ctx.fillRect(x + 4, y + 2, 1, 1);
+  ctx.fillRect(x + 2, y + 4, 1, 1); ctx.fillRect(x + 4, y + 4, 1, 1);
+}
+
+function drawEyePickups() {
+  for (const ep of eyePickups) {
+    if (ep.taken) continue;
+    const x = Math.round(ep.x - camX);
+    if (x < -12 || x > VIEW_W + 12) continue;
+    const y = Math.round(ep.y + Math.sin(ep.t / 25) * 3);
+    drawButtonEye(x, y, (ep.t >> 4) % 3 !== 0);
+  }
+}
+
 function drawHeart(x, y, color) {
   ctx.fillStyle = color;
   ctx.fillRect(x, y, 3, 3); ctx.fillRect(x + 4, y, 3, 3);
@@ -1582,6 +1670,9 @@ function drawHUD() {
   // hearts
   for (let i = 0; i < 5; i++)
     drawHeart(6 + i * 12, 6, i < player.hp ? '#c9304a' : '#3a2530');
+  // lost eyes found
+  drawButtonEye(6, 17, false);
+  pixelText(eyesFound + '/' + EYES_TOTAL, 16, 17, '#8a7a5c');
   pixelText('SCORE ' + score, VIEW_W - 6 - (7 + String(score).length) * 6, 6, '#cfc3e8');
   const st = creepStage();
   pixelText('CREEP', 6, VIEW_H - 12, '#9a8fb0');
@@ -1789,6 +1880,18 @@ function drawDoors() {
   for (const d of doors) {
     const x = Math.round(d.x - camX);
     if (x < -22 || x > VIEW_W + 22) continue;
+    if (d.kind === 'hollow') {
+      // a hairline crack in the world — no marquee, no prompt, no promises
+      ctx.fillStyle = d.used ? '#1a1424' : '#231a33';
+      ctx.fillRect(x + 6, d.y + 2, 2, 20);
+      ctx.fillRect(x + 4, d.y + 8, 2, 8);
+      ctx.fillRect(x + 8, d.y + 12, 2, 6);
+      if (!d.used && (frame >> 4) % 6 === 0) {       // the rarest shimmer
+        ctx.fillStyle = 'rgba(160,110,220,0.35)';
+        ctx.fillRect(x + 6, d.y + 4, 2, 16);
+      }
+      continue;
+    }
     const pulse = (Math.sin(frame / 15) + 1) / 2;
     ctx.fillStyle = d.used ? '#2a2136' : '#4b3a5c';
     ctx.fillRect(x - 2, d.y - 2, 18, 24);
@@ -1827,6 +1930,8 @@ function startMini(door) {
                  { x: 248, y0: 88, ph: 2, c: '#7ec9e8', alive: true },
                  { x: 288, y0: 52, ph: 4, c: '#c98fe8', alive: true },
                  { x: 232, y0: 120, ph: 1, c: '#9fe88f', alive: true }] });
+  if (door.kind === 'hollow')
+    Object.assign(mini, { dollX: 30, eyeTaken: false });
   if (door.kind === 'coffin') {
     const swaps = [];
     for (let i = 0; i < 8; i++) {
@@ -1870,7 +1975,58 @@ function updateMini() {
   if (mini.over) return;
   if (mini.kind === 'toss') updateToss();
   else if (mini.kind === 'balloon') updateBalloon();
+  else if (mini.kind === 'hollow') updateHollow();
   else updateCoffin();
+}
+
+/* --- the hollow: a bare little room behind the wall, and one lost eye --- */
+function updateHollow() {
+  if (kLeft())  mini.dollX = Math.max(24, mini.dollX - 1.4);
+  if (kRight()) mini.dollX = Math.min(288, mini.dollX + 1.4);
+  if (!mini.eyeTaken && Math.abs(mini.dollX + 7 - 160) < 10) {
+    mini.eyeTaken = true;
+    eyesFound++;
+    score += 200;
+    if (player.hp < 5) { player.hp++; sndHeal(); }
+    sfx(880, 0.3, 'sine', 0.06); sfx(1320, 0.4, 'sine', 0.04);
+    mpBurst(160, 118, '#e8c66a', 12);
+    mini.msg2 = 'IT FITS.'; mini.msg2T = 130;
+    mini.doneT = mini.t;
+  }
+  if (mini.eyeTaken && mini.t - mini.doneT > 90) {
+    mini.over = true; mini.won = true;
+    mini.msg = 'A LOST EYE   +200';
+  }
+}
+
+function drawHollow() {
+  ctx.fillStyle = '#0c0813'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  // rough stones
+  for (let i = 0; i < 26; i++) {
+    ctx.fillStyle = i % 3 ? '#141020' : '#181228';
+    ctx.fillRect((i * 53) % VIEW_W, (i * 37) % 140, 10 + (i % 3) * 6, 5);
+  }
+  // three pale masks watch from the wall
+  for (let i = 0; i < 3; i++) {
+    const mx = 96 + i * 52, my = 52;
+    ctx.fillStyle = '#3a3446';
+    ctx.fillRect(mx, my, 12, 15);
+    ctx.fillStyle = '#0c0813';
+    ctx.fillRect(mx + 2, my + 4, 3, 3); ctx.fillRect(mx + 7, my + 4, 3, 3);
+    ctx.fillRect(mx + 4, my + 10, 4, 2);
+  }
+  ctx.fillStyle = '#241a2a'; ctx.fillRect(0, 150, VIEW_W, 26);
+  ctx.fillStyle = '#302338'; ctx.fillRect(0, 150, VIEW_W, 2);
+  pixelText('THE HOLLOW', 130, 34, '#9a8fb0');
+  // the pedestal and the eye
+  ctx.fillStyle = '#2e2738';
+  ctx.fillRect(153, 126, 14, 24);
+  ctx.fillRect(150, 148, 20, 2);
+  ctx.fillRect(151, 124, 18, 3);
+  if (!mini.eyeTaken)
+    drawButtonEye(157, 115 + Math.round(Math.sin(mini.t / 25) * 2), true);
+  ctx.drawImage(DOLL[creepStage()].idle, Math.round(mini.dollX), 130);
+  if (!mini.eyeTaken) pixelText('ARROWS WALK', 128, 160, '#6a5f80');
 }
 
 /* --- doll toss: land the little rag doll in the moving bucket --- */
@@ -2164,6 +2320,7 @@ function miniBackdrop(title) {
 function drawMini() {
   if (mini.kind === 'toss') drawToss();
   else if (mini.kind === 'balloon') drawBalloon();
+  else if (mini.kind === 'hollow') drawHollow();
   else drawCoffin();
   for (const q of mini.parts) {
     ctx.fillStyle = q.color;
@@ -2221,8 +2378,10 @@ function drawWin() {
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   bigText('TAG. YOU\'RE IT.', 56, 56, '#e8c66a', 20);
   pixelText('she only ever wanted a friend.', 76, 86, '#cfc3e8');
-  pixelText('score ' + score, 136, 102, '#cfc3e8');
-  if ((frame >> 5) % 2) pixelText('press ENTER', 126, 122, '#9a8fb0');
+  if (eyesFound >= EYES_TOTAL)
+    pixelText('and with every eye found, she sees you clearly.', 22, 96, '#e8c66a');
+  pixelText('score ' + score, 136, eyesFound >= EYES_TOTAL ? 110 : 102, '#cfc3e8');
+  if ((frame >> 5) % 2) pixelText('press ENTER', 126, 126, '#9a8fb0');
 }
 
 /* ---------------- main loop ---------------- */
@@ -2253,6 +2412,7 @@ function tick() {
     updateEnemies();
     updateFireballs();
     updateHeartPickup();
+    updateEyePickups();
     updateParticles();
     camX = Math.max(0, Math.min(LEVEL_W - VIEW_W, player.x - 130));
   }
@@ -2269,6 +2429,7 @@ function tick() {
   drawDoors();
   drawHouse();
   drawHeartPickup();
+  drawEyePickups();
   drawKid();
   drawEnemies();
   drawDragon();

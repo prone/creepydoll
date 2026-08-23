@@ -283,11 +283,24 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         checkpoints.every(cp => !cp.reached)),
         'Enter restarts a fresh run with unlit lanterns');
 
+  /* ---------- lost button eyes ---------- */
+  section('button eyes');
+  check(await ev(() => eyePickups.length === 4 && eyesFound === 0),
+        'four eyes hidden in the overworld, none found on a fresh run');
+  check(await ev(() => eyePickups.some(ep => ep.y < 40)),
+        'one eye hangs impossibly high (power jump or dragonback)');
+  await ev(() => { player.invuln = 999999;
+                   const ep = eyePickups[0];
+                   player.x = ep.x - 2; player.y = ep.y - 4; player.vy = 0; });
+  await frames(8);
+  check(await ev(() => eyePickups[0].taken && eyesFound === 1),
+        'touching a lost eye collects it (1/5)');
+
   /* ---------- carnival doors & minigames ---------- */
   section('carnival doors');
-  check(await ev(() => doors.length === 3 &&
-        doors.map(d => d.kind).join() === 'toss,balloon,coffin'),
-        'three doors: toss, balloon, coffin');
+  check(await ev(() => doors.length === 4 &&
+        doors.map(d => d.kind).join() === 'toss,balloon,coffin,hollow'),
+        'three carnival doors and one secret crack: the hollow');
 
   // walk in through the real doorway with a real Up press
   await ev(() => { player.invuln = 999999; player.x = doors[0].x + 2; player.y = 126; player.vy = 0; });
@@ -348,6 +361,21 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => player.hp === 4), 'the coffin heart heals her');
   await page.keyboard.press('Enter');
   await frames(3);
+
+  // the hollow: a crack in the wall, a bare room, one lost eye
+  await ev(() => { player.hp = 3; startMini(doors[3]); });
+  await frames(3);
+  check(await ev(() => state === 'mini' && mini.kind === 'hollow'),
+        'the crack opens into the hollow');
+  await page.keyboard.down('ArrowRight');
+  await page.waitForFunction(() => mini.eyeTaken, null, { timeout: 10000 });
+  await page.keyboard.up('ArrowRight');
+  check(await ev(() => eyesFound === 2 && player.hp === 4),
+        'she takes the hollow\'s eye and it heals her (2/5)');
+  await page.waitForFunction(() => mini.over, null, { timeout: 10000 });
+  await page.keyboard.press('Enter');
+  await frames(3);
+  check(await ev(() => state === 'play' && doors[3].used), 'the hollow seals behind her');
 
   /* ---------- minigame music ---------- */
   section('music');
@@ -425,10 +453,17 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await ev(() => { player.x = kid.x - 80; player.y = 100; player.vy = 0; });
   await frames(30);
   check(await ev(() => kid.mode !== 'idle'), 'the kid is spooked and flees');
+  // scoop up the remaining eyes so the 100% reward can show itself
+  await ev(() => { eyePickups.forEach(ep => {
+    if (!ep.taken) { ep.taken = true; eyesFound++; } }); });
+  check(await ev(() => eyesFound === EYES_TOTAL), 'all five eyes accounted for');
+  const preWin = await ev(() => score);
   await page.keyboard.down('ArrowRight');
   await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
   await page.keyboard.up('ArrowRight');
   check(true, 'tagging the kid wins the game');
+  check((await ev(() => score)) >= preWin + 2000,
+        'finding every eye doubles the win bonus');
 
   /* ---------- wrap up ---------- */
   section('page health');
