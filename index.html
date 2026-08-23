@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creepy Doll</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #0b0812;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: "Courier New", monospace;
+    color: #9a8fb0;
+  }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #000;
+    box-shadow: 0 0 40px #1d1230;
+  }
+  .hint {
+    margin-top: 10px;
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+  .hint b { color: #cfc3e8; }
+</style>
+</head>
+<body>
+<canvas id="game" width="320" height="176"></canvas>
+<div class="hint">
+  <b>&larr;/&rarr;</b> move &nbsp; <b>SPACE</b> jump &nbsp; <b>Z</b> punch &nbsp; <b>X</b> kick
+</div>
+<script src="game.js"></script>
+</body>
+</html>
