@@ -658,6 +658,27 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   });
   check(roachDashed !== 'idle', 'a cockroach bolts at her when she comes near');
 
+  /* ---------- the house's own sound ---------- */
+  section('house music');
+  check(await ev(() => HOUSE.length >= 24 && HOUSE.some(m => m >= 60) &&
+        HOUSE.some(m => m > 0 && m < 60)),
+        'the house waltz exists — music box over a slow bass');
+  check(await ev(() => HOUSE_AMBIENTS.length >= 4 &&
+        HOUSE_AMBIENTS.some(a => a.minStage >= 2)),
+        'indoor murmurs, one reserved for the far-gone');
+  await ev(() => { ambientCd = 1; });
+  await frames(4);
+  check(await ev(() => ambientCd > 100), 'the ambient clock winds itself indoors too');
+  const houseLine = await page.evaluate(async () => {
+    player.x = 1000; player.y = 100; player.vy = 0; player.maxX = 1000;
+    kid.stage = 'roam'; kid.mode = 'hidden'; kid.hideT = 1;
+    kid.x = -1000; kid.glimpses = 0;
+    for (let i = 0; i < 8; i++) await new Promise(r => requestAnimationFrame(r));
+    return flashText && flashText.msg;
+  });
+  check(houseLine === 'he is home. now so is she.',
+        'the boy\'s glimpses speak in house lines');
+
   // death in the house retries the house
   await ev(() => { player.invuln = 0; player.hp = 1; player.y = 400; player.vy = 3; });
   await page.waitForFunction(() => state === 'gameover', null, { timeout: 5000 });

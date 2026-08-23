@@ -458,6 +458,14 @@ const GLIMPSE_LINES = [
   'she just wants to play.',
   'almost. almost.',
 ];
+// and once she is inside his house
+const HOUSE_GLIMPSE_LINES = [
+  'he is home. now so is she.',
+  'what a nice house this is.',
+  'his room must be close.',
+  'no more running after this one.',
+  'she can already see his door.',
+];
 
 /* ---------------- level ---------------- */
 // map[r][c]: 0 empty, 1 ground, 2 platform, 3 furniture (solid wood)
@@ -896,6 +904,14 @@ const CARNIVAL = [
 ];
 const CARNIVAL_STEP = 0.17;
 
+// inside the house: a slow waltz, warm as lamplight, wrong as a smile
+// held one beat too long. bass on the one, music box above.
+const HOUSE = [
+  53, 69, 72,   50, 69, 74,   53, 72, 76,   50, 74, 72,
+  46, 69, 72,   51, 70, 75,   53, 72, 69,   48, 63, -1,
+];
+const HOUSE_STEP = 0.27;
+
 function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
 function startAudio() {
@@ -952,6 +968,20 @@ function scheduleMusic() {
       }
       musicStep++;
       nextNoteTime += CARNIVAL_STEP;
+    } else if (level === 2) {
+      // the house waltz — cozy, with a sour lean that grows with her
+      const m = HOUSE[musicStep % HOUSE.length];
+      if (m > 0) {
+        const bass = m < 60;
+        const sour = creepStage() * 4;
+        musicBoxNote(m, nextNoteTime, bass ? 0.07 : 0.06,
+                     (Math.random() - 0.5) * (4 + sour), 'triangle',
+                     bass ? 0.5 : 0.35);
+        if (!bass)
+          musicBoxNote(m + 12, nextNoteTime + 0.015, 0.018, 4, 'sine', 0.3);
+      }
+      musicStep++;
+      nextNoteTime += HOUSE_STEP;
     } else {
       const m = LULLABY[musicStep % LULLABY.length];
       if (m > 0) {
@@ -1006,9 +1036,25 @@ const AMBIENTS = [
       [880, 830, 780, 700].forEach((f, i) =>
         setTimeout(() => sfx(f, 0.07, 'square', 0.018, -60), i * 95)); } },
 ];
+// and the house making its own (level 2)
+const HOUSE_AMBIENTS = [
+  { minStage: 0, name: 'creak', play: () => {                // a floorboard shifts upstairs
+      sfx(120, 0.35, 'sawtooth', 0.018, 60);
+      setTimeout(() => sfx(95, 0.3, 'sawtooth', 0.014, -25), 300); } },
+  { minStage: 0, name: 'clock', play: () => {                // the hall clock, minding its business
+      [0, 350, 700].forEach(d =>
+        setTimeout(() => sfx(660, 0.05, 'square', 0.014, -30), d)); } },
+  { minStage: 0, name: 'chime', play: () => {                // ...except when it chimes early
+      sfx(392, 0.8, 'triangle', 0.025, -5);
+      setTimeout(() => sfx(370, 0.9, 'triangle', 0.02, -8), 700); } },
+  { minStage: 2, name: 'whisper', play: () => {              // the walls have opinions now
+      sfx(1200, 0.5, 'sawtooth', 0.006, -700);
+      setTimeout(() => sfx(1000, 0.4, 'sawtooth', 0.005, -500), 350); } },
+];
 let ambientCd = 600;
 function playAmbient(stage) {
-  const pool = AMBIENTS.filter(a => stage >= a.minStage);
+  const pool = (level === 2 ? HOUSE_AMBIENTS : AMBIENTS)
+    .filter(a => stage >= a.minStage);
   pool[Math.floor(Math.random() * pool.length)].play();
 }
 
@@ -1428,8 +1474,9 @@ function updateKid() {
         kid.x = c * TILE + 3; kid.y = 9 * TILE - kid.h - 1;
         kid.vx = 0; kid.vy = 0;
         kid.mode = 'peek'; kid.glimpseT = 0;
-        if (kid.glimpses < GLIMPSE_LINES.length)
-          flashText = { msg: GLIMPSE_LINES[kid.glimpses], t: 120 };
+        const lines = level === 2 ? HOUSE_GLIMPSE_LINES : GLIMPSE_LINES;
+        if (kid.glimpses < lines.length)
+          flashText = { msg: lines[kid.glimpses], t: 120 };
         kid.glimpses++;
         kid.seen = true;
       }

@@ -78,6 +78,15 @@ jump launches her about twice as high.
   night after her — up to three at a time, spear-first, tougher than bats
   (300 points each). Dismount and they withdraw into the dark above.
 
+- **Level 2 — his house:** tag the kid and he slips away, runs home, and slams
+  the door. She knows the way. Inside: a properly lit house — chandelier over
+  the landing, sconces, windows onto the night — with oak tables to jump,
+  shelves to climb, and candle checkpoints. Jumping the first table wakes the
+  **dog**, and it chases her the rest of the way: it bites, it hops the
+  furniture, it will not die. The walls hold ants, cockroaches, rats, and
+  ceiling spiders. A slow waltz plays, cozy with something wrong underneath.
+  Corner the boy at his bedroom door to end it — this time there's nowhere
+  left to run.
 - **Assist mode:** press **Esc** — the pause screen is also the assist menu
   (↑/↓ pick, ←/→ set): invincibility, game speed (100/80/60%), infinite
   hearts, reduced flash (no screen shake or hit-strobe), and skip-minigames
