@@ -163,9 +163,11 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => state === 'mini' && mini && mini.kind === 'toss'),
         'Up at a door enters the doll toss world');
 
-  // toss all three rag dolls
+  // toss all three rag dolls: lock the meter, then confirm (golf style)
   for (let i = 0; i < 3; i++) {
-    await tap('z');
+    await tap('z');                      // lock power
+    check(await ev(() => mini.aimPhase === 'locked'), 'Z locks the power meter (throw ' + (i + 1) + ')');
+    await tap('z');                      // confirm throw
     await frames(130);
   }
   await page.waitForFunction(() => mini === null || mini.over, null, { timeout: 10000 });

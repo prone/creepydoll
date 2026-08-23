@@ -56,8 +56,9 @@ jump launches her about twice as high.
 - **Carnival doors:** three glowing doorways stand along the road, a few screens
   apart. Press **↑** in front of one to step into a minigame world (each door
   works once):
-  - **Doll Toss** — time the power meter (Z) and land a little rag doll in the
-    moving bucket. Up to +900.
+  - **Doll Toss** — golf-style throw: Z locks the slow power meter (a dotted
+    arc previews the flight), then Z confirms the toss — or X re-aims while
+    the bucket keeps moving. Up to +900.
   - **Dart & Balloon** — aim with ↑/↓, throw darts with Z. Pop three of four
     balloons to win. When a balloon pops... it wasn't air in there.
   - **Coffin Shuffle** — watch which coffin hides the heart, follow it through

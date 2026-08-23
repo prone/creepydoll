@@ -1513,7 +1513,8 @@ function startMini(door) {
            msg2: '', msg2T: 0, doneT: 0, held: {}, parts: [] };
   musicStep = 0;                       // the carnival waltz starts at the top
   if (door.kind === 'toss')
-    Object.assign(mini, { throws: 3, hits: 0, proj: null, bucketX: 190, bucketDir: 1 });
+    Object.assign(mini, { throws: 3, hits: 0, proj: null, bucketX: 190, bucketDir: 1,
+                          aimPhase: 'sweep', p: 0, lockedP: 0 });
   if (door.kind === 'balloon')
     Object.assign(mini, {
       darts: 5, pops: 0, dart: null, aimY: 90, drips: [], splats: [],
@@ -1571,11 +1572,24 @@ function updateMini() {
 function updateToss() {
   mini.bucketX += mini.bucketDir * 1.0;
   if (mini.bucketX < 150 || mini.bucketX > 284) mini.bucketDir *= -1;
-  const p = (Math.sin(mini.t / 11) + 1) / 2;
-  if (!mini.proj && mini.throws > 0 && mEdge('z', kPunch())) {
-    mini.throws--;
-    mini.proj = { x: 42, y: 114, vx: 1.4 + p * 2.4, vy: -2.0 - p * 1.7 };
-    sfx(280, 0.1, 'square', 0.05, 140);
+  // golf-style two-step: lock the slow meter first, then confirm the throw
+  const aiming = !mini.proj && mini.throws > 0;
+  if (aiming && mini.aimPhase === 'sweep') {
+    mini.p = (Math.sin(mini.t / 28) + 1) / 2;
+    if (mEdge('z', kPunch())) {
+      mini.aimPhase = 'locked'; mini.lockedP = mini.p;
+      sfx(520, 0.06, 'square', 0.05);
+    }
+  } else if (aiming && mini.aimPhase === 'locked') {
+    if (mEdge('z', kPunch())) {
+      mini.throws--;
+      mini.aimPhase = 'sweep';
+      mini.proj = { x: 42, y: 114, vx: 1.4 + mini.lockedP * 2.4, vy: -2.0 - mini.lockedP * 1.7 };
+      sfx(280, 0.1, 'square', 0.05, 140);
+    } else if (mEdge('x', kKick())) {
+      mini.aimPhase = 'sweep';
+      sfx(200, 0.06, 'square', 0.04, -60);
+    }
   }
   if (mini.proj) {
     const pr = mini.proj;
@@ -1606,11 +1620,26 @@ function drawToss() {
   miniBackdrop('DOLL TOSS');
   // the doll herself, mid-carnival
   ctx.drawImage(DOLL[creepStage()].idle, 22, 130);
-  // power meter
-  const p = (Math.sin(mini.t / 11) + 1) / 2;
+  // power meter — frozen and flashing once locked
+  const locked = mini.aimPhase === 'locked';
+  const p = locked ? mini.lockedP : mini.p;
   ctx.fillStyle = '#241c30'; ctx.fillRect(8, 58, 8, 86);
-  ctx.fillStyle = p > 0.75 ? '#d04040' : '#e8c66a';
+  ctx.fillStyle = locked ? ((frame >> 3) % 2 ? '#f0f0d0' : '#e8c66a')
+                         : p > 0.75 ? '#d04040' : '#e8c66a';
   ctx.fillRect(9, 59 + (1 - p) * 84, 6, p * 84);
+  if (locked) {
+    ctx.fillStyle = '#f0f0d0';
+    ctx.fillRect(6, 58 + (1 - p) * 84, 12, 1);           // lock tick
+    // dotted trajectory preview for the locked power
+    let px = 44, py = 112, vx = 1.4 + p * 2.4, vy = -2.0 - p * 1.7;
+    for (let i = 0; i < 60 && py < 146; i++) {
+      px += vx; py += vy; vy += 0.09;
+      if (i % 4 === 0) {
+        ctx.fillStyle = 'rgba(232,216,240,0.5)';
+        ctx.fillRect(Math.round(px), Math.round(py), 1, 1);
+      }
+    }
+  }
   // bucket
   const bx = Math.round(mini.bucketX);
   ctx.fillStyle = '#5a5f6e'; ctx.fillRect(bx + 2, 130, 14, 14);
@@ -1627,7 +1656,8 @@ function drawToss() {
     ctx.fillStyle = '#efe2cf'; ctx.fillRect(10 + i * 8, 46, 3, 3);
     ctx.fillStyle = '#5b7ea3'; ctx.fillRect(9 + i * 8, 49, 5, 4);
   }
-  pixelText('Z TO TOSS', 124, 160, '#9a8fb0');
+  pixelText(mini.aimPhase === 'locked' ? 'Z THROW    X RE-AIM' : 'Z LOCK POWER',
+            mini.aimPhase === 'locked' ? 102 : 122, 160, '#9a8fb0');
   pixelText('HITS ' + mini.hits, 272, 46, '#e8c66a');
 }
 
