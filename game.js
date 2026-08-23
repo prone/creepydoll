@@ -366,6 +366,9 @@ let map = [];
 const enemies = [];
 let houseX = 0;
 
+// a lone heart floating over the second ravine — heals one heart, once
+const heartPickup = { x: 0, y: 0, taken: false, t: 0 };
+
 function genLevel() {
   map = [];
   enemies.length = 0;
@@ -428,6 +431,24 @@ function genLevel() {
   }
   for (const e of enemies)
     if (e.kind === 'spider' && e.x === 912 && e.anchorY === 96) e.anchorY = 112;
+
+  // hang the healing heart over the second ravine
+  heartPickup.taken = false; heartPickup.t = 0;
+  let gapCount = 0, inGap = false;
+  for (let cc = 0; cc < MAP_W; cc++) {
+    if (map[9][cc] === 0) {
+      if (!inGap) {
+        inGap = true; gapCount++;
+        if (gapCount === 2) {
+          let end = cc;
+          while (end < MAP_W && map[9][end] === 0) end++;
+          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
+          heartPickup.y = 6 * TILE - 4;
+          break;
+        }
+      }
+    } else inGap = false;
+  }
 
   houseX = (MAP_W - 6) * TILE;
 
@@ -567,6 +588,7 @@ const sndKick  = () => sfx(140, 0.1, 'square', 0.07, -70);
 const sndHitE  = () => sfx(500, 0.12, 'sawtooth', 0.06, -350);
 const sndHurt  = () => sfx(200, 0.3, 'sawtooth', 0.08, -150);
 const sndStage = () => { sfx(880, 0.6, 'sine', 0.05, -500); sfx(87, 0.8, 'sine', 0.07); };
+const sndHeal  = () => { sfx(659, 0.1, 'triangle', 0.07); setTimeout(() => sfx(988, 0.2, 'triangle', 0.06), 90); };
 const sndWin   = () => { sfx(523, 0.15, 'square', 0.06); setTimeout(() => sfx(659, 0.15, 'square', 0.06), 150); setTimeout(() => sfx(784, 0.3, 'square', 0.06), 300); };
 
 /* ---------------- input ---------------- */
@@ -861,6 +883,19 @@ function updateEnemies() {
     if (enemies[i].dead > 25) enemies.splice(i, 1);
 }
 
+function updateHeartPickup() {
+  if (heartPickup.taken) return;
+  heartPickup.t++;
+  const hy = heartPickup.y + Math.sin(heartPickup.t / 25) * 3;
+  const box = { x: heartPickup.x - 1, y: hy - 1, w: 9, h: 10 };
+  if (player.hp < 5 && rectsOverlap(box, player)) {
+    heartPickup.taken = true;       // it only gives itself to the wounded
+    player.hp++;
+    sndHeal();
+    burst(heartPickup.x + 4, hy + 4, '#e8506a', 10);
+  }
+}
+
 function updateParticles() {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
@@ -1007,6 +1042,16 @@ function drawPlayer() {
   ctx.restore();
 }
 
+function drawHeartPickup() {
+  if (heartPickup.taken) return;
+  const x = Math.round(heartPickup.x - camX);
+  if (x < -12 || x > VIEW_W + 12) return;
+  const y = Math.round(heartPickup.y + Math.sin(heartPickup.t / 25) * 3);
+  ctx.fillStyle = 'rgba(232,80,106,0.12)';          // soft glow
+  ctx.fillRect(x - 2, y - 2, 11, 12);
+  drawHeart(x, y, (heartPickup.t >> 4) % 2 ? '#e8506a' : '#c9304a');
+}
+
 function drawKid() {
   const dx = Math.round(kid.x - camX - 2);
   if (dx < -20 || dx > VIEW_W + 20) return;
@@ -1073,15 +1118,17 @@ function drawParticles() {
   }
 }
 
+function drawHeart(x, y, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, 3, 3); ctx.fillRect(x + 4, y, 3, 3);
+  ctx.fillRect(x, y + 2, 7, 3); ctx.fillRect(x + 1, y + 5, 5, 1);
+  ctx.fillRect(x + 2, y + 6, 3, 1); ctx.fillRect(x + 3, y + 7, 1, 1);
+}
+
 function drawHUD() {
   // hearts
-  for (let i = 0; i < 5; i++) {
-    const hx = 6 + i * 12;
-    ctx.fillStyle = i < player.hp ? '#c9304a' : '#3a2530';
-    ctx.fillRect(hx, 6, 3, 3); ctx.fillRect(hx + 4, 6, 3, 3);
-    ctx.fillRect(hx, 8, 7, 3); ctx.fillRect(hx + 1, 11, 5, 1);
-    ctx.fillRect(hx + 2, 12, 3, 1); ctx.fillRect(hx + 3, 13, 1, 1);
-  }
+  for (let i = 0; i < 5; i++)
+    drawHeart(6 + i * 12, 6, i < player.hp ? '#c9304a' : '#3a2530');
   pixelText('SCORE ' + score, VIEW_W - 6 - (7 + String(score).length) * 6, 6, '#cfc3e8');
   const st = creepStage();
   pixelText('CREEP', 6, VIEW_H - 12, '#9a8fb0');
@@ -1173,6 +1220,7 @@ function tick() {
     updatePlayer();
     if (state === 'play') updateKid();
     updateEnemies();
+    updateHeartPickup();
     updateParticles();
     camX = Math.max(0, Math.min(LEVEL_W - VIEW_W, player.x - 130));
   }
@@ -1181,6 +1229,7 @@ function tick() {
   drawBackground(st);
   drawTiles();
   drawHouse();
+  drawHeartPickup();
   drawKid();
   drawEnemies();
   drawPlayer();
