@@ -447,6 +447,28 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => enemies.every(e => e.kind !== 'valkyrie' || e.dead || e.vy < 0)),
         'valkyries withdraw when she dismounts');
 
+  /* ---------- atmosphere ---------- */
+  section('atmosphere');
+  check(await ev(() => AMBIENTS.length >= 4 &&
+        AMBIENTS.some(a => a.minStage >= 2)),
+        'the night has ambient voices, one reserved for the far-gone');
+  await ev(() => { ambientCd = 1; });
+  await frames(4);
+  check(await ev(() => ambientCd > 100), 'the ambient scheduler reschedules itself');
+  await ev(() => { particles.length = 0; player.maxX = LEVEL_W; });
+  await frames(40);
+  check(await ev(() => particles.some(p => p.float)),
+        'ash sifts down once the decay is deep');
+  const glimpseLine = await page.evaluate(async () => {
+    player.x = 1000; player.y = 100; player.vy = 0; player.maxX = 1000;
+    kid.stage = 'roam'; kid.mode = 'hidden'; kid.hideT = 1;
+    kid.x = -1000; kid.glimpses = 1;
+    for (let i = 0; i < 8; i++) await new Promise(r => requestAnimationFrame(r));
+    return { line: flashText && flashText.msg, n: kid.glimpses };
+  });
+  check(glimpseLine.line === 'wait. come see her.' && glimpseLine.n === 2,
+        'each glimpse of the kid gets its own line');
+
   /* ---------- the chase & the win ---------- */
   section('the win');
   await ev(() => { dragon.ridden = false; player.invuln = 999999; });

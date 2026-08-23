@@ -397,9 +397,18 @@ const kid = {
   onGround: false, face: -1,
   stage: 'roam',   // roam (glimpses ahead, untouchable) | final (the real chase)
   mode: 'hidden',  // roam: hidden | peek | sprint   final: idle | flee | cornered
-  hideT: 0, glimpseT: 0, seen: false,
+  hideT: 0, glimpseT: 0, seen: false, glimpses: 0,
   animT: 0, alarmT: 0,
 };
+
+// what passes through her head, one glimpse at a time
+const GLIMPSE_LINES = [
+  '...a friend?',
+  'wait. come see her.',
+  'why do they always run?',
+  'she just wants to play.',
+  'almost. almost.',
+];
 
 /* ---------------- level ---------------- */
 // map[r][c]: 0 empty, 1 ground, 2 platform
@@ -607,7 +616,7 @@ function genLevel() {
   kid.x = -1000; kid.y = 0;
   kid.vx = 0; kid.vy = 0;
   kid.stage = 'roam'; kid.mode = 'hidden'; kid.hideT = 240;
-  kid.glimpseT = 0; kid.seen = false;
+  kid.glimpseT = 0; kid.seen = false; kid.glimpses = 0;
   kid.face = -1; kid.animT = 0; kid.alarmT = 0;
 }
 
@@ -792,6 +801,28 @@ const sndHurt  = () => sfx(200, 0.3, 'sawtooth', 0.08, -150);
 const sndStage = () => { sfx(880, 0.6, 'sine', 0.05, -500); sfx(87, 0.8, 'sine', 0.07); };
 const sndHeal  = () => { sfx(659, 0.1, 'triangle', 0.07); setTimeout(() => sfx(988, 0.2, 'triangle', 0.06), 90); };
 const sndWin   = () => { sfx(523, 0.15, 'square', 0.06); setTimeout(() => sfx(659, 0.15, 'square', 0.06), 150); setTimeout(() => sfx(784, 0.3, 'square', 0.06), 300); };
+
+// ambient one-shots — the night making small noises around her
+const AMBIENTS = [
+  { minStage: 0, name: 'crow', play: () => {                 // a crow objects
+      sfx(640, 0.09, 'sawtooth', 0.028, -260);
+      setTimeout(() => sfx(600, 0.08, 'sawtooth', 0.024, -240), 140);
+      setTimeout(() => sfx(560, 0.11, 'sawtooth', 0.02, -260), 300); } },
+  { minStage: 0, name: 'wind', play: () => {                 // wind through dead trees
+      sfx(110, 1.8, 'triangle', 0.022, 70);
+      setTimeout(() => sfx(150, 1.4, 'triangle', 0.016, -50), 500); } },
+  { minStage: 0, name: 'owl', play: () => {                  // something asks who
+      sfx(392, 0.18, 'triangle', 0.03);
+      setTimeout(() => sfx(330, 0.3, 'triangle', 0.028, -20), 230); } },
+  { minStage: 2, name: 'laugh', play: () => {                // far off, a child laughs. probably a child.
+      [880, 830, 780, 700].forEach((f, i) =>
+        setTimeout(() => sfx(f, 0.07, 'square', 0.018, -60), i * 95)); } },
+];
+let ambientCd = 600;
+function playAmbient(stage) {
+  const pool = AMBIENTS.filter(a => stage >= a.minStage);
+  pool[Math.floor(Math.random() * pool.length)].play();
+}
 
 /* ---------------- input ---------------- */
 const keys = {};
@@ -1149,7 +1180,10 @@ function updateKid() {
         kid.x = c * TILE + 3; kid.y = 9 * TILE - kid.h - 1;
         kid.vx = 0; kid.vy = 0;
         kid.mode = 'peek'; kid.glimpseT = 0;
-        if (!kid.seen) { kid.seen = true; flashText = { msg: '...a friend?', t: 120 }; }
+        if (kid.glimpses < GLIMPSE_LINES.length)
+          flashText = { msg: GLIMPSE_LINES[kid.glimpses], t: 120 };
+        kid.glimpses++;
+        kid.seen = true;
       }
     } else if (kid.mode === 'peek') {
       kid.glimpseT++;
@@ -1374,7 +1408,9 @@ function updateEyePickups() {
 function updateParticles() {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.t--;
+    p.x += p.vx; p.y += p.vy;
+    if (!p.float) p.vy += 0.15;          // ash motes drift, debris falls
+    p.t--;
     if (p.t <= 0) particles.splice(i, 1);
   }
 }
@@ -1426,9 +1462,36 @@ function drawBackground(st) {
     ctx.fillRect(tx + 3, 128 - h + 12, 7, 2);
     ctx.fillRect(tx - 8, 128 - h + 18, 8, 2);
   }
+  // circling specks by the moon once she's far gone
+  if (st >= 2) {
+    ctx.fillStyle = '#241628';
+    for (let i = 0; i < 3; i++) {
+      const bx = ((frame * 0.4 + i * 117) % (VIEW_W + 60)) - 30;
+      const by = 18 + Math.sin(frame / 26 + i * 2.1) * 8 + i * 7;
+      ctx.fillRect(bx, by, 2, 1);
+      if ((frame >> 3 + i) % 2) { ctx.fillRect(bx - 1, by - 1, 1, 1); ctx.fillRect(bx + 2, by - 1, 1, 1); }
+    }
+  }
+
   // fog band
   ctx.fillStyle = 'rgba(60,50,90,0.25)';
   ctx.fillRect(0, 118, VIEW_W, 14);
+
+  // nearer parallax: a crooked fence line, pickets and the odd gravestone
+  for (let i = 0; i < 14; i++) {
+    const fx = ((i * 96 + 22 - camX * 0.55) % (VIEW_W + 96) + VIEW_W + 96) % (VIEW_W + 96) - 48;
+    const grave = i % 4 === 1;
+    ctx.fillStyle = '#191330';
+    if (grave) {
+      ctx.fillRect(fx, 132, 6, 12);
+      ctx.fillRect(fx + 1, 130, 4, 2);
+    } else {
+      const lean = (i * 7) % 3 - 1;
+      ctx.fillRect(fx, 131 + (i % 2), 2, 13);
+      ctx.fillRect(fx + 5 + lean, 132, 2, 12);
+      ctx.fillRect(fx - 2, 134, 11, 2);
+    }
+  }
 }
 
 function drawTiles() {
@@ -2422,6 +2485,18 @@ function tick() {
 
   if (state === 'play' && !paused) {
     playTime++;
+    // the night murmurs now and then
+    if (AC && --ambientCd <= 0) {
+      ambientCd = 480 + Math.random() * 600;
+      playAmbient(creepStage());
+    }
+    // once the decay starts, ash sifts out of the sky — redder as she goes
+    const ast = creepStage();
+    if (ast >= 1 && frame % 9 === 0)
+      particles.push({ x: camX + Math.random() * VIEW_W, y: -4,
+                       vx: (Math.random() - 0.5) * 0.3, vy: 0.25 + Math.random() * 0.2,
+                       t: 400, float: true,
+                       color: ['', '#4a4238', '#5a3a34', '#6a2a26'][ast] });
     updatePlayer();
     if (state === 'play') {
       updateDragon();
