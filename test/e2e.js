@@ -73,6 +73,33 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await tap('c');
   check(await ev(() => !player.crouch && player.h === 18), 'C again stands her up');
 
+  /* ---------- forgiving controls ---------- */
+  section('forgiving controls');
+  const apexOf = hold => page.evaluate(async hold => {
+    player.x = 100; player.y = 126; player.vy = 0; player.vx = 0;
+    for (let i = 0; i < 20; i++) await new Promise(r => requestAnimationFrame(r));
+    const y0 = player.y;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+    let apex = y0;
+    for (let i = 0; i < 160; i++) {
+      if (i === (hold ? 70 : 2))
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }));
+      await new Promise(r => requestAnimationFrame(r));
+      apex = Math.min(apex, player.y);
+      if (i > 8 && player.onGround) break;
+    }
+    return y0 - apex;
+  }, hold);
+  const tapH = await apexOf(false);
+  const holdH = await apexOf(true);
+  check(holdH > 45, 'held jump reaches full height (' + Math.round(holdH) + 'px)');
+  check(tapH < holdH * 0.55, 'tapped jump is a short hop (' + Math.round(tapH) + 'px)');
+  await ev(() => { player.x = 100; player.y = 112; player.vy = 3; player.vx = 0; });
+  await page.keyboard.down('Space'); await frames(2); await page.keyboard.up('Space');
+  await frames(10);
+  check(await ev(() => player.vy < 0 || player.y < 124), 'jump pressed just before landing still fires (buffered)');
+  await frames(60);
+
   /* ---------- combat ---------- */
   section('combat');
   await ev(() => { player.invuln = 999999; });

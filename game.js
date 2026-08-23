@@ -563,6 +563,7 @@ function makeSnake(x, segEnd) {
 const player = {
   x: 40, y: 100, w: 10, h: 18, vx: 0, vy: 0,
   face: 1, onGround: false, hp: 5, invuln: 0, crouch: false, chargeT: 0,
+  coyoteT: 99, jumpBufT: 0, pJump: false,
   attack: null,        // {type:'punch'|'kick', t, id}
   attackId: 0,
   animT: 0, maxX: 0,
@@ -738,6 +739,7 @@ function resetGame() {
   player.x = 40; player.y = 100; player.vx = 0; player.vy = 0;
   player.hp = 5; player.invuln = 0; player.attack = null;
   player.crouch = false; player.h = 18; player.chargeT = 0;
+  player.coyoteT = 99; player.jumpBufT = 0; player.pJump = false;
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
   particles.length = 0;
@@ -889,18 +891,30 @@ function updatePlayer() {
       burst(player.x + 5, player.y + 14, '#e8d8f0', 1);
   } else if (!kDown()) player.chargeT = 0;
 
+  // forgiving controls: read intent, not frame-perfect input
+  if (kJump() && !jumpHeld) player.jumpBufT = 6;       // buffer the press
+  jumpHeld = kJump();
+
   // jump (half-speed launch; gravity scaled to keep the same height)
-  if (kJump() && !jumpHeld && player.onGround) {
+  // fires while grounded OR within the coyote window just after a ledge
+  if (player.jumpBufT > 0 &&
+      (player.onGround || (player.coyoteT <= 6 && player.vy >= 0))) {
+    player.jumpBufT = 0;
+    player.coyoteT = 99;
     if (player.chargeT >= CHARGE_FRAMES) {
       player.vy = -4.9;                                // power jump — ~2x height
+      player.pJump = true;
       player.chargeT = 0;
       sfx(180, 0.4, 'square', 0.08, 420);
       burst(player.x + 5, player.y + 16, '#e8d8f0', 10);
     } else {
-      player.vy = -3.45; sndJump();
+      player.vy = -3.45; player.pJump = false; sndJump();
     }
-  }
-  jumpHeld = kJump();
+  } else if (player.jumpBufT > 0) player.jumpBufT--;
+
+  // variable height: releasing jump early shortens a normal jump
+  // (a charged power jump always flies its full arc)
+  if (!kJump() && player.vy < -1.2 && !player.pJump) player.vy = -1.2;
 
   // attacks
   if (!player.attack) {
@@ -921,6 +935,10 @@ function updatePlayer() {
 
   player.vy = Math.min(player.vy + 0.095, 3.5);
   moveAndCollide(player);
+
+  // coyote clock: frames since her feet last touched ground
+  if (player.onGround) { player.coyoteT = 0; player.pJump = false; }
+  else if (player.coyoteT < 99) player.coyoteT++;
 
   // fell into a pit — the dark keeps her. One fall, no coming back.
   if (player.y > MAP_H * TILE + 30) {
