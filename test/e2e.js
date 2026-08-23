@@ -175,6 +175,39 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         meanVx.toFixed(2) + ')');
   await ev(() => { particles.length = 0; });
 
+  /* ---------- juice: squash & stretch ---------- */
+  section('squash & stretch');
+  const landing = await page.evaluate(async () => {
+    player.x = 100; player.y = 60; player.vy = 0; player.vx = 0;
+    particles.length = 0;
+    let sq = 0;
+    for (let i = 0; i < 120; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      sq = Math.max(sq, player.squashT);
+      if (i > 4 && player.onGround) break;
+    }
+    for (let i = 0; i < 4; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      sq = Math.max(sq, player.squashT);
+    }
+    return { sq, dust: particles.length };
+  });
+  check(landing.sq > 0, 'landing squashes her (' + landing.sq + 'f)');
+  check(landing.dust >= 6, 'landing kicks up dust (' + landing.dust + ' motes)');
+  const stretch = await page.evaluate(async () => {
+    for (let i = 0; i < 20; i++) await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+    let st = 0;
+    for (let i = 0; i < 12; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      st = Math.max(st, player.stretchT);
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }));
+    return st;
+  });
+  check(stretch > 0, 'jumping stretches her (' + stretch + 'f)');
+  await frames(90);
+
   /* ---------- heart pickup ---------- */
   section('heart pickup');
   await ev(() => { player.hp = 5; player.x = heartPickup.x - 2; player.y = 90; player.vy = 0; });

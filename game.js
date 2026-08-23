@@ -564,6 +564,7 @@ const player = {
   x: 40, y: 100, w: 10, h: 18, vx: 0, vy: 0,
   face: 1, onGround: false, hp: 5, invuln: 0, crouch: false, chargeT: 0,
   coyoteT: 99, jumpBufT: 0, pJump: false,
+  stretchT: 0, squashT: 0,
   attack: null,        // {type:'punch'|'kick', t, id}
   attackId: 0,
   animT: 0, maxX: 0,
@@ -765,6 +766,7 @@ function resetGame() {
   player.hp = 5; player.invuln = 0; player.attack = null;
   player.crouch = false; player.h = 18; player.chargeT = 0;
   player.coyoteT = 99; player.jumpBufT = 0; player.pJump = false;
+  player.stretchT = 0; player.squashT = 0;
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
   shakeT = 0; shakeMag = 0;
@@ -929,6 +931,7 @@ function updatePlayer() {
       (player.onGround || (player.coyoteT <= 6 && player.vy >= 0))) {
     player.jumpBufT = 0;
     player.coyoteT = 99;
+    player.stretchT = 8; player.squashT = 0;   // spring up off the ground
     if (player.chargeT >= CHARGE_FRAMES) {
       player.vy = -4.9;                                // power jump — ~2x height
       player.pJump = true;
@@ -963,7 +966,18 @@ function updatePlayer() {
   }
 
   player.vy = Math.min(player.vy + 0.095, 3.5);
+  const fallV = player.vy;
   moveAndCollide(player);
+
+  // touchdown from a real fall: squash, dust, a soft thud
+  if (player.onGround && player.coyoteT >= 4 && fallV > 2) {
+    player.squashT = fallV > 3 ? 10 : 7;
+    const fx = player.x + player.w / 2, fy = player.y + player.h - 1;
+    burst(fx - 3, fy, '#6a5f80', 3, -1.4, 1.0);
+    burst(fx + 3, fy, '#6a5f80', 3, 1.4, 1.0);
+    sfx(80, 0.07, 'triangle', 0.05, -30);
+    if (fallV > 3) addShake(1.5, 6);
+  }
 
   // coyote clock: frames since her feet last touched ground
   if (player.onGround) { player.coyoteT = 0; player.pJump = false; }
@@ -985,6 +999,8 @@ function updatePlayer() {
 // shared tail of the player update (on foot or riding the dragon)
 function afterMove(prevStage) {
   if (player.invuln > 0) player.invuln--;
+  if (player.stretchT > 0) player.stretchT--;
+  if (player.squashT > 0) player.squashT--;
   player.maxX = Math.max(player.maxX, player.x);
   player.animT += Math.abs(player.vx) > 0.3 ? 1 : 0;
 
@@ -1350,11 +1366,27 @@ function drawPlayer() {
   const dx = Math.round(player.x - camX - 2) + tremble;
   const dy = Math.round(player.y - (player.crouch ? 4 : charging ? 0 : 2)) +
              (player.twitch > 3 ? 1 : 0);
+  // squash & stretch, anchored at her feet
+  let sqX = 1, sqY = 1;
+  if (!dragon.ridden) {
+    if (player.squashT > 0) {
+      const k = player.squashT / 10;
+      sqX = 1 + 0.28 * k; sqY = 1 - 0.28 * k;
+    } else if (player.stretchT > 0) {
+      const k = player.stretchT / 8;
+      sqX = 1 - 0.18 * k; sqY = 1 + 0.18 * k;
+    }
+  }
   ctx.save();
   if (player.face < 0) {
     ctx.translate(dx + 14, dy); ctx.scale(-1, 1);
   } else {
     ctx.translate(dx, dy);
+  }
+  if (sqX !== 1 || sqY !== 1) {
+    ctx.translate(7, img.height);
+    ctx.scale(sqX, sqY);
+    ctx.translate(-7, -img.height);
   }
   ctx.drawImage(img, 0, 0);
   // extended limb during attacks
