@@ -378,6 +378,17 @@ let houseX = 0;
 // a lone heart floating over the second ravine — heals one heart, once
 const heartPickup = { x: 0, y: 0, taken: false, t: 0 };
 
+// carnival doorways into minigame worlds (press Up to enter, once each)
+const doors = [];
+const DOOR_KINDS = ['toss', 'balloon', 'coffin'];
+
+// the eyeless dragon — purple like a bruise, appears after a minute
+const dragon = { spawned: false, active: false, ridden: false,
+                 x: 0, y: 0, w: 30, h: 13, vx: 0, vy: 0, face: 1, t: 0,
+                 gustCd: 0, ballCd: 0 };
+const fireballs = [];
+let playTime = 0;
+
 function genLevel() {
   map = [];
   enemies.length = 0;
@@ -466,6 +477,17 @@ function genLevel() {
       }
     } else inGap = false;
   }
+
+  // carnival doors every few screens, set on solid open ground
+  doors.length = 0;
+  [36, 100, 160].forEach((target, i) => {
+    let c = target;
+    while (c < MAP_W - 20 &&
+           !(map[9][c] === 1 && map[9][c + 1] === 1 && !map[8][c] && !map[8][c + 1]))
+      c++;
+    doors.push({ x: c * TILE + 1, y: 9 * TILE - 22, w: 14, h: 22,
+                 kind: DOOR_KINDS[i % DOOR_KINDS.length], used: false });
+  });
 
   houseX = (MAP_W - 6) * TILE;
 
@@ -635,7 +657,8 @@ let score = 0;
 let camX = 0;
 let frame = 0;
 let flashText = null;   // {msg, t}
-let jumpHeld = false, punchHeld = false, kickHeld = false, crouchHeld = false;
+let jumpHeld = false, punchHeld = false, kickHeld = false, crouchHeld = false,
+    upHeld = false;
 
 const STAGE_MSGS = [
   null,
@@ -656,10 +679,19 @@ function resetGame() {
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
   particles.length = 0;
+  fireballs.length = 0;
+  playTime = 0;
+  mini = null;
+  dragon.spawned = dragon.active = dragon.ridden = false;
+  dragon.vx = dragon.vy = 0; dragon.t = 0;
 }
 
 function handleMenuKeys(key) {
   if (key !== 'Enter') return;
+  if (state === 'mini') {
+    if (mini && mini.over) endMini();
+    return;
+  }
   if (state === 'title' || state === 'gameover' || state === 'win') {
     resetGame();
     state = 'play';
@@ -729,6 +761,20 @@ function attackHitbox() {
 
 function updatePlayer() {
   const prevStage = creepStage();
+
+  if (dragon.ridden) {
+    updateRiding();
+    afterMove(prevStage);
+    return;
+  }
+
+  // step through a carnival doorway with Up
+  if ((keys['arrowup'] || keys['w']) && !upHeld && player.onGround) {
+    const d = doors.find(d => !d.used &&
+      player.x + player.w > d.x && player.x < d.x + d.w);
+    if (d) { upHeld = true; startMini(d); return; }
+  }
+  upHeld = keys['arrowup'] || keys['w'];
 
   // crouch toggles on C (stand up only with headroom)
   if (kCrouch() && !crouchHeld) {
@@ -807,6 +853,11 @@ function updatePlayer() {
     return;
   }
 
+  afterMove(prevStage);
+}
+
+// shared tail of the player update (on foot or riding the dragon)
+function afterMove(prevStage) {
   if (player.invuln > 0) player.invuln--;
   player.maxX = Math.max(player.maxX, player.x);
   player.animT += Math.abs(player.vx) > 0.3 ? 1 : 0;
@@ -821,7 +872,6 @@ function updatePlayer() {
   // she twitches when she's far gone
   if (st >= 2 && Math.random() < 0.006 * st) player.twitch = 6;
   if (player.twitch > 0) player.twitch--;
-
 }
 
 function updateKid() {
@@ -867,6 +917,18 @@ function updateKid() {
     score += 1000;
     sndWin();
     burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
+  }
+}
+
+function killEnemy(e) {
+  e.dead = 1;
+  score += e.kind === 'snake' ? 200 : 100;
+  sfx(90, 0.25, 'triangle', 0.07, -40);
+  // a bat's life feeds hers — one heart back, if she's hurt
+  if (e.kind === 'bat' && player.hp < 5) {
+    player.hp++;
+    sndHeal();
+    burst(player.x + 5, player.y + 6, '#e8506a', 8);
   }
 }
 
@@ -937,19 +999,8 @@ function updateEnemies() {
       e.hp -= hb.dmg;
       sndHitE();
       burst(e.x + e.w / 2, e.y + e.h / 2, '#ff3040', 6);
-      if (e.hp <= 0) {
-        e.dead = 1;
-        score += e.kind === 'snake' ? 200 : 100;
-        sfx(90, 0.25, 'triangle', 0.07, -40);
-        // a bat's life feeds hers — one heart back, if she's hurt
-        if (e.kind === 'bat' && player.hp < 5) {
-          player.hp++;
-          sndHeal();
-          burst(player.x + 5, player.y + 6, '#e8506a', 8);
-        }
-      } else {
-        e.x += player.face * 6;
-      }
+      if (e.hp <= 0) killEnemy(e);
+      else e.x += player.face * 6;
     }
 
     // touching the doll
@@ -1093,7 +1144,8 @@ function drawPlayer() {
   const set = DOLL[st];
   const charging = player.chargeT > 0 && player.onGround;
   let img;
-  if (player.crouch) img = set.crouch[Math.abs(player.vx) > 0.3 ? (player.animT >> 5) % 2 : 0];
+  if (dragon.ridden) img = set.jump;                    // legs tucked, riding
+  else if (player.crouch) img = set.crouch[Math.abs(player.vx) > 0.3 ? (player.animT >> 5) % 2 : 0];
   else if (charging) img = set.crouch[0];               // coiled for the power jump
   else if (!player.onGround) img = set.jump;
   else if (Math.abs(player.vx) > 0.3) img = set.walk[(player.animT >> 4) % 2];
@@ -1247,6 +1299,510 @@ function bigText(msg, x, y, color, size) {
   ctx.fillText(msg, Math.round(x), Math.round(y));
 }
 
+/* ---------------- the eyeless dragon ---------------- */
+function updateDragon() {
+  if (!dragon.spawned && playTime > 3600) {          // one minute in
+    dragon.spawned = dragon.active = true;
+    dragon.x = Math.max(0, player.x - 160);
+    dragon.y = 50;
+    flashText = { msg: 'wings in the dark...', t: 150 };
+    sfx(55, 1.2, 'sine', 0.09, 40);
+  }
+  if (!dragon.active) return;
+  dragon.t++;
+  if (dragon.gustCd > 0) dragon.gustCd--;
+  if (dragon.ballCd > 0) dragon.ballCd--;
+
+  if (!dragon.ridden) {
+    // she is followed. patiently.
+    const tx = player.x - 46, ty = Math.max(36, player.y - 44);
+    dragon.x += (tx - dragon.x) * 0.03;
+    dragon.y += (ty - dragon.y) * 0.03 + Math.sin(dragon.t / 22) * 0.4;
+    dragon.face = player.x > dragon.x + 12 ? 1 : -1;
+    // the doll lands on its back -> she rides
+    if (player.vy > 0 && !player.onGround &&
+        player.x + player.w > dragon.x + 4 && player.x < dragon.x + dragon.w - 4 &&
+        player.y + player.h > dragon.y - 5 && player.y + player.h < dragon.y + 9) {
+      dragon.ridden = true;
+      dragon.vx = 0; dragon.vy = 0;
+      flashText = { msg: 'she rides.', t: 100 };
+      sfx(320, 0.35, 'triangle', 0.08, 260);
+    }
+  }
+}
+
+function updateRiding() {
+  const spd = 1.7;
+  if (kLeft())       { dragon.vx = -spd; dragon.face = -1; }
+  else if (kRight()) { dragon.vx = spd;  dragon.face = 1; }
+  else dragon.vx *= 0.9;
+  if (keys['arrowup'] || keys['w']) dragon.vy = -1.5;
+  else if (kDown())                 dragon.vy = 1.5;
+  else                              dragon.vy = Math.sin(frame / 18) * 0.3;
+  moveAndCollide(dragon);
+  dragon.y = Math.max(6, Math.min(dragon.y, 132));
+  dragon.x = Math.max(2, Math.min(dragon.x, LEVEL_W - dragon.w - 2));
+
+  player.face = dragon.face;
+  player.x = dragon.x + (dragon.w - player.w) / 2;
+  player.y = dragon.y - 13;
+  player.vx = dragon.vx; player.vy = 0;
+  player.onGround = false; player.crouch = false; player.h = 18;
+  player.chargeT = 0; player.attack = null;
+
+  // punch: a small gust of flame
+  if (kPunch() && !punchHeld && dragon.gustCd <= 0) {
+    dragon.gustCd = 14;
+    sfx(150, 0.14, 'sawtooth', 0.06, 220);
+    const gx = dragon.face > 0 ? dragon.x + dragon.w : dragon.x - 22;
+    const gust = { x: gx, y: dragon.y - 4, w: 22, h: 16 };
+    for (let i = 0; i < 7; i++)
+      particles.push({ x: gx + (dragon.face > 0 ? 2 : 20), y: dragon.y + 2 + (Math.random() - 0.5) * 8,
+                       vx: dragon.face * (1.5 + Math.random() * 1.5), vy: (Math.random() - 0.5),
+                       t: 12 + Math.random() * 8, color: Math.random() < 0.5 ? '#ffa030' : '#ffce6a' });
+    for (const e of enemies)
+      if (!e.dead && rectsOverlap(gust, e)) { e.hp--; if (e.hp <= 0) killEnemy(e); }
+  }
+  // kick: a flame ball
+  if (kKick() && !kickHeld && dragon.ballCd <= 0) {
+    dragon.ballCd = 26;
+    sfx(240, 0.2, 'square', 0.07, -140);
+    fireballs.push({ x: dragon.face > 0 ? dragon.x + dragon.w : dragon.x - 5,
+                     y: dragon.y + 1, vx: dragon.face * 3.2, t: 0 });
+  }
+  punchHeld = kPunch(); kickHeld = kKick(); jumpHeld = kJump();
+
+  // hop off with C
+  if (kCrouch() && !crouchHeld) { dragon.ridden = false; player.vy = -1.5; }
+  crouchHeld = kCrouch();
+}
+
+function updateFireballs() {
+  for (let i = fireballs.length - 1; i >= 0; i--) {
+    const f = fireballs[i];
+    f.x += f.vx; f.t++;
+    if (f.t % 3 === 0)
+      particles.push({ x: f.x + 2, y: f.y + 2, vx: -f.vx * 0.1,
+                       vy: (Math.random() - 0.5) * 0.6, t: 9, color: '#ffce6a' });
+    let gone = f.t > 100 || solidAt(f.x + 2, f.y + 2);
+    for (const e of enemies) {
+      if (!e.dead && rectsOverlap({ x: f.x, y: f.y, w: 5, h: 5 }, e)) {
+        e.hp -= 2;
+        if (e.hp <= 0) killEnemy(e); else e.x += Math.sign(f.vx) * 6;
+        gone = true; break;
+      }
+    }
+    if (gone) { burst(f.x + 2, f.y + 2, '#ff8030', 6); fireballs.splice(i, 1); }
+  }
+}
+
+function drawDragon() {
+  if (!dragon.active) return;
+  const x = Math.round(dragon.x - camX), y = Math.round(dragon.y);
+  if (x < -50 || x > VIEW_W + 50) return;
+  const flapUp = (dragon.t >> 3) % 2 === 0;
+  ctx.save();
+  if (dragon.face < 0) { ctx.translate(x + dragon.w, y); ctx.scale(-1, 1); }
+  else ctx.translate(x, y);
+  const P = '#6b3f94', D = '#54307a', B = '#b795d6', W = '#8a5cb8';
+  // tail
+  ctx.fillStyle = D;
+  ctx.fillRect(-4, 5, 5, 2); ctx.fillRect(-7, 3, 4, 2);
+  // body
+  ctx.fillStyle = P; ctx.fillRect(1, 2, 20, 9);
+  ctx.fillStyle = B; ctx.fillRect(3, 8, 16, 3);
+  // neck + head — a smooth face with no eyes at all
+  ctx.fillStyle = P; ctx.fillRect(19, 0, 5, 6);
+  ctx.fillRect(22, -2, 8, 7);
+  ctx.fillStyle = D; ctx.fillRect(29, 1, 1, 1); // nostril only
+  ctx.fillStyle = B; ctx.fillRect(23, -4, 1, 2); ctx.fillRect(26, -4, 1, 2); // horns
+  // wing
+  ctx.fillStyle = W;
+  if (flapUp) { ctx.fillRect(6, -7, 10, 4); ctx.fillRect(8, -3, 8, 3); }
+  else        { ctx.fillRect(6, 6, 10, 4);  ctx.fillRect(8, 3, 8, 3); }
+  // dangling legs
+  ctx.fillStyle = D; ctx.fillRect(6, 11, 2, 3); ctx.fillRect(14, 11, 2, 3);
+  ctx.restore();
+  // mounting hint
+  if (!dragon.ridden && Math.abs(player.x - dragon.x - 10) < 60 && (frame >> 5) % 2)
+    pixelText('JUMP ON', x - 2, y - 16, '#cbb8e8');
+}
+
+function drawFireballs() {
+  for (const f of fireballs) {
+    const x = Math.round(f.x - camX), y = Math.round(f.y);
+    ctx.fillStyle = (f.t >> 1) % 2 ? '#ff8030' : '#ffce6a';
+    ctx.fillRect(x, y, 5, 5);
+    ctx.fillStyle = '#fff0c0';
+    ctx.fillRect(x + 1, y + 1, 3, 3);
+  }
+}
+
+/* ---------------- carnival doors & minigame worlds ---------------- */
+let mini = null;
+
+function drawDoors() {
+  for (const d of doors) {
+    const x = Math.round(d.x - camX);
+    if (x < -22 || x > VIEW_W + 22) continue;
+    const pulse = (Math.sin(frame / 15) + 1) / 2;
+    ctx.fillStyle = d.used ? '#2a2136' : '#4b3a5c';
+    ctx.fillRect(x - 2, d.y - 2, 18, 24);
+    ctx.fillStyle = d.used ? '#161020' : (frame >> 4) % 2 ? '#2a1a40' : '#33204d';
+    ctx.fillRect(x, d.y, 14, 22);
+    if (d.used) continue;
+    ctx.fillStyle = 'rgba(160,110,220,' + (0.2 + pulse * 0.3) + ')';
+    ctx.fillRect(x + 2, d.y + 2, 10, 20);
+    for (let i = 0; i < 7; i++) {                       // marquee bulbs
+      ctx.fillStyle = (i + (frame >> 3)) % 3 ? '#5a4a70' : '#e8c66a';
+      ctx.fillRect(x - 2 + i * 3, d.y - 5, 2, 2);
+    }
+    ctx.fillStyle = d.kind === 'toss' ? '#e8a050' :
+                    d.kind === 'balloon' ? '#e05060' : '#b0a8c0';
+    ctx.fillRect(x + 5, d.y + 8, 4, 4);                 // sigil
+    if (state === 'play' && player.onGround &&
+        player.x + player.w > d.x && player.x < d.x + d.w && (frame >> 5) % 2)
+      pixelText('UP', x + 2, d.y - 15, '#e8d8f0');
+  }
+}
+
+function startMini(door) {
+  door.used = true;
+  state = 'mini';
+  jumpHeld = true;
+  mini = { kind: door.kind, t: 0, over: false, won: false, msg: '',
+           msg2: '', msg2T: 0, doneT: 0, held: {}, parts: [] };
+  if (door.kind === 'toss')
+    Object.assign(mini, { throws: 3, hits: 0, proj: null, bucketX: 190, bucketDir: 1 });
+  if (door.kind === 'balloon')
+    Object.assign(mini, {
+      darts: 5, pops: 0, dart: null, aimY: 90, drips: [], splats: [],
+      balloons: [{ x: 205, y0: 56, ph: 0, c: '#e8c66a', alive: true },
+                 { x: 248, y0: 88, ph: 2, c: '#7ec9e8', alive: true },
+                 { x: 288, y0: 52, ph: 4, c: '#c98fe8', alive: true },
+                 { x: 232, y0: 120, ph: 1, c: '#9fe88f', alive: true }] });
+  if (door.kind === 'coffin') {
+    const swaps = [];
+    for (let i = 0; i < 8; i++) {
+      const a = Math.floor(Math.random() * 3);
+      swaps.push([a, (a + 1 + Math.floor(Math.random() * 2)) % 3]);
+    }
+    Object.assign(mini, { phase: 'show', heartCoffin: Math.floor(Math.random() * 3),
+                          slots: [0, 1, 2], swaps, swapI: 0, swapP: 0,
+                          sel: 1, reveal: 0, pickOk: false });
+  }
+  sfx(520, 0.35, 'sine', 0.07, -400);
+}
+
+function endMini() {
+  mini = null;
+  state = 'play';
+  jumpHeld = punchHeld = kickHeld = true;
+  sfx(200, 0.3, 'sine', 0.07, 320);
+}
+
+function mEdge(name, cur) {
+  const was = mini.held[name];
+  mini.held[name] = cur;
+  return cur && !was;
+}
+function mpBurst(x, y, color, n) {
+  for (let i = 0; i < n; i++)
+    mini.parts.push({ x, y, vx: (Math.random() - 0.5) * 3, vy: -Math.random() * 2.2,
+                      t: 18 + Math.random() * 14, color });
+}
+
+function updateMini() {
+  mini.t++;
+  for (let i = mini.parts.length - 1; i >= 0; i--) {
+    const q = mini.parts[i];
+    q.x += q.vx; q.y += q.vy; q.vy += 0.12;
+    if (--q.t <= 0) mini.parts.splice(i, 1);
+  }
+  if (mini.msg2T > 0) mini.msg2T--;
+  if (mini.over) return;
+  if (mini.kind === 'toss') updateToss();
+  else if (mini.kind === 'balloon') updateBalloon();
+  else updateCoffin();
+}
+
+/* --- doll toss: land the little rag doll in the moving bucket --- */
+function updateToss() {
+  mini.bucketX += mini.bucketDir * 1.0;
+  if (mini.bucketX < 150 || mini.bucketX > 284) mini.bucketDir *= -1;
+  const p = (Math.sin(mini.t / 11) + 1) / 2;
+  if (!mini.proj && mini.throws > 0 && mEdge('z', kPunch())) {
+    mini.throws--;
+    mini.proj = { x: 42, y: 114, vx: 1.4 + p * 2.4, vy: -2.0 - p * 1.7 };
+    sfx(280, 0.1, 'square', 0.05, 140);
+  }
+  if (mini.proj) {
+    const pr = mini.proj;
+    pr.x += pr.vx; pr.y += pr.vy; pr.vy += 0.09;
+    if (pr.vy > 0 && pr.y > 126 && pr.y < 140 &&
+        pr.x > mini.bucketX + 2 && pr.x < mini.bucketX + 16) {
+      mini.hits++; mini.proj = null;
+      sfx(540, 0.18, 'triangle', 0.08); sfx(800, 0.25, 'triangle', 0.05);
+      mpBurst(mini.bucketX + 9, 128, '#e8c66a', 10);
+    } else if (pr.y > 147) {
+      mini.proj = null;
+      sfx(90, 0.1, 'square', 0.04, -30);
+      mpBurst(pr.x, 147, '#6a5f80', 5);
+    } else if (pr.x > 330) mini.proj = null;
+  }
+  if (!mini.proj && mini.throws === 0) {
+    if (!mini.doneT) mini.doneT = mini.t;
+    else if (mini.t - mini.doneT > 45) {
+      mini.over = true; mini.won = mini.hits > 0;
+      const bonus = mini.hits * 300;
+      score += bonus;
+      mini.msg = mini.hits + '/3 IN THE BUCKET   +' + bonus;
+    }
+  }
+}
+
+function drawToss() {
+  miniBackdrop('DOLL TOSS');
+  // the doll herself, mid-carnival
+  ctx.drawImage(DOLL[creepStage()].idle, 22, 130);
+  // power meter
+  const p = (Math.sin(mini.t / 11) + 1) / 2;
+  ctx.fillStyle = '#241c30'; ctx.fillRect(8, 58, 8, 86);
+  ctx.fillStyle = p > 0.75 ? '#d04040' : '#e8c66a';
+  ctx.fillRect(9, 59 + (1 - p) * 84, 6, p * 84);
+  // bucket
+  const bx = Math.round(mini.bucketX);
+  ctx.fillStyle = '#5a5f6e'; ctx.fillRect(bx + 2, 130, 14, 14);
+  ctx.fillStyle = '#7a8094'; ctx.fillRect(bx, 128, 18, 3);
+  ctx.fillStyle = '#33363e'; ctx.fillRect(bx + 4, 133, 10, 9);
+  // rag doll projectile
+  if (mini.proj) {
+    const pr = mini.proj;
+    ctx.fillStyle = '#efe2cf'; ctx.fillRect(Math.round(pr.x), Math.round(pr.y) - 4, 3, 3);
+    ctx.fillStyle = '#5b7ea3'; ctx.fillRect(Math.round(pr.x) - 1, Math.round(pr.y) - 1, 5, 4);
+  }
+  // throws left
+  for (let i = 0; i < mini.throws; i++) {
+    ctx.fillStyle = '#efe2cf'; ctx.fillRect(10 + i * 8, 46, 3, 3);
+    ctx.fillStyle = '#5b7ea3'; ctx.fillRect(9 + i * 8, 49, 5, 4);
+  }
+  pixelText('Z TO TOSS', 124, 160, '#9a8fb0');
+  pixelText('HITS ' + mini.hits, 272, 46, '#e8c66a');
+}
+
+/* --- balloon darts: pop them. find out what was inside. --- */
+function bY(b) { return b.y0 + Math.sin((mini.t + b.ph * 20) / 30) * 6; }
+
+function updateBalloon() {
+  if (keys['arrowup'] || keys['w']) mini.aimY -= 1.3;
+  if (kDown()) mini.aimY += 1.3;
+  mini.aimY = Math.max(44, Math.min(140, mini.aimY));
+  if (!mini.dart && mini.darts > 0 && mEdge('z', kPunch())) {
+    mini.darts--;
+    mini.dart = { x: 34, y: mini.aimY };
+    sfx(440, 0.07, 'square', 0.05, -140);
+  }
+  if (mini.dart) {
+    mini.dart.x += 3.4;
+    for (const b of mini.balloons) {
+      if (!b.alive) continue;
+      const by = bY(b);
+      if (Math.abs(mini.dart.x + 8 - b.x) < 7 && Math.abs(mini.dart.y - by) < 9) {
+        b.alive = false; mini.pops++; mini.dart = null;
+        sfx(680, 0.05, 'square', 0.08, -300);
+        sfx(65, 0.5, 'sine', 0.08);                    // something wet
+        mpBurst(b.x, by, '#c01828', 14);
+        mini.splats.push({ x: b.x, y: by });
+        for (let i = 0; i < 3; i++)
+          mini.drips.push({ x: b.x - 3 + i * 3, y: by + 2, len: 0,
+                            max: 26 + Math.random() * 48, spd: 0.12 + Math.random() * 0.2 });
+        if (mini.pops === 1) { mini.msg2 = 'IT WAS... BLOOD.'; mini.msg2T = 140; }
+        break;
+      }
+    }
+    if (mini.dart && mini.dart.x > 330) mini.dart = null;
+  }
+  for (const dr of mini.drips) dr.len = Math.min(dr.max, dr.len + dr.spd);
+  if (!mini.dart && mini.darts === 0) {
+    if (!mini.doneT) mini.doneT = mini.t;
+    else if (mini.t - mini.doneT > 55) {
+      mini.over = true; mini.won = mini.pops >= 3;
+      const bonus = mini.pops * 100 + (mini.won ? 200 : 0);
+      score += bonus;
+      mini.msg = mini.pops + ' POPPED   +' + bonus;
+    }
+  }
+}
+
+function drawBalloon() {
+  miniBackdrop('DART & BALLOON');
+  // balloons on strings
+  for (const b of mini.balloons) {
+    if (!b.alive) continue;
+    const by = Math.round(bY(b));
+    ctx.strokeStyle = '#6a5f80';
+    ctx.beginPath(); ctx.moveTo(b.x + 0.5, by + 7);
+    ctx.lineTo(b.x + 0.5 + Math.sin(mini.t / 25 + b.ph) * 2, by + 22); ctx.stroke();
+    ctx.fillStyle = b.c;
+    ctx.fillRect(b.x - 4, by - 6, 9, 11);
+    ctx.fillRect(b.x - 5, by - 4, 11, 7);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillRect(b.x - 3, by - 4, 2, 3);
+    ctx.fillStyle = b.c; ctx.fillRect(b.x, by + 5, 1, 2);   // knot
+  }
+  // blood: splats stay, drips crawl down the stall wall
+  for (const s of mini.splats) {
+    ctx.fillStyle = '#8c1220';
+    ctx.fillRect(s.x - 3, s.y - 2, 7, 4);
+    ctx.fillRect(s.x - 5, s.y, 3, 2); ctx.fillRect(s.x + 3, s.y - 4, 2, 3);
+  }
+  ctx.fillStyle = '#8c1220';
+  for (const dr of mini.drips)
+    ctx.fillRect(dr.x, Math.round(dr.y), 1, Math.round(dr.len));
+  // the doll aims
+  ctx.drawImage(DOLL[creepStage()].idle, 6, Math.round(mini.aimY) - 16);
+  if (!mini.dart) {
+    ctx.fillStyle = '#c9cede'; ctx.fillRect(24, Math.round(mini.aimY), 6, 2);
+    ctx.fillStyle = '#d04040'; ctx.fillRect(22, Math.round(mini.aimY) - 1, 2, 4);
+  }
+  if (mini.dart) {
+    const d = mini.dart;
+    ctx.fillStyle = '#c9cede'; ctx.fillRect(Math.round(d.x), Math.round(d.y), 7, 2);
+    ctx.fillStyle = '#e8e8f4'; ctx.fillRect(Math.round(d.x) + 7, Math.round(d.y), 2, 2);
+    ctx.fillStyle = '#d04040'; ctx.fillRect(Math.round(d.x) - 2, Math.round(d.y) - 1, 2, 4);
+  }
+  for (let i = 0; i < mini.darts; i++) {
+    ctx.fillStyle = '#c9cede'; ctx.fillRect(10 + i * 7, 46, 5, 2);
+  }
+  pixelText('UP DOWN AIM   Z THROWS', 92, 160, '#9a8fb0');
+  pixelText('POPS ' + mini.pops, 272, 46, '#e05060');
+}
+
+/* --- coffin shuffle: follow the heart --- */
+const SLOT_X = [76, 146, 216];
+
+function updateCoffin() {
+  if (mini.phase === 'show') {
+    if (mini.t > 85) { mini.phase = 'shuffle'; sfx(180, 0.1, 'square', 0.05); }
+  } else if (mini.phase === 'shuffle') {
+    mini.swapP++;
+    if (mini.swapP >= 16) {
+      const [sa, sb] = mini.swaps[mini.swapI];
+      for (let c = 0; c < 3; c++) {
+        if (mini.slots[c] === sa) mini.slots[c] = sb;
+        else if (mini.slots[c] === sb) mini.slots[c] = sa;
+      }
+      mini.swapI++; mini.swapP = 0;
+      sfx(130 + mini.swapI * 14, 0.05, 'square', 0.04);
+      if (mini.swapI >= mini.swaps.length) mini.phase = 'pick';
+    }
+  } else if (mini.phase === 'pick') {
+    if (mEdge('l', kLeft()) && mini.sel > 0) mini.sel--;
+    if (mEdge('r', kRight()) && mini.sel < 2) mini.sel++;
+    if (mEdge('z', kPunch())) {
+      mini.phase = 'reveal';
+      mini.pickOk = mini.slots[mini.heartCoffin] === mini.sel;
+      if (mini.pickOk) {
+        score += 200;
+        if (player.hp < 5) { player.hp++; sndHeal(); }
+        sfx(660, 0.3, 'triangle', 0.07);
+      } else sfx(140, 0.4, 'sawtooth', 0.06, -70);
+    }
+  } else if (mini.phase === 'reveal') {
+    mini.reveal++;
+    if (mini.reveal > 120) {
+      mini.over = true; mini.won = mini.pickOk;
+      mini.msg = mini.pickOk ? 'SHE FEELS A LITTLE BETTER   +200' : 'WRONG BOX.';
+    }
+  }
+}
+
+function coffinX(c) {
+  let sx = SLOT_X[mini.slots[c]];
+  if (mini.phase === 'shuffle' && mini.swapI < mini.swaps.length) {
+    const [sa, sb] = mini.swaps[mini.swapI];
+    const pgs = mini.swapP / 16;
+    if (mini.slots[c] === sa) sx = SLOT_X[sa] + (SLOT_X[sb] - SLOT_X[sa]) * pgs;
+    if (mini.slots[c] === sb) sx = SLOT_X[sb] + (SLOT_X[sa] - SLOT_X[sb]) * pgs;
+  }
+  return Math.round(sx);
+}
+
+function drawCoffinBox(x, y) {
+  ctx.fillStyle = '#3a2a20';
+  ctx.fillRect(x + 4, y, 18, 7); ctx.fillRect(x, y + 7, 26, 15); ctx.fillRect(x + 3, y + 22, 20, 9);
+  ctx.fillStyle = '#54402e';
+  ctx.fillRect(x + 4, y, 18, 2); ctx.fillRect(x, y + 7, 2, 15);
+  ctx.fillStyle = '#8a7a5c';
+  ctx.fillRect(x + 12, y + 8, 2, 9); ctx.fillRect(x + 9, y + 11, 8, 2);
+}
+
+function drawCoffin() {
+  miniBackdrop('COFFIN SHUFFLE');
+  for (let c = 0; c < 3; c++) {
+    const x = coffinX(c) - 13;
+    let y = 118;
+    const isHeart = c === mini.heartCoffin;
+    if (mini.phase === 'show' && isHeart) y -= 16;
+    if (mini.phase === 'reveal') {
+      const lift = Math.min(20, mini.reveal);
+      if (mini.slots[c] === mini.sel) y -= lift;
+      if (!mini.pickOk && isHeart && mini.reveal > 60) y -= Math.min(16, mini.reveal - 60);
+    }
+    if (mini.phase === 'show' && isHeart)
+      drawHeart(coffinX(c) - 3, 136, '#c9304a');
+    if (mini.phase === 'reveal' && mini.slots[c] === mini.sel) {
+      if (mini.pickOk) drawHeart(coffinX(c) - 3, 136, '#c9304a');
+      else ctx.drawImage(SPIDER_FRAMES[(mini.reveal >> 3) % 2],
+                         coffinX(c) - 6 + Math.min(60, Math.max(0, mini.reveal - 25) * 1.6), 136);
+    }
+    if (!mini.pickOk && mini.phase === 'reveal' && isHeart && mini.reveal > 60)
+      drawHeart(coffinX(c) - 3, 136, '#c9304a');
+    drawCoffinBox(x, y);
+  }
+  if (mini.phase === 'show') pixelText('WATCH THE HEART', 116, 60, '#e8d8f0');
+  if (mini.phase === 'pick') {
+    pixelText('PICK: LEFT RIGHT  Z OPENS', 84, 60, '#9a8fb0');
+    const ax = SLOT_X[mini.sel];
+    ctx.fillStyle = '#e8c66a';
+    ctx.fillRect(ax - 1, 104, 3, 5); ctx.fillRect(ax - 3, 102, 7, 3);
+  }
+}
+
+function miniBackdrop(title) {
+  ctx.fillStyle = '#150d1d'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  for (let i = 0; i < 20; i++) {                       // carnival awning
+    ctx.fillStyle = i % 2 ? '#5a2333' : '#331522';
+    ctx.fillRect(i * 16, 0, 16, 16);
+    ctx.fillRect(i * 16 + 4, 16, 8, 4);
+  }
+  for (let i = 0; i < 16; i++) {                       // string lights
+    ctx.fillStyle = (i + (frame >> 4)) % 4 ? '#3a2f4a' : '#e8c66a';
+    ctx.fillRect(10 + i * 20, 27 + (i % 2) * 3, 2, 2);
+  }
+  ctx.fillStyle = '#241a2a'; ctx.fillRect(0, 150, VIEW_W, 26);
+  ctx.fillStyle = '#302338'; ctx.fillRect(0, 150, VIEW_W, 2);
+  pixelText(title, (VIEW_W - title.length * 6) / 2 + 8, 34, '#e8d8f0');
+}
+
+function drawMini() {
+  if (mini.kind === 'toss') drawToss();
+  else if (mini.kind === 'balloon') drawBalloon();
+  else drawCoffin();
+  for (const q of mini.parts) {
+    ctx.fillStyle = q.color;
+    ctx.fillRect(Math.round(q.x), Math.round(q.y), 2, 2);
+  }
+  if (mini.msg2T > 0 && (mini.msg2T >> 3) % 3)
+    pixelText(mini.msg2, (VIEW_W - mini.msg2.length * 6) / 2 + 6, 74, '#e04050');
+  if (mini.over) {
+    ctx.fillStyle = 'rgba(8,4,12,0.65)'; ctx.fillRect(0, 62, VIEW_W, 56);
+    pixelText(mini.msg, (VIEW_W - mini.msg.length * 6) / 2 + 4, 78,
+              mini.won ? '#e8c66a' : '#9a8fb0');
+    if ((frame >> 5) % 2) pixelText('PRESS ENTER', 128, 98, '#cfc3e8');
+  }
+}
+
 /* ---------------- screens ---------------- */
 let titleT = 0;
 function drawTitle() {
@@ -1303,10 +1859,22 @@ function tick() {
     return;
   }
 
+  if (state === 'mini') {
+    updateMini();
+    drawMini();
+    requestAnimationFrame(tick);
+    return;
+  }
+
   if (state === 'play') {
+    playTime++;
     updatePlayer();
-    if (state === 'play') updateKid();
+    if (state === 'play') {
+      updateDragon();
+      updateKid();
+    }
     updateEnemies();
+    updateFireballs();
     updateHeartPickup();
     updateParticles();
     camX = Math.max(0, Math.min(LEVEL_W - VIEW_W, player.x - 130));
@@ -1315,11 +1883,14 @@ function tick() {
   const st = creepStage();
   drawBackground(st);
   drawTiles();
+  drawDoors();
   drawHouse();
   drawHeartPickup();
   drawKid();
   drawEnemies();
+  drawDragon();
   drawPlayer();
+  drawFireballs();
   drawParticles();
   drawHUD();
 
