@@ -42,7 +42,8 @@ swooping bats, and slows her walk to a wary shuffle.
   Defeating a bat gives one heart back if she's hurt. A spider's silk thread can be
   struck instead of the spider — three hits snap the web, the spider dies with it,
   and it's worth 200 points.
-- **Hearts:** you have five. Enemy contact or falling into a pit costs one.
+- **Hearts:** you have five. Enemy contact costs one. Falling into a pit ends the
+  run outright — the dark keeps her.
 - **Creep meter:** advancing through the level raises her creepiness through four
   stages. Each stage cracks the porcelain a little more, stains the dress, reddens
   the moon — and sours the lullaby.

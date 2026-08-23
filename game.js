@@ -505,7 +505,7 @@ const player = {
   face: 1, onGround: false, hp: 5, invuln: 0, crouch: false,
   attack: null,        // {type:'punch'|'kick', t, id}
   attackId: 0,
-  animT: 0, maxX: 0, safeX: 40, safeY: 100,
+  animT: 0, maxX: 0,
   twitch: 0,
 };
 
@@ -652,7 +652,7 @@ function resetGame() {
   player.x = 40; player.y = 100; player.vx = 0; player.vy = 0;
   player.hp = 5; player.invuln = 0; player.attack = null;
   player.crouch = false; player.h = 18;
-  player.face = 1; player.maxX = 0; player.safeX = 40; player.safeY = 100;
+  player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
   particles.length = 0;
 }
@@ -777,15 +777,13 @@ function updatePlayer() {
   player.vy = Math.min(player.vy + 0.38, 7);
   moveAndCollide(player);
 
-  if (player.onGround) { player.safeX = player.x; player.safeY = player.y - 2; }
-
-  // fell into a pit
+  // fell into a pit — the dark keeps her. One fall, no coming back.
   if (player.y > MAP_H * TILE + 30) {
-    player.hp--;
+    player.hp = 0;
     sndHurt();
-    if (player.hp <= 0) { state = 'gameover'; return; }
-    player.x = player.safeX; player.y = player.safeY - 20;
-    player.vx = 0; player.vy = 0; player.invuln = 90;
+    state = 'gameover';
+    sfx(120, 1.2, 'sawtooth', 0.09, -90);
+    return;
   }
 
   if (player.invuln > 0) player.invuln--;
