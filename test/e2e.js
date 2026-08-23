@@ -544,11 +544,62 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => eyesFound === EYES_TOTAL), 'all five eyes accounted for');
   const preWin = await ev(() => score);
   await page.keyboard.down('ArrowRight');
+  await page.waitForFunction(() => state === 'interlude', null, { timeout: 30000 });
+  await page.keyboard.up('ArrowRight');
+  check(true, 'tagging the kid ends level 1 — but he slips away');
+  check((await ev(() => score)) >= preWin + 2000,
+        'finding every eye doubles the level-1 bonus');
+
+  /* ---------- level 2: the house ---------- */
+  section('level 2');
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => level === 2 && state === 'play' && player.x === 40),
+        'she follows him home — level 2 begins');
+  check((await ev(() => score)) >= preWin + 2000, 'the score follows her inside');
+  check(await ev(() => map[0].every(t => t === 1)), 'the house has a ceiling');
+  check(await ev(() => tables.length >= 3 && tables[0] <= 26 * TILE),
+        'tables to jump, the first just past the start');
+  check(await ev(() => doors.length === 0 && eyePickups.length === 0),
+        'no carnival doors and no eye hunt indoors');
+  check(await ev(() => checkpoints.length >= 4), 'candles mark the way');
+  await ev(() => { playTime = 4000; });
+  await frames(4);
+  check(await ev(() => !dragon.active), 'a minute passes; no wings in the house');
+  // the first table stops a walk and yields to a jump
+  await ev(() => { player.invuln = 999999;
+                   player.x = tables[0] - 40; player.y = 126; player.vy = 0; });
+  await page.keyboard.down('ArrowRight');
+  await frames(45);
+  check(await ev(() => player.x < tables[0] - 8), 'the table stops her on foot');
+  for (let i = 0; i < 3 && !(await ev(() => player.x > tables[0] + 50)); i++) {
+    await page.keyboard.down('Space');
+    await frames(20);
+    await page.keyboard.up('Space');
+    await frames(30);
+  }
+  await page.keyboard.up('ArrowRight');
+  check(await ev(() => player.x > tables[0] + 40), 'a jump carries her over it');
+  // death in the house retries the house
+  await ev(() => { player.invuln = 0; player.hp = 1; player.y = 400; player.vy = 3; });
+  await page.waitForFunction(() => state === 'gameover', null, { timeout: 5000 });
+  await page.keyboard.press('Enter');
+  await frames(4);
+  check(await ev(() => level === 2 && state === 'play'),
+        'game over retries the house, not the road');
+  // corner him in his room
+  await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
+                   player.vy = 0; player.maxX = houseX - 250; });
+  await frames(4);
+  check(await ev(() => kid.stage === 'final'), 'the boy waits at his bedroom door');
+  await page.keyboard.down('ArrowRight');
   await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
   await page.keyboard.up('ArrowRight');
-  check(true, 'tagging the kid wins the game');
-  check((await ev(() => score)) >= preWin + 2000,
-        'finding every eye doubles the win bonus');
+  check(true, 'cornering him in his room ends the game');
+  await page.keyboard.press('Enter');
+  await frames(4);
+  check(await ev(() => level === 1 && state === 'play' && score === 0),
+        'Enter after the true win starts the story over');
 
   /* ---------- wrap up ---------- */
   section('page health');

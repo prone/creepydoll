@@ -411,10 +411,12 @@ const GLIMPSE_LINES = [
 ];
 
 /* ---------------- level ---------------- */
-// map[r][c]: 0 empty, 1 ground, 2 platform
+// map[r][c]: 0 empty, 1 ground, 2 platform, 3 furniture (solid wood)
 let map = [];
 const enemies = [];
-let houseX = 0;
+let houseX = 0;         // level 1: the dollhouse. level 2: the boy's bedroom door.
+let level = 1;          // 1: the road outside. 2: inside the boy's house.
+const tables = [];      // level 2: world-x of each table she must jump
 
 // a lone heart floating over the second ravine — heals one heart, once
 const heartPickup = { x: 0, y: 0, taken: false, t: 0 };
@@ -440,8 +442,14 @@ const fireballs = [];
 let playTime = 0;
 
 function genLevel() {
+  if (level === 2) genHouse();
+  else genOutside();
+}
+
+function genOutside() {
   map = [];
   enemies.length = 0;
+  tables.length = 0;
   rngState = 0xC0FFEE;
   for (let r = 0; r < MAP_H; r++) map.push(new Array(MAP_W).fill(0));
 
@@ -613,11 +621,102 @@ function genLevel() {
   }
 
   // the healthy kid roams ahead — glimpsed, never caught, until the end
+  resetKid();
+}
+
+function resetKid() {
   kid.x = -1000; kid.y = 0;
   kid.vx = 0; kid.vy = 0;
   kid.stage = 'roam'; kid.mode = 'hidden'; kid.hideT = 240;
   kid.glimpseT = 0; kid.seen = false; kid.glimpses = 0;
   kid.face = -1; kid.animT = 0; kid.alarmT = 0;
+}
+
+/* ---------------- level 2: inside the boy's house ---------------- */
+function genHouse() {
+  map = [];
+  enemies.length = 0;
+  tables.length = 0;
+  rngState = 0xD0117;
+  for (let r = 0; r < MAP_H; r++) map.push(new Array(MAP_W).fill(0));
+
+  for (let c = 0; c < MAP_W; c++) map[0][c] = 1;      // the ceiling
+
+  // floorboards with narrow stairwell gaps
+  let c = 0;
+  while (c < MAP_W) {
+    let run = rint(16, 26);
+    if (c < 26) run = 30;                              // chandelier-lit landing
+    if (c + run > MAP_W - 14) run = MAP_W - c;
+    for (let i = 0; i < run && c + i < MAP_W; i++) {
+      map[9][c + i] = 1; map[10][c + i] = 1;
+    }
+    c += run;
+    if (c >= MAP_W - 14) break;
+    c += 2;                                            // a stairwell's width
+  }
+
+  // tables — solid wood, two tiles tall; she has to jump them.
+  // the first one stands just past the start. the dog is listening.
+  const tableCols = [20];
+  for (let tc = 48; tc < MAP_W - 40; tc += rint(26, 40)) tableCols.push(tc);
+  for (const t0 of tableCols) {
+    let tc = t0;
+    while (tc < MAP_W - 36 &&                          // the finale hall stays clear
+           !(map[9][tc] === 1 && map[9][tc + 1] === 1 && map[9][tc + 2] === 1))
+      tc++;
+    let clear = true;
+    for (let i = 0; i < 3; i++) if (map[8][tc + i] || map[7][tc + i]) clear = false;
+    if (!clear) continue;
+    for (let i = 0; i < 3; i++) { map[7][tc + i] = 3; map[8][tc + i] = 3; }
+    tables.push(tc * TILE);
+  }
+
+  // shelves to hop along
+  for (let i = 0; i < 20; i++) {
+    const pc = rint(26, MAP_W - 22), pr = rint(4, 6), len = rint(3, 5);
+    let ok = true;
+    for (let j = 0; j < len; j++)
+      if (map[pr][pc + j] || map[pr + 1][pc + j] || map[pr - 1][pc + j]) ok = false;
+    if (!ok) continue;
+    for (let j = 0; j < len; j++) map[pr][pc + j] = 2;
+  }
+
+  doors.length = 0;                                    // no carnival in here
+  eyePickups.length = 0;                               // her eyes were outside
+
+  // a heart over the second stairwell
+  heartPickup.taken = false; heartPickup.t = 0;
+  heartPickup.x = -100; heartPickup.y = -100;
+  let gapCount = 0, inGap = false;
+  for (let cc = 0; cc < MAP_W; cc++) {
+    if (map[9][cc] === 0) {
+      if (!inGap) {
+        inGap = true; gapCount++;
+        if (gapCount === 2) {
+          let end = cc;
+          while (end < MAP_W && map[9][end] === 0) end++;
+          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
+          heartPickup.y = 6 * TILE - 4;
+          break;
+        }
+      }
+    } else inGap = false;
+  }
+
+  // candles mark the way (same souls as the lanterns outside)
+  checkpoints.length = 0;
+  for (let target = 30; target < MAP_W - 22; target += 30) {
+    let cc = target;
+    while (cc < MAP_W - 18 &&
+           !(map[9][cc] === 1 && !map[8][cc] && !map[7][cc]))
+      cc++;
+    checkpoints.push({ x: cc * TILE + 4, reached: false });
+  }
+  lastCP.x = 40; lastCP.y = 100;
+
+  houseX = (MAP_W - 6) * TILE;                         // his bedroom door
+  resetKid();
 }
 
 function solidAt(px, py) {
@@ -850,7 +949,7 @@ const kCrouch = () => keys['c'];
 const kDown   = () => keys['arrowdown'] || keys['s'];
 
 /* ---------------- game state ---------------- */
-let state = 'title';    // title | play | mini | gameover | win
+let state = 'title';    // title | play | mini | interlude (between levels) | gameover | win
 let paused = false;     // Esc freezes play and mini worlds
 let score = 0;
 let camX = 0;
@@ -962,8 +1061,13 @@ function handleMenuKeys(key) {
     else if (mini && assist.skipMini) endMini();   // assist: walk out any time
     return;
   }
-  if (state === 'title' || state === 'gameover' || state === 'win') {
+  if (state === 'title' || state === 'gameover' || state === 'win' ||
+      state === 'interlude') {
+    const carry = state === 'interlude' ? score : 0;   // the score follows her in
+    if (state === 'interlude') level = 2;
+    else if (state !== 'gameover') level = 1;          // game over retries the level
     resetGame();
+    score = carry;
     state = 'play';
   }
 }
@@ -1305,9 +1409,13 @@ function updateKid() {
 
   // tag! the doll only wanted a friend
   if (rectsOverlap(kid, player)) {
-    state = 'win';
     score += 1000;
-    if (eyesFound >= EYES_TOTAL) score += 1000;   // she found every eye
+    if (level === 1) {
+      if (eyesFound >= EYES_TOTAL) score += 1000;  // she found every eye
+      state = 'interlude';                         // but he slips away, and runs home
+    } else {
+      state = 'win';                               // nowhere left to run
+    }
     sndWin();
     burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
   }
@@ -1548,6 +1656,7 @@ function drawBackground(st) {
 }
 
 function drawTiles() {
+  const indoor = level === 2;
   const c0 = Math.max(0, Math.floor(camX / TILE));
   const c1 = Math.min(MAP_W - 1, Math.ceil((camX + VIEW_W) / TILE));
   for (let r = 0; r < MAP_H; r++) {
@@ -1557,30 +1666,133 @@ function drawTiles() {
       const x = cc * TILE - camX, y = r * TILE;
       if (t === 1) {
         const top = r === 0 || !map[r - 1][cc];
-        ctx.fillStyle = '#3a3244';
+        ctx.fillStyle = indoor ? '#4a3626' : '#3a3244';
         ctx.fillRect(x, y, TILE, TILE);
-        if (top) {
-          ctx.fillStyle = '#4b3f5c';
+        if (top && r > 0) {
+          ctx.fillStyle = indoor ? '#6d5138' : '#4b3f5c';
           ctx.fillRect(x, y, TILE, 4);
-          ctx.fillStyle = '#5d4f72';
+          ctx.fillStyle = indoor ? '#7d5f42' : '#5d4f72';
           for (let i = 0; i < 4; i++)
             if (tileNoise(cc * 4 + i, r) > 0.4) ctx.fillRect(x + i * 4 + 1, y, 2, 2);
         }
-        // stones
-        if (tileNoise(cc, r) > 0.6) {
-          ctx.fillStyle = '#2e2738';
+        if (indoor && r === 0) {                       // crown molding
+          ctx.fillStyle = '#5a4632';
+          ctx.fillRect(x, y + TILE - 3, TILE, 3);
+        }
+        if (indoor && r >= 9 && (cc % 2 === 0)) {      // floorboard seams
+          ctx.fillStyle = '#3a2a1c';
+          ctx.fillRect(x, y + (r === 9 ? 5 : 0), 1, TILE - 5);
+        } else if (!indoor && tileNoise(cc, r) > 0.6) {
+          ctx.fillStyle = '#2e2738';                   // stones
           ctx.fillRect(x + 3 + (cc % 3) * 3, y + 7 + (r % 2) * 3, 4, 3);
         }
+      } else if (t === 3) {
+        // solid furniture — a good oak table
+        const top = !map[r - 1][cc] || map[r - 1][cc] !== 3;
+        if (top) {
+          ctx.fillStyle = '#7a5a35'; ctx.fillRect(x - 1, y, TILE + 2, 5);
+          ctx.fillStyle = '#8f6c42'; ctx.fillRect(x - 1, y, TILE + 2, 2);
+          ctx.fillStyle = '#5a3f24'; ctx.fillRect(x + 2, y + 5, 3, TILE - 5);
+          ctx.fillRect(x + TILE - 5, y + 5, 3, TILE - 5);
+        } else {
+          ctx.fillStyle = '#5a3f24';                   // legs continue down
+          ctx.fillRect(x + 2, y, 3, TILE);
+          ctx.fillRect(x + TILE - 5, y, 3, TILE);
+        }
       } else {
-        // wooden platform
+        // wooden platform / shelf
         ctx.fillStyle = '#4d3a2e';
         ctx.fillRect(x, y, TILE, 6);
         ctx.fillStyle = '#6b5240';
         ctx.fillRect(x, y, TILE, 2);
         ctx.fillStyle = '#33261e';
         ctx.fillRect(x + 7, y + 2, 1, 4);
+        if (indoor) {                                  // shelf bracket
+          ctx.fillStyle = '#3a2a1c';
+          ctx.fillRect(x + 6, y + 6, 3, 3);
+        }
       }
     }
+  }
+}
+
+/* ---------------- the house, properly lit ---------------- */
+function drawHouseBackground(st) {
+  // warm wallpaper in two stripes, dimming just a little as she decays
+  const dim = st * 0.045;
+  ctx.fillStyle = '#54423a'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  ctx.fillStyle = '#5c483e';
+  for (let i = 0; i < 12; i++) {
+    const wx = ((i * 34 - camX) % (VIEW_W + 34) + VIEW_W + 34) % (VIEW_W + 34) - 17;
+    ctx.fillRect(wx, 16, 17, 104);
+  }
+  // wainscot and baseboard
+  ctx.fillStyle = '#3e2c22'; ctx.fillRect(0, 120, VIEW_W, 24);
+  ctx.fillStyle = '#4a3628';
+  for (let i = 0; i < 12; i++) {
+    const wx = ((i * 34 + 6 - camX) % (VIEW_W + 34) + VIEW_W + 34) % (VIEW_W + 34) - 17;
+    ctx.fillRect(wx, 123, 24, 17);
+  }
+  ctx.fillStyle = '#2e2018'; ctx.fillRect(0, 140, VIEW_W, 4);
+
+  // windows onto the night she came from, and portraits between them
+  for (let wc = 34; wc < MAP_W; wc += 44) {
+    const wx = wc * TILE - camX;
+    if (wx > -40 && wx < VIEW_W + 40) {
+      ctx.fillStyle = '#2e2018'; ctx.fillRect(wx - 3, 30, 34, 44);
+      ctx.fillStyle = ['#1a1430', '#191028', '#170c20', '#160814'][st];
+      ctx.fillRect(wx, 33, 28, 38);
+      ctx.fillStyle = '#2e2018';
+      ctx.fillRect(wx + 13, 33, 2, 38); ctx.fillRect(wx, 50, 28, 2);
+      ctx.fillStyle = ['#e8e4d5', '#e3d9c2', '#d8b9a5', '#c96a5a'][st];
+      ctx.fillRect(wx + 19, 38, 5, 5);                 // the moon looks in
+    }
+    const px = (wc - 22) * TILE - camX;
+    if (px > -20 && px < VIEW_W + 20) {                // a family portrait
+      ctx.fillStyle = '#6d5138'; ctx.fillRect(px, 38, 18, 22);
+      ctx.fillStyle = '#d9c8b2'; ctx.fillRect(px + 2, 40, 14, 18);
+      ctx.fillStyle = '#8a7a5c';
+      ctx.fillRect(px + 6, 45, 6, 5); ctx.fillRect(px + 7, 50, 4, 5);
+      ctx.fillStyle = st >= 2 ? '#7a1f1f' : '#2a1c10'; // the eyes follow, later
+      ctx.fillRect(px + 7, 46, 1, 1); ctx.fillRect(px + 10, 46, 1, 1);
+    }
+  }
+
+  // wall sconces with steady little flames
+  for (let sc = 12; sc < MAP_W; sc += 22) {
+    const sx = sc * TILE - camX;
+    if (sx < -8 || sx > VIEW_W + 8) continue;
+    ctx.fillStyle = '#3e2c22'; ctx.fillRect(sx, 44, 4, 8);
+    ctx.fillStyle = (frame + sc) % 9 < 7 ? '#ffce6a' : '#e8a050';
+    ctx.fillRect(sx + 1, 40, 2, 4);
+    ctx.fillStyle = 'rgba(255,206,106,0.07)';
+    ctx.fillRect(sx - 8, 32, 20, 26);
+  }
+
+  // the chandelier over where she starts
+  const chx = 4 * TILE - camX;
+  if (chx > -60 && chx < VIEW_W + 60) {
+    const sway = Math.sin(frame / 55) * 2;
+    ctx.fillStyle = '#2e2018';
+    ctx.fillRect(chx + 15, 16, 2, 12);                  // chain
+    ctx.fillRect(chx + sway, 28, 32, 3);                // arms
+    ctx.fillRect(chx + sway + 14, 26, 4, 5);            // hub
+    for (let i = 0; i < 4; i++) {
+      const cx = chx + sway + 1 + i * 10;
+      ctx.fillStyle = '#e8e0c8'; ctx.fillRect(cx, 24, 3, 4);      // candles
+      ctx.fillStyle = (frame + i * 3) % 8 < 6 ? '#ffce6a' : '#ffa030';
+      ctx.fillRect(cx, 21, 3, 3);                                  // flames
+      ctx.fillStyle = '#b795d6'; ctx.fillRect(cx + 1, 31, 1, 3);   // crystal
+    }
+    ctx.fillStyle = 'rgba(255,206,106,0.10)';
+    ctx.fillRect(chx - 18 + sway, 20, 68, 110);          // its warm light
+    ctx.fillStyle = 'rgba(255,206,106,0.06)';
+    ctx.fillRect(chx - 34 + sway, 20, 100, 124);
+  }
+
+  if (dim > 0) {
+    ctx.fillStyle = 'rgba(20,4,12,' + dim + ')';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   }
 }
 
@@ -1588,6 +1800,19 @@ function drawCheckpoints() {
   for (const cp of checkpoints) {
     const x = Math.round(cp.x - camX);
     if (x < -12 || x > VIEW_W + 12) continue;
+    if (level === 2) {                            // a candle on the floor
+      const y = 9 * TILE - 12;
+      ctx.fillStyle = '#3e2c22'; ctx.fillRect(x, y + 9, 8, 3);     // saucer
+      ctx.fillStyle = '#e8e0c8'; ctx.fillRect(x + 2, y + 2, 4, 8); // wax
+      const lit = cp.reached && (frame >> 3) % 5 !== 4;
+      ctx.fillStyle = lit ? '#ffce6a' : '#1c1626';
+      ctx.fillRect(x + 3, y - 2, 2, 4);
+      if (cp.reached) {
+        ctx.fillStyle = 'rgba(255,206,106,0.10)';
+        ctx.fillRect(x - 4, y - 6, 16, 18);
+      }
+      continue;
+    }
     const y = 9 * TILE - 26;                      // lantern post
     ctx.fillStyle = '#3a3244';
     ctx.fillRect(x + 3, y + 8, 2, 16);
@@ -1605,6 +1830,7 @@ function drawCheckpoints() {
 }
 
 function drawHouse() {
+  if (level === 2) { drawBedroomDoor(); return; }
   const x = houseX - camX, y = 9 * TILE - 46;
   if (x < -60 || x > VIEW_W) return;
   // a dollhouse, lit from inside
@@ -1618,6 +1844,23 @@ function drawHouse() {
   ctx.fillRect(x + 32, y + 22, 8, 8);
   ctx.fillStyle = '#120c14'; ctx.fillRect(x + 20, y + 28, 9, 18);
   ctx.fillStyle = '#e8c66a'; ctx.fillRect(x + 26, y + 37, 2, 2); // doorknob
+}
+
+function drawBedroomDoor() {
+  const x = houseX - camX, y = 9 * TILE - 44;
+  if (x < -60 || x > VIEW_W) return;
+  ctx.fillStyle = '#2e2018'; ctx.fillRect(x - 3, y - 3, 26, 47);   // frame
+  ctx.fillStyle = '#5a3f24'; ctx.fillRect(x, y, 20, 44);           // the door
+  ctx.fillStyle = '#4a3620';
+  ctx.fillRect(x + 3, y + 4, 14, 16); ctx.fillRect(x + 3, y + 24, 14, 16);
+  ctx.fillStyle = '#e8c66a'; ctx.fillRect(x + 16, y + 22, 2, 2);   // knob
+  ctx.fillStyle = 'rgba(255,206,106,0.25)';                        // nightlight under
+  ctx.fillRect(x - 2, y + 42, 24, 2);
+  // crayon drawings taped up beside it — a boy, a dog, and a doll he lost
+  ctx.fillStyle = '#d9c8b2';
+  ctx.fillRect(x - 22, y + 6, 12, 14); ctx.fillRect(x - 38, y + 10, 12, 14);
+  ctx.fillStyle = '#3a5cc9'; ctx.fillRect(x - 19, y + 10, 6, 6);
+  ctx.fillStyle = '#8f6c42'; ctx.fillRect(x - 35, y + 15, 7, 5);
 }
 
 function drawPlayer() {
@@ -1804,9 +2047,11 @@ function drawHUD() {
   // hearts
   for (let i = 0; i < 5; i++)
     drawHeart(6 + i * 12, 6, i < player.hp ? '#c9304a' : '#3a2530');
-  // lost eyes found
-  drawButtonEye(6, 17, false);
-  pixelText(eyesFound + '/' + EYES_TOTAL, 16, 17, '#8a7a5c');
+  // lost eyes found (an outdoor hunt)
+  if (level === 1) {
+    drawButtonEye(6, 17, false);
+    pixelText(eyesFound + '/' + EYES_TOTAL, 16, 17, '#8a7a5c');
+  }
   pixelText('SCORE ' + score, VIEW_W - 6 - (7 + String(score).length) * 6, 6, '#cfc3e8');
   const st = creepStage();
   pixelText('CREEP', 6, VIEW_H - 12, '#9a8fb0');
@@ -1841,6 +2086,7 @@ function bigText(msg, x, y, color, size) {
 
 /* ---------------- the eyeless dragon ---------------- */
 function updateDragon() {
+  if (level === 2) return;                           // no wings indoors
   if (!dragon.spawned && playTime > 3600) {          // one minute in
     dragon.spawned = dragon.active = true;
     dragon.x = Math.max(0, player.x - 160);
@@ -2507,11 +2753,22 @@ function drawGameOver() {
   if ((frame >> 5) % 2) pixelText('press ENTER', 126, 112, '#9a8fb0');
 }
 
+function drawInterlude() {
+  ctx.fillStyle = 'rgba(4,2,10,0.68)';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  bigText('TAG. YOU\'RE IT.', 56, 42, '#e8c66a', 20);
+  pixelText('but he twists free, and runs home,', 70, 74, '#cfc3e8');
+  pixelText('and slams the door behind him.', 78, 86, '#cfc3e8');
+  pixelText('she knows the way. she follows.', 74, 102, '#e8d8f0');
+  pixelText('score ' + score, 136, 120, '#cfc3e8');
+  if ((frame >> 5) % 2) pixelText('press ENTER — into the house', 90, 140, '#9a8fb0');
+}
+
 function drawWin() {
   ctx.fillStyle = 'rgba(4,2,10,0.55)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   bigText('TAG. YOU\'RE IT.', 56, 56, '#e8c66a', 20);
-  pixelText('she only ever wanted a friend.', 76, 86, '#cfc3e8');
+  pixelText('nowhere left to run. friends forever.', 60, 86, '#cfc3e8');
   if (eyesFound >= EYES_TOTAL)
     pixelText('and with every eye found, she sees you clearly.', 22, 96, '#e8c66a');
   pixelText('score ' + score, 136, eyesFound >= EYES_TOTAL ? 110 : 102, '#cfc3e8');
@@ -2553,7 +2810,7 @@ function tick() {
     }
     // once the decay starts, ash sifts out of the sky — redder as she goes
     const ast = creepStage();
-    if (ast >= 1 && frame % 9 === 0)
+    if (level === 1 && ast >= 1 && frame % 9 === 0)
       particles.push({ x: camX + Math.random() * VIEW_W, y: -4,
                        vx: (Math.random() - 0.5) * 0.3, vy: 0.25 + Math.random() * 0.2,
                        t: 400, float: true,
@@ -2577,7 +2834,8 @@ function tick() {
   const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
   ctx.save();
   ctx.translate(shX, shY);
-  drawBackground(st);
+  if (level === 2) drawHouseBackground(st);
+  else drawBackground(st);
   drawTiles();
   drawCheckpoints();
   drawDoors();
@@ -2593,8 +2851,8 @@ function tick() {
   ctx.restore();
   drawHUD();
 
-  // vignette creeps in with her
-  if (st > 0) {
+  // vignette creeps in with her (outside — the house keeps its lights on)
+  if (st > 0 && level === 1) {
     ctx.fillStyle = 'rgba(10,0,8,' + st * 0.06 + ')';
     ctx.fillRect(0, 0, VIEW_W, 10);
     ctx.fillRect(0, VIEW_H - 10, VIEW_W, 10);
@@ -2604,6 +2862,7 @@ function tick() {
 
   if (state === 'gameover') drawGameOver();
   if (state === 'win') drawWin();
+  if (state === 'interlude') drawInterlude();
   if (paused && state === 'play') drawPauseOverlay();
 
   requestAnimationFrame(tick);
