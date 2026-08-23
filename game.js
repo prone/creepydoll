@@ -331,6 +331,55 @@ const SNAKE_FRAMES = [
   ], SNAKE_PAL),
 ];
 
+// the house's own tenants (level 2)
+const ANT_PAL = { A: '#2a1c14', a: '#3e2c1e' };
+const ANT_FRAMES = [
+  sprite([
+    'AA.AA.',
+    'AAAAAA',
+    'a.a.a.',
+  ], ANT_PAL),
+  sprite([
+    'AA.AA.',
+    'AAAAAA',
+    '.a.a.a',
+  ], ANT_PAL),
+];
+
+const ROACH_PAL = { R: '#5a3a1e', r: '#7a4e28', L: '#3a2812' };
+const ROACH_FRAMES = [
+  sprite([
+    '.rrrrrr..L',
+    'RRRRRRRr.L',
+    'RRRRRRRRL.',
+    '.L.L.L....',
+  ], ROACH_PAL),
+  sprite([
+    '.rrrrrr..L',
+    'RRRRRRRr.L',
+    'RRRRRRRRL.',
+    'L.L.L.L...',
+  ], ROACH_PAL),
+];
+
+const RAT_PAL = { G: '#6a6272', g: '#524a5c', p: '#c98f9a', e: '#ff3040', t: '#8a6a70' };
+const RAT_FRAMES = [
+  sprite([
+    '...ggGGGg.....',
+    'ttgGGGGGGGg...',
+    't.GGGGGGGGGpe.',
+    '..gGGGGGGGGp..',
+    '..g.gg..gg.p..',
+  ], RAT_PAL),
+  sprite([
+    '...ggGGGg.....',
+    't.gGGGGGGGg...',
+    'ttGGGGGGGGGpe.',
+    '..gGGGGGGGGp..',
+    '...gg.gg..gg..',
+  ], RAT_PAL),
+];
+
 /* ---------------- the healthy kid (NPC) ---------------- */
 const KID_PAL = {
   C: '#c9903a',  // cap
@@ -648,6 +697,7 @@ function genHouse() {
   for (let c = 0; c < MAP_W; c++) map[0][c] = 1;      // the ceiling
 
   // floorboards with narrow stairwell gaps
+  const segs = [];
   let c = 0;
   while (c < MAP_W) {
     let run = rint(16, 26);
@@ -656,6 +706,7 @@ function genHouse() {
     for (let i = 0; i < run && c + i < MAP_W; i++) {
       map[9][c + i] = 1; map[10][c + i] = 1;
     }
+    segs.push({ s: c, e: Math.min(c + run, MAP_W) - 1 });
     c += run;
     if (c >= MAP_W - 14) break;
     c += 2;                                            // a stairwell's width
@@ -686,6 +737,25 @@ function genHouse() {
     if (!ok) continue;
     for (let j = 0; j < len; j++) map[pr][pc + j] = 2;
   }
+
+  // the infestation — gentle at first, bolder the deeper she goes.
+  // the lit landing and the hall outside his room stay clear.
+  for (const sg of segs) {
+    if (sg.s <= 12 || sg.e >= MAP_W - 26) continue;
+    const prog = sg.s / MAP_W;
+    const ax = (sg.s + 2) * TILE;                      // a marching line of ants
+    for (let i = 0; i < 3; i++)
+      enemies.push(makeAnt(ax + i * 9, sg.s * TILE, (sg.e - 1) * TILE));
+    if (prog > 0.2)
+      enemies.push(makeRoach(rint(sg.s + 2, sg.e - 2) * TILE));
+    if (prog > 0.4)
+      enemies.push(makeRat((sg.s + 4) * TILE, sg.s * TILE, (sg.e - 1) * TILE));
+    if (prog > 0.55 && tileNoise(sg.s, 11) < 0.5)
+      enemies.push(makeRoach(rint(sg.s + 2, sg.e - 2) * TILE));
+  }
+  // spiders on long silk, down from the ceiling
+  for (let cc = 40; cc < MAP_W - 30; cc += rint(18, 30))
+    if (rng() < 0.5) enemies.push(makeSpider(cc * TILE, TILE));
 
   doors.length = 0;                                    // no carnival in here
   eyePickups.length = 0;                               // her eyes were outside
@@ -750,6 +820,20 @@ function makeValkyrie(x, y) {
 function makeSnake(x, segEnd) {
   return { kind: 'snake', x, y: 0, w: 20, h: 8, hp: 2, dir: 1,
            minX: x - TILE, maxX: (segEnd - 1) * TILE, t: rng() * 100,
+           dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeAnt(x, minX, maxX) {
+  return { kind: 'ant', x, y: 0, w: 6, h: 3, hp: 1, dir: 1, minX, maxX,
+           t: rng() * 100, dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeRoach(x) {
+  return { kind: 'roach', x, y: 0, w: 10, h: 4, hp: 1, dir: -1,
+           dashT: 0, dashCd: 0, t: rng() * 100,
+           dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeRat(x, minX, maxX) {
+  return { kind: 'rat', x, y: 0, w: 14, h: 8, hp: 2, dir: 1, minX, maxX,
+           dashT: 0, lungeCd: 0, t: rng() * 100,
            dead: 0, lastHit: -1, placed: false, flashT: 0 };
 }
 
@@ -1430,7 +1514,7 @@ function updateKid() {
 
 function killEnemy(e) {
   e.dead = 1;
-  score += e.kind === 'snake' ? 200 : e.kind === 'valkyrie' ? 300 : 100;
+  score += { snake: 200, valkyrie: 300, rat: 150, roach: 100, ant: 50 }[e.kind] || 100;
   sfx(90, 0.25, 'triangle', 0.07, -40);
   addShake(2, 8);
   // a bat's life feeds hers — one heart back, if she's hurt
@@ -1449,6 +1533,13 @@ function updateEnemies() {
     if (e.dead) { e.dead++; continue; }
     e.t++;
     if (e.flashT > 0) e.flashT--;
+
+    if (e.placed === false) {   // ground-dwellers settle once (below any ceiling)
+      let r = 2;
+      while (r < MAP_H && !solidAt(e.x + e.w / 2, r * TILE + TILE - 1)) r++;
+      e.y = r * TILE - e.h;
+      e.placed = true;
+    }
 
     if (e.kind === 'bat') {
       const d = Math.abs(e.x - player.x);
@@ -1509,16 +1600,57 @@ function updateEnemies() {
     }
 
     if (e.kind === 'snake') {
-      if (!e.placed) {  // settle onto the ground once
-        let r = 0;
-        while (r < MAP_H && !solidAt(e.x + 10, r * TILE + TILE - 1)) r++;
-        e.y = r * TILE - e.h;
-        e.placed = true;
-      }
       e.x += e.dir * 0.45;
       const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
       if (e.x < e.minX || e.x > e.maxX || !solidAt(aheadX, e.y + e.h + 4))
         e.dir *= -1;
+    }
+
+    if (e.kind === 'ant') {     // small, certain, endless
+      e.x += e.dir * 0.55;
+      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+      if (e.x < e.minX || e.x > e.maxX ||
+          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
+        e.dir *= -1;
+    }
+
+    if (e.kind === 'roach') {   // skitters, then bolts at her
+      if (e.dashT > 0) { e.dashT--; e.x += e.dir * 1.7; }
+      else {
+        e.x += e.dir * 0.4;
+        if (e.dashCd > 0) e.dashCd--;
+        const dx = pcx - (e.x + e.w / 2);
+        if (e.dashCd <= 0 && Math.abs(dx) < 90 &&
+            Math.abs((player.y + player.h) - (e.y + e.h)) < 26) {
+          e.dir = Math.sign(dx) || 1;
+          e.dashT = 26; e.dashCd = 110;
+          sfx(520, 0.05, 'square', 0.03, -200);          // a dry click
+        }
+      }
+      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+      if (!solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2)) {
+        e.dir *= -1; e.dashT = 0;
+      }
+    }
+
+    if (e.kind === 'rat') {     // patrols, and lunges when she's close
+      if (e.lungeCd > 0) e.lungeCd--;
+      if (e.dashT > 0) { e.dashT--; e.x += e.dir * 2.2; }
+      else {
+        e.x += e.dir * 0.5;
+        const dx = pcx - (e.x + e.w / 2);
+        if (e.lungeCd <= 0 && Math.abs(dx) < 80 &&
+            Math.abs((player.y + player.h) - (e.y + e.h)) < 26) {
+          e.dir = Math.sign(dx) || 1;
+          e.dashT = 20; e.lungeCd = 130;
+          sfx(760, 0.08, 'square', 0.04, 300);           // a squeak with intent
+        }
+      }
+      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+      if (e.x < e.minX || e.x > e.maxX ||
+          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2)) {
+        e.dir *= -1; e.dashT = 0;
+      }
     }
 
     // the doll's fists and feet
@@ -2008,6 +2140,15 @@ function drawEnemies() {
       ctx.save();
       if (e.dir < 0) ctx.drawImage(img, x - 2, y);
       else { ctx.translate(x + 22, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
+      ctx.restore();
+    } else if (e.kind === 'ant' || e.kind === 'roach' || e.kind === 'rat') {
+      const frames = e.kind === 'ant' ? ANT_FRAMES :
+                     e.kind === 'roach' ? ROACH_FRAMES : RAT_FRAMES;
+      let img = frames[(e.t >> (e.kind === 'ant' ? 2 : 3)) % 2];
+      if (flash) img = whiten(img);
+      ctx.save();
+      if (e.dir < 0) { ctx.translate(x + img.width, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
+      else ctx.drawImage(img, x, y);
       ctx.restore();
     }
   }

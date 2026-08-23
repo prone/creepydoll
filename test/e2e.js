@@ -601,6 +601,63 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => dog.active && (dog.retreatT > 0 || dog.x > player.x + 20)),
         'a punch backs it off — but it will not die');
 
+  /* ---------- the infestation ---------- */
+  section('infestation');
+  check(await ev(() => ['ant', 'roach', 'rat'].every(k =>
+        enemies.some(e => e.kind === k))),
+        'ants, cockroaches, and rats live in the walls');
+  check(await ev(() => enemies.some(e => e.kind === 'spider')),
+        'spiders hang from the ceiling');
+  check(await ev(() => enemies.filter(e => e.x < LEVEL_W * 0.15)
+        .every(e => e.kind === 'ant' || e.kind === 'spider')),
+        'the front hall only whispers — ants before anything worse');
+  // one kick flattens an ant — position and kick atomically, ants are small
+  const antKill = await page.evaluate(async () => {
+    const a = enemies.find(e => e.kind === 'ant' && e.placed && !e.dead && e.y > 130);
+    if (!a) return 'no-ant';
+    a.dir = -1;
+    player.x = a.x - 14; player.y = a.y + a.h - player.h;
+    player.vy = 0; player.face = 1;
+    player.attack = null;             // a leftover swing would block the new kick
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 6) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+      if (a.dead > 0 || a.hp <= 0) return 'dead';
+    }
+    return 'alive';
+  });
+  check(antKill === 'dead', 'one kick ends an ant');
+  // a rat takes two punches
+  const ratScore0 = await ev(() => score);
+  for (let hit = 0; hit < 2; hit++) {
+    await ev(() => {
+      const r = window.__rat && !window.__rat.dead ? window.__rat
+        : (window.__rat = enemies.find(e =>
+            e.kind === 'rat' && e.placed && !e.dead && e.y > 130));
+      if (r) { r.dashT = 0; r.lungeCd = 999;
+               player.x = r.x - 12; player.y = r.y + r.h - player.h;
+               player.vy = 0; player.face = 1; }
+    });
+    await tap('z');
+    await frames(20);
+  }
+  check(await ev(() => __rat && (__rat.dead > 0 || __rat.hp <= 0)), 'two punches down a rat');
+  check((await ev(() => score)) - ratScore0 >= 150, 'a rat is worth 150');
+  // a cockroach bolts when she gets near
+  const roachDashed = await page.evaluate(async () => {
+    const r = enemies.find(e => e.kind === 'roach' && e.placed && !e.dead && e.y > 130);
+    if (!r) return 'no-roach';
+    r.dashT = 0; r.dashCd = 0;
+    player.x = r.x - 60; player.y = r.y + r.h - player.h; player.vy = 0;
+    for (let i = 0; i < 16; i++) {
+      await new Promise(res => requestAnimationFrame(res));
+      if (r.dashT > 0) return 'dashed';
+    }
+    return 'idle';
+  });
+  check(roachDashed !== 'idle', 'a cockroach bolts at her when she comes near');
+
   // death in the house retries the house
   await ev(() => { player.invuln = 0; player.hp = 1; player.y = 400; player.vy = 3; });
   await page.waitForFunction(() => state === 'gameover', null, { timeout: 5000 });
