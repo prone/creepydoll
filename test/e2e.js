@@ -392,6 +392,12 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(5);
   check(await ev(() => kid.mode === 'peek' && kid.x > player.x),
         'the kid is glimpsed running ahead during the level');
+  check(await ev(() => kid.x - player.x < 200),
+        'he appears close enough to give chase');
+  await ev(() => { player.x = kid.x - 100; player.y = kid.y; player.vy = 0; });
+  await frames(10);
+  check(await ev(() => kid.mode === 'sprint' && kid.vx > 1.7),
+        'closing in makes him bolt, faster than she can run');
   await ev(() => { player.x = kid.x; player.y = kid.y; });
   await frames(3);
   check(await ev(() => state === 'play'), 'the kid cannot be tagged while roaming');

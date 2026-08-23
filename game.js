@@ -1079,8 +1079,8 @@ function updateKid() {
     }
     if (kid.mode === 'hidden') {
       if (--kid.hideT <= 0) {
-        // step out onto solid ground ahead of her
-        let c = Math.floor((player.x + 160) / TILE);
+        // step out onto solid ground ahead of her — close enough to chase
+        let c = Math.floor((player.x + 120) / TILE);
         while (c < MAP_W - 16 && map[9][c] !== 1) c++;
         kid.x = c * TILE + 3; kid.y = 9 * TILE - kid.h - 1;
         kid.vx = 0; kid.vy = 0;
@@ -1091,7 +1091,8 @@ function updateKid() {
       kid.glimpseT++;
       kid.vx = 0;
       kid.face = player.x < kid.x ? -1 : 1;
-      if (Math.abs(player.x - kid.x) < 110 || kid.glimpseT > 240) {
+      // the moment she closes in, he bolts — the chase is the point
+      if (Math.abs(player.x - kid.x) < 150 || kid.glimpseT > 180) {
         kid.mode = 'sprint'; kid.alarmT = 30;
         sfx(700, 0.2, 'square', 0.05, 250);
       }
@@ -1104,9 +1105,9 @@ function updateKid() {
         kid.vy = -6;
       kid.vy = Math.min(kid.vy + 0.38, 7);
       moveAndCollide(kid);
-      if (kid.x > camX + VIEW_W + 60 || kid.x > houseX - 90 ||
+      if (kid.x > camX + VIEW_W + 80 || kid.x > houseX - 90 ||
           kid.y > MAP_H * TILE + 30) {
-        kid.mode = 'hidden'; kid.hideT = 420 + Math.random() * 300;
+        kid.mode = 'hidden'; kid.hideT = 240 + Math.random() * 240;
         kid.x = -1000; kid.vx = 0; kid.vy = 0;
       }
     }
