@@ -278,6 +278,35 @@ const SPIDER_FRAMES = [
   ], SPIDER_PAL),
 ];
 
+const VALK_PAL = { W: '#e8e4f4', H: '#e8c66a', S: '#d8c8c8', E: '#ff3040',
+                   A: '#c9cede', a: '#8f95a8' };
+const VALK_FRAMES = [
+  sprite([
+    '..WW........WW..',
+    '.WWW...HH...WWW.',
+    '.WWW..HHHH..WWW.',
+    '..WW..ESSE..WW..',
+    '......SSSS......',
+    '.....AAAAAA.....',
+    '....AAaAAaA.....',
+    '.....AAAAAA.....',
+    '.....AA..AA.....',
+    '.....A....A.....',
+  ], VALK_PAL),
+  sprite([
+    '................',
+    '.......HH.......',
+    '......HHHH......',
+    '..W...ESSE...W..',
+    '.WW...SSSS...WW.',
+    '.WWW.AAAAAA.WWW.',
+    '..WWWAAaAAaAWW..',
+    '.....AAAAAA.....',
+    '.....AA..AA.....',
+    '.....A....A.....',
+  ], VALK_PAL),
+];
+
 const SNAKE_PAL = { G: '#3f7a3a', g: '#2e5c2b', y: '#c9d26b', e: '#ff3040', t: '#d04a4a' };
 const SNAKE_FRAMES = [
   sprite([
@@ -365,7 +394,10 @@ const KID_FRAMES = {
 
 const kid = {
   x: 0, y: 0, w: 10, h: 18, vx: 0, vy: 0,
-  onGround: false, face: -1, mode: 'idle',  // idle | flee | cornered
+  onGround: false, face: -1,
+  stage: 'roam',   // roam (glimpses ahead, untouchable) | final (the real chase)
+  mode: 'hidden',  // roam: hidden | peek | sprint   final: idle | flee | cornered
+  hideT: 0, glimpseT: 0, seen: false,
   animT: 0, alarmT: 0,
 };
 
@@ -385,7 +417,7 @@ const DOOR_KINDS = ['toss', 'balloon', 'coffin'];
 // the eyeless dragon — purple like a bruise, appears after a minute
 const dragon = { spawned: false, active: false, ridden: false,
                  x: 0, y: 0, w: 30, h: 13, vx: 0, vy: 0, face: 1, t: 0,
-                 gustCd: 0, ballCd: 0 };
+                 gustCd: 0, ballCd: 0, valkT: 0, valkSeen: false, mountCd: 0 };
 const fireballs = [];
 let playTime = 0;
 
@@ -491,11 +523,12 @@ function genLevel() {
 
   houseX = (MAP_W - 6) * TILE;
 
-  // the healthy kid waits near the dollhouse, unaware
-  kid.x = houseX - 70;
-  kid.y = 9 * TILE - kid.h - 1;
+  // the healthy kid roams ahead — glimpsed, never caught, until the end
+  kid.x = -1000; kid.y = 0;
   kid.vx = 0; kid.vy = 0;
-  kid.mode = 'idle'; kid.face = -1; kid.animT = 0; kid.alarmT = 0;
+  kid.stage = 'roam'; kid.mode = 'hidden'; kid.hideT = 240;
+  kid.glimpseT = 0; kid.seen = false;
+  kid.face = -1; kid.animT = 0; kid.alarmT = 0;
 }
 
 function solidAt(px, py) {
@@ -516,6 +549,11 @@ function makeSpider(x, anchorY) {
            anchorY, len: rint(30, 70), t: rng() * 100, dead: 0, lastHit: -1,
            webHp: 3, lastWebHit: -1, webWobble: 0 };
 }
+function makeValkyrie(x, y) {
+  return { kind: 'valkyrie', x, y, w: 12, h: 12, hp: 2, vx: 0, vy: 0,
+           t: Math.random() * 100, dead: 0, lastHit: -1, face: 1 };
+}
+
 function makeSnake(x, segEnd) {
   return { kind: 'snake', x, y: 0, w: 20, h: 8, hp: 2, dir: 1,
            minX: x - TILE, maxX: (segEnd - 1) * TILE, t: rng() * 100,
@@ -709,6 +747,7 @@ function resetGame() {
   paused = false;
   dragon.spawned = dragon.active = dragon.ridden = false;
   dragon.vx = dragon.vy = 0; dragon.t = 0;
+  dragon.valkT = 0; dragon.valkSeen = false; dragon.mountCd = 0;
 }
 
 function togglePause() {
@@ -914,6 +953,53 @@ function afterMove(prevStage) {
 }
 
 function updateKid() {
+  // roaming phase: glimpses ahead of the doll, always out of reach
+  if (kid.stage === 'roam') {
+    if (player.maxX >= houseX - 280) {
+      // the finale — the kid takes their place outside the dollhouse
+      kid.stage = 'final'; kid.mode = 'idle';
+      kid.x = houseX - 70; kid.y = 9 * TILE - kid.h - 1;
+      kid.vx = 0; kid.vy = 0; kid.face = -1;
+      return;
+    }
+    if (kid.mode === 'hidden') {
+      if (--kid.hideT <= 0) {
+        // step out onto solid ground ahead of her
+        let c = Math.floor((player.x + 160) / TILE);
+        while (c < MAP_W - 16 && map[9][c] !== 1) c++;
+        kid.x = c * TILE + 3; kid.y = 9 * TILE - kid.h - 1;
+        kid.vx = 0; kid.vy = 0;
+        kid.mode = 'peek'; kid.glimpseT = 0;
+        if (!kid.seen) { kid.seen = true; flashText = { msg: '...a friend?', t: 120 }; }
+      }
+    } else if (kid.mode === 'peek') {
+      kid.glimpseT++;
+      kid.vx = 0;
+      kid.face = player.x < kid.x ? -1 : 1;
+      if (Math.abs(player.x - kid.x) < 110 || kid.glimpseT > 240) {
+        kid.mode = 'sprint'; kid.alarmT = 30;
+        sfx(700, 0.2, 'square', 0.05, 250);
+      }
+    } else if (kid.mode === 'sprint') {
+      // faster than the doll — she cannot catch them yet
+      kid.vx = 1.95; kid.face = 1;
+      const aheadX = kid.x + kid.w + 4;
+      if (kid.onGround &&
+          (solidAt(aheadX, kid.y + kid.h - 4) || !solidAt(aheadX, kid.y + kid.h + 6)))
+        kid.vy = -6;
+      kid.vy = Math.min(kid.vy + 0.38, 7);
+      moveAndCollide(kid);
+      if (kid.x > camX + VIEW_W + 60 || kid.x > houseX - 90 ||
+          kid.y > MAP_H * TILE + 30) {
+        kid.mode = 'hidden'; kid.hideT = 420 + Math.random() * 300;
+        kid.x = -1000; kid.vx = 0; kid.vy = 0;
+      }
+    }
+    if (kid.alarmT > 0) kid.alarmT--;
+    kid.animT += Math.abs(kid.vx) > 0.2 ? 1 : 0;
+    return;   // no tagging during the roam — she only gets to watch
+  }
+
   const dx = (player.x + player.w / 2) - (kid.x + kid.w / 2);
   const dist = Math.abs(dx);
 
@@ -961,7 +1047,7 @@ function updateKid() {
 
 function killEnemy(e) {
   e.dead = 1;
-  score += e.kind === 'snake' ? 200 : 100;
+  score += e.kind === 'snake' ? 200 : e.kind === 'valkyrie' ? 300 : 100;
   sfx(90, 0.25, 'triangle', 0.07, -40);
   // a bat's life feeds hers — one heart back, if she's hurt
   if (e.kind === 'bat' && player.hp < 5) {
@@ -1017,6 +1103,23 @@ function updateEnemies() {
           }
         }
       }
+    }
+
+    if (e.kind === 'valkyrie') {
+      if (dragon.ridden) {
+        // hunt the rider — relentless, a little slower than the dragon
+        e.vx = Math.max(-1.3, Math.min(1.3, e.vx + Math.sign(player.x - e.x) * 0.05));
+        e.vy = Math.max(-1.0, Math.min(1.0, e.vy + Math.sign(player.y - e.y) * 0.04));
+        e.vy += Math.sin(e.t / 14) * 0.05;
+      } else {
+        // no rider in the sky — withdraw into the dark above
+        e.vy -= 0.07;
+        e.vx *= 0.98;
+        if (e.y < -40) { e.hp = 0; e.dead = 24; }
+      }
+      e.x += e.vx; e.y += e.vy;
+      e.y = Math.max(-50, e.y);
+      e.face = e.vx >= 0 ? 1 : -1;
     }
 
     if (e.kind === 'snake') {
@@ -1278,6 +1381,15 @@ function drawEnemies() {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.drawImage(SPIDER_FRAMES[(e.t >> 4) % 2], x - 1 + Math.round(wob), y - 1);
+    } else if (e.kind === 'valkyrie') {
+      const img = VALK_FRAMES[(e.t >> 3) % 2];
+      ctx.save();
+      if (e.face < 0) { ctx.translate(x + 14, y - 1); ctx.scale(-1, 1); }
+      else ctx.translate(x - 2, y - 1);
+      ctx.drawImage(img, 0, 0);
+      ctx.fillStyle = '#8f95a8'; ctx.fillRect(12, 5, 9, 1);   // spear shaft
+      ctx.fillStyle = '#e8e4f4'; ctx.fillRect(21, 4, 2, 3);   // spear tip
+      ctx.restore();
     } else if (e.kind === 'snake') {
       const img = SNAKE_FRAMES[(e.t >> 4) % 2];
       ctx.save();
@@ -1351,6 +1463,25 @@ function updateDragon() {
   dragon.t++;
   if (dragon.gustCd > 0) dragon.gustCd--;
   if (dragon.ballCd > 0) dragon.ballCd--;
+  if (dragon.mountCd > 0) dragon.mountCd--;
+
+  // the sky sends its daughters after anyone who dares to fly
+  if (dragon.ridden) {
+    dragon.valkT++;
+    const aloft = enemies.filter(e => e.kind === 'valkyrie' && !e.dead).length;
+    if (dragon.valkT > 240 && aloft < 3) {
+      dragon.valkT = 0;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const vx = camX + (side > 0 ? VIEW_W + 20 : -30);
+      enemies.push(makeValkyrie(vx, Math.max(14, player.y + (Math.random() - 0.5) * 60)));
+      sfx(392, 0.25, 'sawtooth', 0.045, 100);
+      sfx(494, 0.35, 'sawtooth', 0.035, 80);
+      if (!dragon.valkSeen) {
+        dragon.valkSeen = true;
+        flashText = { msg: 'the sky sends its daughters...', t: 150 };
+      }
+    }
+  }
 
   if (!dragon.ridden) {
     // she is followed. patiently.
@@ -1359,7 +1490,7 @@ function updateDragon() {
     dragon.y += (ty - dragon.y) * 0.03 + Math.sin(dragon.t / 22) * 0.4;
     dragon.face = player.x > dragon.x + 12 ? 1 : -1;
     // the doll lands on its back -> she rides
-    if (player.vy > 0 && !player.onGround &&
+    if (dragon.mountCd <= 0 && player.vy > 0 && !player.onGround &&
         player.x + player.w > dragon.x + 4 && player.x < dragon.x + dragon.w - 4 &&
         player.y + player.h > dragon.y - 5 && player.y + player.h < dragon.y + 9) {
       dragon.ridden = true;
@@ -1411,8 +1542,10 @@ function updateRiding() {
   }
   punchHeld = kPunch(); kickHeld = kKick(); jumpHeld = kJump();
 
-  // hop off with C
-  if (kCrouch() && !crouchHeld) { dragon.ridden = false; player.vy = -1.5; }
+  // hop off with C (brief cooldown so she doesn't fall straight back on)
+  if (kCrouch() && !crouchHeld) {
+    dragon.ridden = false; player.vy = -1.5; dragon.mountCd = 50;
+  }
   crouchHeld = kCrouch();
 }
 

@@ -67,6 +67,9 @@ jump launches her about twice as high.
   follows her. Jump onto its back to ride and fly freely (arrows). While flying,
   **punch (Z)** breathes a short gust of flame and **kick (X)** spits a flame
   ball that roasts anything it touches. Press **C** to hop off.
+  Flight has a price: while she rides, spectral **valkyries** climb into the
+  night after her — up to three at a time, spear-first, tougher than bats
+  (300 points each). Dismount and they withdraw into the dark above.
 
 ![Mid-level](screenshots/midgame.png)
 ![The chase](screenshots/endgame.png)

@@ -254,16 +254,36 @@ function section(name) { console.log('\n== ' + name + ' =='); }
     const s = enemies.find(e => e.kind === 'snake' && e.placed);
     return !s || s.dead > 0 || s.hp < 2;
   })), 'punch breathes a flame gust');
+  // valkyries hunt while she rides
+  await ev(() => { dragon.valkT = 1000; });
+  await frames(8);
+  check(await ev(() => enemies.some(e => e.kind === 'valkyrie' && !e.dead)),
+        'valkyries climb after the rider');
   await tap('c');
   check(await ev(() => !dragon.ridden), 'C hops off the dragon');
+  await frames(40);
+  check(await ev(() => enemies.every(e => e.kind !== 'valkyrie' || e.dead || e.vy < 0)),
+        'valkyries withdraw when she dismounts');
 
   /* ---------- the chase & the win ---------- */
   section('the win');
+  await ev(() => { dragon.ridden = false; player.invuln = 999999; });
+  // roaming kid: glimpsed ahead, untouchable until the finale
   await ev(() => {
-    dragon.ridden = false;
-    player.invuln = 999999;
-    player.x = kid.x - 80; player.y = 100; player.vy = 0; player.maxX = kid.x - 80;
+    player.x = 1000; player.y = 100; player.vy = 0; player.maxX = 1000;
+    kid.stage = 'roam'; kid.mode = 'hidden'; kid.hideT = 1; kid.x = -1000;
   });
+  await frames(5);
+  check(await ev(() => kid.mode === 'peek' && kid.x > player.x),
+        'the kid is glimpsed running ahead during the level');
+  await ev(() => { player.x = kid.x; player.y = kid.y; });
+  await frames(3);
+  check(await ev(() => state === 'play'), 'the kid cannot be tagged while roaming');
+  // cross into the finale
+  await ev(() => { player.x = houseX - 250; player.y = 100; player.vy = 0; player.maxX = houseX - 250; });
+  await frames(4);
+  check(await ev(() => kid.stage === 'final'), 'the kid waits at the dollhouse for the finale');
+  await ev(() => { player.x = kid.x - 80; player.y = 100; player.vy = 0; });
   await frames(30);
   check(await ev(() => kid.mode !== 'idle'), 'the kid is spooked and flees');
   await page.keyboard.down('ArrowRight');
