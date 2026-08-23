@@ -121,6 +121,14 @@ const LEGS_JUMP = [
   '..BBB....BBB..',
   '..............',
 ];
+const LEGS_CROUCH1 = [
+  '..LLL...LLL...',
+  '.BBB....BBB...',
+];
+const LEGS_CROUCH2 = [
+  '...LLL..LLL...',
+  '..BBB...BBB...',
+];
 
 // Cumulative decay overlays — one per creepiness stage (14 x 20 grids).
 const DECAY_PAL = {
@@ -216,6 +224,7 @@ function buildDollFrames() {
       idle: mk(LEGS_IDLE),
       walk: [mk(LEGS_WALK1), mk(LEGS_WALK2)],
       jump: mk(LEGS_JUMP),
+      crouch: [mk(LEGS_CROUCH1), mk(LEGS_CROUCH2)],  // 18px tall
     });
   }
   return stages;
@@ -493,7 +502,7 @@ function makeSnake(x, segEnd) {
 
 const player = {
   x: 40, y: 100, w: 10, h: 18, vx: 0, vy: 0,
-  face: 1, onGround: false, hp: 5, invuln: 0,
+  face: 1, onGround: false, hp: 5, invuln: 0, crouch: false,
   attack: null,        // {type:'punch'|'kick', t, id}
   attackId: 0,
   animT: 0, maxX: 0, safeX: 40, safeY: 100,
@@ -615,8 +624,9 @@ canvas.addEventListener('pointerdown', () => { startAudio(); if (AC && AC.state 
 const kLeft  = () => keys['arrowleft'] || keys['a'];
 const kRight = () => keys['arrowright'] || keys['d'];
 const kJump  = () => keys[' '] || keys['arrowup'] || keys['w'];
-const kPunch = () => keys['z'] || keys['j'];
-const kKick  = () => keys['x'] || keys['k'];
+const kPunch  = () => keys['z'] || keys['j'];
+const kKick   = () => keys['x'] || keys['k'];
+const kCrouch = () => keys['c'];
 
 /* ---------------- game state ---------------- */
 let state = 'title';    // title | play | gameover | win
@@ -624,7 +634,7 @@ let score = 0;
 let camX = 0;
 let frame = 0;
 let flashText = null;   // {msg, t}
-let jumpHeld = false, punchHeld = false, kickHeld = false;
+let jumpHeld = false, punchHeld = false, kickHeld = false, crouchHeld = false;
 
 const STAGE_MSGS = [
   null,
@@ -641,6 +651,7 @@ function resetGame() {
   genLevel();
   player.x = 40; player.y = 100; player.vx = 0; player.vy = 0;
   player.hp = 5; player.invuln = 0; player.attack = null;
+  player.crouch = false; player.h = 18;
   player.face = 1; player.maxX = 0; player.safeX = 40; player.safeY = 100;
   score = 0; camX = 0; flashText = null;
   particles.length = 0;
@@ -718,11 +729,25 @@ function attackHitbox() {
 function updatePlayer() {
   const prevStage = creepStage();
 
-  // walking (attacks root you briefly on the ground)
+  // crouch toggles on C (stand up only with headroom)
+  if (kCrouch() && !crouchHeld) {
+    if (!player.crouch) {
+      player.crouch = true; player.h = 14; player.y += 4;
+      sfx(160, 0.06, 'square', 0.04, -60);
+    } else if (!solidAt(player.x + 1, player.y - 4) &&
+               !solidAt(player.x + player.w - 1, player.y - 4)) {
+      player.crouch = false; player.h = 18; player.y -= 4;
+      sfx(200, 0.06, 'square', 0.04, 80);
+    }
+  }
+  crouchHeld = kCrouch();
+
+  // walking (attacks root you briefly on the ground; crouching is slow)
   const rooted = player.attack && player.onGround;
+  const speed = player.crouch ? 0.8 : 1.7;
   if (!rooted) {
-    if (kLeft())       { player.vx = -1.7; player.face = -1; }
-    else if (kRight()) { player.vx = 1.7;  player.face = 1; }
+    if (kLeft())       { player.vx = -speed; player.face = -1; }
+    else if (kRight()) { player.vx = speed;  player.face = 1; }
     else player.vx *= player.onGround ? 0.6 : 0.95;
   } else player.vx *= 0.5;
 
@@ -1048,12 +1073,13 @@ function drawPlayer() {
   const st = creepStage();
   const set = DOLL[st];
   let img;
-  if (!player.onGround) img = set.jump;
+  if (player.crouch) img = set.crouch[Math.abs(player.vx) > 0.3 ? (player.animT >> 5) % 2 : 0];
+  else if (!player.onGround) img = set.jump;
   else if (Math.abs(player.vx) > 0.3) img = set.walk[(player.animT >> 4) % 2];
   else img = set.idle;
 
   const dx = Math.round(player.x - camX - 2);
-  const dy = Math.round(player.y - 2) + (player.twitch > 3 ? 1 : 0);
+  const dy = Math.round(player.y - (player.crouch ? 4 : 2)) + (player.twitch > 3 ? 1 : 0);
   ctx.save();
   if (player.face < 0) {
     ctx.translate(dx + 14, dy); ctx.scale(-1, 1);
@@ -1223,7 +1249,7 @@ function drawTitle() {
   else if ((titleT >> 5) % 2) pixelText('press ENTER to play', 100, 128, '#e8d8f0');
 
   pixelText('arrows move   space jump', 82, 148, '#6a5f80');
-  pixelText('z punch   x kick', 106, 158, '#6a5f80');
+  pixelText('z punch  x kick  c crouch', 88, 158, '#6a5f80');
 }
 
 function drawGameOver() {

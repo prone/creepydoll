@@ -30,8 +30,10 @@ browsers require a keypress before audio can play), then **Enter** to begin.
 | Space (or ↑ / W) | jump |
 | Z (or J) | punch |
 | X (or K) | kick |
+| C | crouch (toggle) |
 
-That's everything she can do.
+That's everything she can do. Crouching shrinks her, lets her duck under
+swooping bats, and slows her walk to a wary shuffle.
 
 ## The rules of the night
 
