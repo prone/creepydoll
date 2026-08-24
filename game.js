@@ -1122,6 +1122,7 @@ let paused = false;     // Esc freezes play and mini worlds
 let score = 0;
 let camX = 0;
 let frame = 0;
+let inkMelt = false;            // past the second lantern, half of her runs to ink
 let shakeT = 0, shakeMag = 0;   // screen shake: frames left, pixel magnitude
 function addShake(mag, frames) {
   if (assist.calm) return;      // reduced-flash mode keeps the camera still
@@ -1183,6 +1184,7 @@ function resetGame() {
   player.stretchT = 0; player.squashT = 0; player.respawnT = 0;
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
+  inkMelt = level === 2;        // in the house she is already half ink
   shakeT = 0; shakeMag = 0;
   particles.length = 0;
   fireballs.length = 0;
@@ -1476,14 +1478,29 @@ function afterMove(prevStage) {
       sfx(660, 0.12, 'triangle', 0.05);
       sfx(990, 0.2, 'sine', 0.03);
       burst(cp.x + 4, 9 * TILE - 20, '#e8c66a', 8);
+      // the second lantern is one lantern too many
+      if (!inkMelt && level === 1 &&
+          checkpoints.filter(c => c.reached).length === 2) {
+        inkMelt = true;
+        flashText = { msg: 'she is annoyed.', t: 120, hold: true };
+        addShake(2, 10);
+        sfx(120, 0.5, 'sawtooth', 0.05, -60);
+        sfx(90, 0.7, 'sine', 0.06, -30);
+        burst(player.x + 5, player.y + 14, '#0c0a12', 12, 0, 1);
+      }
     }
   }
+  // and the ink never stops dripping
+  if (inkMelt && Math.random() < 0.06)
+    particles.push({ x: player.x + 2 + Math.random() * 8,
+                     y: player.y + 12 + Math.random() * 6,
+                     vx: 0, vy: 0.4, t: 22, color: '#0c0a12' });
   player.maxX = Math.max(player.maxX, player.x);
   player.animT += Math.abs(player.vx) > 0.3 ? 1 : 0;
 
   // creepiness advances
   const st = creepStage();
-  if (st > prevStage && STAGE_MSGS[st]) {
+  if (st > prevStage && STAGE_MSGS[st] && !(flashText && flashText.hold)) {
     flashText = { msg: STAGE_MSGS[st], t: 150 };
     sndStage();
     addShake(2, 12);
@@ -2148,6 +2165,20 @@ function drawPlayer() {
       ctx.fillRect(11, 14, 9, 3);
       ctx.fillStyle = '#20242c';
       ctx.fillRect(18, 13, 4, 4);
+    }
+  }
+  // half of her has run to ink since the second lantern
+  if (inkMelt) {
+    ctx.fillStyle = '#0c0a12';
+    const H = img.height;
+    for (let ix = 0; ix < 14; ix++) {
+      const edge = Math.max(4, Math.round(H / 2 + Math.sin(frame / 9 + ix * 1.7) * 1.5));
+      ctx.fillRect(ix, edge, 1, H - edge);
+    }
+    for (let i = 0; i < 3; i++) {                 // drips running off her hem
+      const ix = 2 + i * 4 + (i === 2 ? 1 : 0);
+      const dl = (frame * (0.3 + i * 0.15) + i * 37) % 22;
+      if (dl < 14) ctx.fillRect(ix, H - 1, 1, 2 + Math.round(dl / 3));
     }
   }
   ctx.restore();
