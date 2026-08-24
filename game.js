@@ -2342,14 +2342,14 @@ function drawHUD() {
     ctx.fillStyle = i <= st ? ['#8878a8', '#a06888', '#b04858', '#d02838'][i] : '#241c30';
     ctx.fillRect(42 + i * 8, VIEW_H - 12, 6, 5);
   }
-  // the fifth notch is ink — it fills when half of her does
+  // the fifth notch marks the melt — a red gone almost black
   const ix = 42 + 4 * 8;
-  ctx.fillStyle = inkMelt ? '#050308' : '#241c30';
+  ctx.fillStyle = inkMelt ? '#3a0408' : '#241c30';
   ctx.fillRect(ix, VIEW_H - 12, 6, 5);
   if (inkMelt) {
-    ctx.fillStyle = '#3a2e4e';                       // a glint so the ink reads
+    ctx.fillStyle = '#6a1018';                       // a glint so it reads
     ctx.fillRect(ix, VIEW_H - 12, 6, 1);
-    ctx.fillStyle = '#0c0a12';                       // and it drips
+    ctx.fillStyle = '#2a0306';                       // and it drips
     const dl = (frame * 0.25) % 9;
     ctx.fillRect(ix + 2 + (frame >> 6) % 3, VIEW_H - 7, 1, 1 + Math.round(dl / 3));
   }
