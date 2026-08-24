@@ -694,6 +694,24 @@ function section(name) { console.log('\n== ' + name + ' =='); }
     return 'idle';
   });
   check(roachDashed !== 'idle', 'a cockroach bolts at her when she comes near');
+  // small things take small bites — half a heart each
+  const nib = kind => page.evaluate(async kind => {
+    const e = enemies.find(e => e.kind === kind && e.placed && !e.dead && e.y > 130);
+    if (!e) return 'none';
+    dog.deadT = 600; dog.fleeT = 0;      // park the dog; this is a dental exam
+    player.invuln = 0; player.hp = 5;
+    player.x = e.x - 2; player.y = e.y + e.h - player.h; player.vy = 0;
+    for (let i = 0; i < 12; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (player.hp < 5) return player.hp;
+    }
+    return player.hp;
+  }, kind);
+  check((await nib('ant')) === 4.5, 'an ant only nips half a heart');
+  check((await nib('roach')) === 4.5, 'a cockroach bites half a heart');
+  const ratBite = await nib('rat');
+  check(ratBite === 4 || ratBite === 'none', 'a rat still costs a full heart');
+  await ev(() => { player.invuln = 999999; player.hp = 5; });
 
   /* ---------- the house's own sound ---------- */
   section('house music');

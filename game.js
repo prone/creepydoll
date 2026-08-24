@@ -1247,9 +1247,9 @@ function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-function hurtPlayer(fromX) {
+function hurtPlayer(fromX, dmg) {
   if (player.invuln > 0 || state !== 'play' || assist.invuln) return;
-  player.hp--;
+  player.hp -= dmg || 1;
   if (assist.hearts && player.hp < 5) player.hp = 5;   // the hearts refuse to empty
   player.invuln = 80;
   player.vy = -3.5;
@@ -1569,7 +1569,7 @@ function killEnemy(e) {
   addShake(2, 8);
   // a bat's life feeds hers — one heart back, if she's hurt
   if (e.kind === 'bat' && player.hp < 5) {
-    player.hp++;
+    player.hp = Math.min(5, player.hp + 1);
     sndHeal();
     burst(player.x + 5, player.y + 6, '#e8506a', 8);
   }
@@ -1714,8 +1714,10 @@ function updateEnemies() {
       else e.x += player.face * 6;
     }
 
-    // touching the doll
-    if (!e.dead && rectsOverlap(e, player)) hurtPlayer(e.x + e.w / 2);
+    // touching the doll — the small things only take half a heart
+    if (!e.dead && rectsOverlap(e, player))
+      hurtPlayer(e.x + e.w / 2,
+                 e.kind === 'ant' || e.kind === 'roach' ? 0.5 : 1);
   }
 
   // sweep the long-dead
@@ -1730,7 +1732,7 @@ function updateHeartPickup() {
   const box = { x: heartPickup.x - 1, y: hy - 1, w: 9, h: 10 };
   if (player.hp < 5 && rectsOverlap(box, player)) {
     heartPickup.taken = true;       // it only gives itself to the wounded
-    player.hp++;
+    player.hp = Math.min(5, player.hp + 1);
     sndHeal();
     burst(heartPickup.x + 4, hy + 4, '#e8506a', 10);
   }
@@ -2242,9 +2244,18 @@ function drawHeart(x, y, color) {
 }
 
 function drawHUD() {
-  // hearts
-  for (let i = 0; i < 5; i++)
-    drawHeart(6 + i * 12, 6, i < player.hp ? '#c9304a' : '#3a2530');
+  // hearts (the small things chew them half at a time)
+  for (let i = 0; i < 5; i++) {
+    const x = 6 + i * 12;
+    drawHeart(x, 6, '#3a2530');                       // empty socket
+    if (player.hp >= i + 1) drawHeart(x, 6, '#c9304a');
+    else if (player.hp >= i + 0.5) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x, 6, 4, 8); ctx.clip();
+      drawHeart(x, 6, '#c9304a');                     // the left half survives
+      ctx.restore();
+    }
+  }
   // lost eyes found (an outdoor hunt)
   if (level === 1) {
     drawButtonEye(6, 17, false);
@@ -2701,7 +2712,7 @@ function updateHollow() {
     mini.eyeTaken = true;
     eyesFound++;
     score += 200;
-    if (player.hp < 5) { player.hp++; sndHeal(); }
+    if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
     sfx(880, 0.3, 'sine', 0.06); sfx(1320, 0.4, 'sine', 0.04);
     mpBurst(160, 118, '#e8c66a', 12);
     mini.msg2 = 'IT FITS.'; mini.msg2T = 130;
@@ -2950,7 +2961,7 @@ function updateCoffin() {
       mini.pickOk = mini.slots[mini.heartCoffin] === mini.sel;
       if (mini.pickOk) {
         score += 200;
-        if (player.hp < 5) { player.hp++; sndHeal(); }
+        if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
         sfx(660, 0.3, 'triangle', 0.07);
       } else sfx(140, 0.4, 'sawtooth', 0.06, -70);
     }
