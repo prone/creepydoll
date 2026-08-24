@@ -1280,60 +1280,69 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         iceCeil.filter(i => i.state === 'hung').length === 5 &&
         iceFloor.filter(i => i.state === 'stand').length === 3),
         'four wounds to give; the cave is toothed above and below');
-  // kick a floor icicle into him
+  // kick a floor icicle into him (relative hp + retries: no cascade on a miss)
   const slideHit = await page.evaluate(async () => {
-    const fi = iceFloor.find(f => f.state === 'stand');
-    if (!fi) return 'no-icicle';
-    boss.x = fi.x + 60; boss.dir = -1; boss.swipeT = 0; boss.swipeCd = 999;
-    player.x = fi.x - 8; player.y = 126; player.vy = 0; player.face = 1;
-    player.attack = null;
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
-    let ret = 'missed';
-    for (let i = 0; i < 60; i++) {
+    const hp0 = boss.hp;
+    for (let attempt = 0; attempt < 3 && boss.hp === hp0; attempt++) {
+      const fi = iceFloor.find(f => f.state === 'stand');
+      if (!fi) { for (let i = 0; i < 90; i++) await new Promise(r => requestAnimationFrame(r)); continue; }
+      boss.x = fi.x + 60; boss.dir = -1; boss.swipeT = 0; boss.swipeCd = 999;
+      player.x = fi.x - 8; player.y = 126; player.vy = 0; player.face = 1;
+      player.attack = null;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+        if (boss.hp < hp0) break;
+      }
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
       await new Promise(r => requestAnimationFrame(r));
-      if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
-      if (boss.hp < 4) { ret = boss.hp; break; }
     }
-    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
-    return ret;
+    return boss.hp - hp0;
   });
-  check(slideHit === 3, 'a kicked floor icicle skids into him — full damage');
+  check(slideHit === -1, 'a kicked floor icicle skids into him — full damage');
   // knock a ceiling icicle onto him
   const dropHit = await page.evaluate(async () => {
-    const ic = iceCeil.find(i => i.state === 'hung');
-    if (!ic) return 'no-icicle';
-    boss.x = ic.x - 19; boss.dir = 1; boss.swipeT = 0; boss.swipeCd = 999;
-    player.attack = null;
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
-    let ret = 'missed';
-    for (let i = 0; i < 90; i++) {
-      player.x = ic.x - 14; player.y = 50; player.vy = 0; player.face = 1;
-      boss.x = ic.x - 19;
+    const hp0 = boss.hp;
+    for (let attempt = 0; attempt < 3 && boss.hp === hp0; attempt++) {
+      const ic = iceCeil.find(i => i.state === 'hung');
+      if (!ic) { for (let i = 0; i < 90; i++) await new Promise(r => requestAnimationFrame(r)); continue; }
+      boss.swipeT = 0; boss.swipeCd = 999;
+      player.attack = null;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      for (let i = 0; i < 90; i++) {
+        player.x = ic.x - 14; player.y = 50; player.vy = 0; player.face = 1;
+        boss.x = ic.x - 19; boss.dir = 1;
+        await new Promise(r => requestAnimationFrame(r));
+        if (i === 3) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+        if (boss.hp < hp0) break;
+        if (ic.state === 'gone') break;
+      }
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
       await new Promise(r => requestAnimationFrame(r));
-      if (i === 3) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
-      if (boss.hp < 3) { ret = boss.hp; break; }
-      if (ic.state === 'gone' && boss.hp === 3) break;
     }
-    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
-    return ret;
+    return boss.hp - hp0;
   });
-  check(dropHit === 2, 'a struck ceiling icicle drops on his head — full damage');
+  check(dropHit === -1, 'a struck ceiling icicle drops on his head — full damage');
   // her own fists are half as convincing
   const meleeHit = await page.evaluate(async () => {
-    boss.swipeT = 0; boss.swipeCd = 999; boss.dir = 1;
-    player.attack = null;
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
-    let ret = 'missed';
-    for (let i = 0; i < 30; i++) {
-      player.x = boss.x - 12; player.y = 126; player.vy = 0; player.face = 1;
+    const hp0 = boss.hp;
+    for (let attempt = 0; attempt < 3 && boss.hp === hp0; attempt++) {
+      boss.swipeT = 0; boss.swipeCd = 999; boss.dir = 1;
+      player.attack = null;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      for (let i = 0; i < 30; i++) {
+        player.x = boss.x - 12; player.y = 126; player.vy = 0; player.face = 1;
+        await new Promise(r => requestAnimationFrame(r));
+        if (i === 3) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+        if (boss.hp < hp0) break;
+      }
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
       await new Promise(r => requestAnimationFrame(r));
-      if (i === 3) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
-      if (boss.hp < 2) { ret = boss.hp; break; }
     }
-    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
-    return ret;
+    return boss.hp - hp0;
   });
-  check(meleeHit === 1.5, 'her punch lands at half power');
+  check(meleeHit === -0.5, 'her punch lands at half power');
   // finish him with the ice
   await ev(() => {
     boss.hp = 1;

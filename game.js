@@ -33,10 +33,7 @@ function rng() {
 function rint(a, b) { return a + Math.floor(rng() * (b - a + 1)); }
 
 /* ---------------- sprite builder ---------------- */
-function sprite(rows, pal) {
-  const c = document.createElement('canvas');
-  c.width = rows[0].length; c.height = rows.length;
-  const g = c.getContext('2d');
+function paintRows(g, rows, pal) {
   for (let y = 0; y < rows.length; y++)
     for (let x = 0; x < rows[y].length; x++) {
       const ch = rows[y][x];
@@ -44,6 +41,11 @@ function sprite(rows, pal) {
       g.fillStyle = pal[ch] || '#f0f';
       g.fillRect(x, y, 1, 1);
     }
+}
+function sprite(rows, pal) {
+  const c = document.createElement('canvas');
+  c.width = rows[0].length; c.height = rows.length;
+  paintRows(c.getContext('2d'), rows, pal);
   return c;
 }
 function overlay(base, rows, pal) {
@@ -51,13 +53,7 @@ function overlay(base, rows, pal) {
   c.width = base.width; c.height = base.height;
   const g = c.getContext('2d');
   g.drawImage(base, 0, 0);
-  for (let y = 0; y < rows.length; y++)
-    for (let x = 0; x < rows[y].length; x++) {
-      const ch = rows[y][x];
-      if (ch === '.') continue;
-      g.fillStyle = pal[ch] || '#f0f';
-      g.fillRect(x, y, 1, 1);
-    }
+  paintRows(g, rows, pal);
   return c;
 }
 
@@ -651,7 +647,7 @@ const kid = {
   onGround: false, face: -1,
   stage: 'roam',   // roam (glimpses ahead, untouchable) | final (the real chase)
   mode: 'hidden',  // roam: hidden | peek | sprint   final: idle | flee | cornered
-  hideT: 0, glimpseT: 0, seen: false, glimpses: 0,
+  hideT: 0, glimpseT: 0, glimpses: 0,
   animT: 0, alarmT: 0,
 };
 
@@ -710,6 +706,62 @@ function groundTopRowAt(c) {
     if (map[r][c] === 1 && !map[r - 1][c]) return r;
   return -1;
 }
+
+// ---- generator helpers (deterministic map scans — no rng consumed) ----
+// never leave less than two tiles of standing air beneath a platform
+function headroomPass() {
+  for (let r = 2; r < MAP_H - 2; r++)
+    for (let cc = 0; cc < MAP_W; cc++)
+      if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
+}
+
+// a column is a gap when nothing solid fills it (platforms don't count —
+// a bridged ravine is still a ravine)
+function gapAt(cc) {
+  for (let r = 2; r < MAP_H; r++) {
+    const t = map[r][cc];
+    if (t && t !== 2) return false;
+  }
+  return true;
+}
+
+// hang the healing heart over the level's second gap, at local height
+function placeHeartOverGap() {
+  heartPickup.taken = false; heartPickup.t = 0;
+  heartPickup.x = -100; heartPickup.y = -100;
+  let gapCount = 0, inGap = false;
+  for (let cc = 0; cc < MAP_W; cc++) {
+    if (gapAt(cc)) {
+      if (!inGap) {
+        inGap = true; gapCount++;
+        if (gapCount === 2) {
+          let end = cc;
+          while (end < MAP_W && gapAt(end)) end++;
+          const nearRow = groundTopRowAt(Math.max(0, cc - 1));
+          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
+          heartPickup.y = ((nearRow > 3 ? nearRow : 9) - 3) * TILE - 4;
+          return;
+        }
+      }
+    } else inGap = false;
+  }
+}
+
+// checkpoint markers every `step` columns on standable, uncluttered ground
+function placeCheckpoints(start, step) {
+  checkpoints.length = 0;
+  for (let target = start; target < MAP_W - 22; target += step) {
+    let cc = target, gr = -1;
+    while (cc < MAP_W - 18 &&
+           ((gr = groundTopRowAt(cc)) < 0 || (gr >= 2 && map[gr - 2][cc])))
+      cc++;
+    checkpoints.push({ x: cc * TILE + 4, reached: false, gy: gr * TILE });
+  }
+  lastCP.x = 40; lastCP.y = 100;
+}
+
+// is x inside the quiet zone around any doorway?
+const nearDoors = x => doors.some(d => x > d.x - 64 && x < d.x + 176);
 const tables = [];      // level 2: world-x of each table she must jump
 
 // a lone heart floating over the second ravine — heals one heart, once
@@ -792,34 +844,10 @@ function genSnow() {
   }
 
   // a heart over the second crevasse, hung at local height
-  heartPickup.taken = false; heartPickup.t = 0;
-  heartPickup.x = -100; heartPickup.y = -100;
-  let gapCount = 0, inGap = false;
-  for (let cc = 0; cc < MAP_W; cc++) {
-    const gr = groundTopRowAt(cc);
-    if (gr < 0) {
-      if (!inGap) {
-        inGap = true; gapCount++;
-        if (gapCount === 2) {
-          let end = cc;
-          while (end < MAP_W && groundTopRowAt(end) < 0) end++;
-          const nearRow = groundTopRowAt(Math.max(0, cc - 1));
-          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
-          heartPickup.y = ((nearRow > 3 ? nearRow : 9) - 3) * TILE - 4;
-          break;
-        }
-      }
-    } else inGap = false;
-  }
+  placeHeartOverGap();
 
   // frozen crystals mark the way
-  checkpoints.length = 0;
-  for (let target = 30; target < MAP_W - 22; target += 30) {
-    let cc = target, gr = -1;
-    while (cc < MAP_W - 18 && (gr = groundTopRowAt(cc)) < 0) cc++;
-    checkpoints.push({ x: cc * TILE + 4, reached: false, gy: gr * TILE });
-  }
-  lastCP.x = 40; lastCP.y = 100;
+  placeCheckpoints(30, 30);
 
   houseX = (MAP_W - 6) * TILE;                        // the ice-cave mouth
   FINALE_GY = SUMMIT * TILE;
@@ -874,9 +902,7 @@ function genTomb() {
     if (!ok) continue;
     for (let j = 0; j < len; j++) map[pr][pc + j] = 2;
   }
-  for (let r = 2; r < MAP_H - 2; r++)                  // headroom, as everywhere
-    for (let cc = 0; cc < MAP_W; cc++)
-      if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
+  headroomPass();
 
   // three doorways into older games
   doors.length = 0;
@@ -889,7 +915,6 @@ function genTomb() {
     doors.push({ x: cc * TILE + 1, y: 9 * TILE - 22, w: 14, h: 22,
                  kind: ['glyphs', 'scarabs', 'spears'][i], used: false });
   });
-  const nearTombDoor = x => doors.some(d => x > d.x - 64 && x < d.x + 176);
 
   // the tomb's tenants — quiet at the threshold, thick near the heart
   let shamble = 0;
@@ -898,48 +923,24 @@ function genTomb() {
     const prog = sg.s / MAP_W;
     if (prog < 0.15) continue;
     const ax = (sg.s + 2) * TILE;
-    if (!nearTombDoor(ax))
+    if (!nearDoors(ax))
       for (let i = 0; i < 3; i++)                       // a line of scarabs
         enemies.push(makeScarab(ax + i * 10));
     const mx = (sg.s + 5) * TILE;
-    if (prog > 0.3 && !nearTombDoor(mx) && ++shamble % 2 === 0)
+    if (prog > 0.3 && !nearDoors(mx) && ++shamble % 2 === 0)
       enemies.push(makeMummy(mx));
     const cx2 = (sg.s + 8) * TILE;
-    if (prog > 0.2 && !nearTombDoor(cx2) && sg.e - sg.s > 8)
+    if (prog > 0.2 && !nearDoors(cx2) && sg.e - sg.s > 8)
       enemies.push(makeCobra(cx2, sg.e));
   }
 
   eyePickups.length = 0;
 
   // a heart over the second trap
-  heartPickup.taken = false; heartPickup.t = 0;
-  heartPickup.x = -100; heartPickup.y = -100;
-  let gapCount = 0, inGap = false;
-  for (let cc = 0; cc < MAP_W; cc++) {
-    if (map[9][cc] === 0) {
-      if (!inGap) {
-        inGap = true; gapCount++;
-        if (gapCount === 2) {
-          let end = cc;
-          while (end < MAP_W && map[9][end] === 0) end++;
-          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
-          heartPickup.y = 6 * TILE - 4;
-          break;
-        }
-      }
-    } else inGap = false;
-  }
+  placeHeartOverGap();
 
   // torches mark the way
-  checkpoints.length = 0;
-  for (let target = 30; target < MAP_W - 22; target += 30) {
-    let cc = target;
-    while (cc < MAP_W - 18 &&
-           !(map[9][cc] === 1 && !map[8][cc] && !map[7][cc]))
-      cc++;
-    checkpoints.push({ x: cc * TILE + 4, reached: false, gy: 9 * TILE });
-  }
-  lastCP.x = 40; lastCP.y = 100;
+  placeCheckpoints(30, 30);
 
   houseX = (MAP_W - 6) * TILE;                         // the burial door
   FINALE_GY = 9 * TILE;
@@ -984,10 +985,7 @@ function genWoods() {
       if (i < MAP_W && !map[6][i]) map[6][i] = 2;       // right branch, low
   }
 
-  // headroom pass — standing room beneath every branch over solid ground
-  for (let r = 2; r < MAP_H - 2; r++)
-    for (let cc = 0; cc < MAP_W; cc++)
-      if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
+  headroomPass();
 
   // four standing-stone doors, humming with carnival left out in the rain
   doors.length = 0;
@@ -1001,12 +999,11 @@ function genWoods() {
     doors.push({ x: cc * TILE + 1, y: 9 * TILE - 22, w: 14, h: 22,
                  kind: ['tarot', 'bell', 'crows', 'dig'][i], used: false });
   });
-  const nearStone = x => doors.some(d => x > d.x - 64 && x < d.x + 176);
 
   // the woods are hungry — but the treeline, the stones, and the chapel stay quiet
   let packCount = 0;
   for (let cc = 30; cc < MAP_W - 26; cc += rint(10, 16)) {
-    if (map[9][cc] !== 1 || map[8][cc] || nearStone(cc * TILE)) continue;
+    if (map[9][cc] !== 1 || map[8][cc] || nearDoors(cc * TILE)) continue;
     const prog = cc / MAP_W;
     if (prog < 0.18 || rng() < 0.35) continue;
     packCount++;
@@ -1016,40 +1013,16 @@ function genWoods() {
   // mountain lions wait on the branches
   for (let cc = 40; cc < MAP_W - 30; cc++)
     if ((map[4][cc] === 2 || map[6][cc] === 2) &&
-        !nearStone(cc * TILE) && tileNoise(cc, 13) < 0.12)
+        !nearDoors(cc * TILE) && tileNoise(cc, 13) < 0.12)
       enemies.push(makeLion(cc * TILE));
 
   eyePickups.length = 0;
 
   // a heart over the second ravine
-  heartPickup.taken = false; heartPickup.t = 0;
-  heartPickup.x = -100; heartPickup.y = -100;
-  let gapCount = 0, inGap = false;
-  for (let cc = 0; cc < MAP_W; cc++) {
-    if (map[9][cc] === 0) {
-      if (!inGap) {
-        inGap = true; gapCount++;
-        if (gapCount === 2) {
-          let end = cc;
-          while (end < MAP_W && map[9][end] === 0) end++;
-          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
-          heartPickup.y = 6 * TILE - 4;
-          break;
-        }
-      }
-    } else inGap = false;
-  }
+  placeHeartOverGap();
 
   // will-o-wisps mark the way (the same souls, thinner air)
-  checkpoints.length = 0;
-  for (let target = 30; target < MAP_W - 22; target += 30) {
-    let cc = target;
-    while (cc < MAP_W - 18 &&
-           !(map[9][cc] === 1 && !map[8][cc] && !map[7][cc]))
-      cc++;
-    checkpoints.push({ x: cc * TILE + 4, reached: false, gy: 9 * TILE });
-  }
-  lastCP.x = 40; lastCP.y = 100;
+  placeCheckpoints(30, 30);
 
   houseX = (MAP_W - 6) * TILE;                          // the old chapel
   resetKid();
@@ -1111,11 +1084,7 @@ function genOutside() {
       enemies.push(makeSpider((pc + (len >> 1)) * TILE, (pr + 1) * TILE));
   }
 
-  // headroom pass: no platform may leave less than two tiles of standing
-  // air over solid ground — she (and the boy) must fit underneath upright
-  for (let r = 2; r < MAP_H - 2; r++)
-    for (let cc = 0; cc < MAP_W; cc++)
-      if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
+  headroomPass();
 
   // hand-tweak: the spider platform at the first snake encounter sat one
   // tile too high (row 5, cols 56-58) — drop it to row 6 so it lines up
@@ -1135,22 +1104,7 @@ function genOutside() {
       enemies.splice(i, 1);
 
   // hang the healing heart over the second ravine
-  heartPickup.taken = false; heartPickup.t = 0;
-  let gapCount = 0, inGap = false;
-  for (let cc = 0; cc < MAP_W; cc++) {
-    if (map[9][cc] === 0) {
-      if (!inGap) {
-        inGap = true; gapCount++;
-        if (gapCount === 2) {
-          let end = cc;
-          while (end < MAP_W && map[9][end] === 0) end++;
-          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
-          heartPickup.y = 6 * TILE - 4;
-          break;
-        }
-      }
-    } else inGap = false;
-  }
+  placeHeartOverGap();
 
   // carnival doors every few screens, set on solid open ground
   doors.length = 0;
@@ -1221,17 +1175,16 @@ function genOutside() {
   // ---- pacing pass (post-generation, layout untouched) ----
   // teach first, rest at the doors, escalate through the back half,
   // and go quiet just before the dollhouse so the finale lands.
-  const nearDoor = x => doors.some(d => x > d.x - 64 && x < d.x + 176);
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
-    if (nearDoor(e.x) ||                                  // rest beats
+    if (nearDoors(e.x) ||                                  // rest beats
         (e.x < LEVEL_W * 0.25 && e.kind !== 'snake') ||   // teaching zone
         e.x > (MAP_W - 26) * TILE)                        // breath before the end
       enemies.splice(i, 1);
   }
   // escalation: extra bats thicken toward the end of the road
   for (let cc = Math.floor(MAP_W * 0.5); cc < MAP_W - 26; cc += 7) {
-    if (map[9][cc] !== 1 || nearDoor(cc * TILE)) continue;
+    if (map[9][cc] !== 1 || nearDoors(cc * TILE)) continue;
     if (tileNoise(cc, 3) < (cc / MAP_W - 0.35) * 0.9)
       enemies.push(makeBat(cc * TILE, 36 + Math.floor(tileNoise(cc, 5) * 60)));
   }
@@ -1244,7 +1197,7 @@ function resetKid() {
   kid.x = -1000; kid.y = 0;
   kid.vx = 0; kid.vy = 0;
   kid.stage = 'roam'; kid.mode = 'hidden'; kid.hideT = 240;
-  kid.glimpseT = 0; kid.seen = false; kid.glimpses = 0;
+  kid.glimpseT = 0; kid.glimpses = 0;
   kid.face = -1; kid.animT = 0; kid.alarmT = 0;
 }
 
@@ -1319,43 +1272,16 @@ function genHouse() {
   for (let cc = 40; cc < MAP_W - 30; cc += rint(18, 30))
     if (rng() < 0.5) enemies.push(makeSpider(cc * TILE, TILE));
 
-  // same headroom rule as outside: standing room under every shelf
-  for (let r = 2; r < MAP_H - 2; r++)
-    for (let cc = 0; cc < MAP_W; cc++)
-      if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
+  headroomPass();
 
   doors.length = 0;                                    // no carnival in here
   eyePickups.length = 0;                               // her eyes were outside
 
   // a heart over the second stairwell
-  heartPickup.taken = false; heartPickup.t = 0;
-  heartPickup.x = -100; heartPickup.y = -100;
-  let gapCount = 0, inGap = false;
-  for (let cc = 0; cc < MAP_W; cc++) {
-    if (map[9][cc] === 0) {
-      if (!inGap) {
-        inGap = true; gapCount++;
-        if (gapCount === 2) {
-          let end = cc;
-          while (end < MAP_W && map[9][end] === 0) end++;
-          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
-          heartPickup.y = 6 * TILE - 4;
-          break;
-        }
-      }
-    } else inGap = false;
-  }
+  placeHeartOverGap();
 
   // candles mark the way (same souls as the lanterns outside)
-  checkpoints.length = 0;
-  for (let target = 30; target < MAP_W - 22; target += 30) {
-    let cc = target;
-    while (cc < MAP_W - 18 &&
-           !(map[9][cc] === 1 && !map[8][cc] && !map[7][cc]))
-      cc++;
-    checkpoints.push({ x: cc * TILE + 4, reached: false, gy: 9 * TILE });
-  }
-  lastCP.x = 40; lastCP.y = 100;
+  placeCheckpoints(30, 30);
 
   houseX = (MAP_W - 6) * TILE;                         // his bedroom door
   resetKid();
@@ -1483,7 +1409,7 @@ function whiten(img) {
 }
 
 /* ---------------- audio ---------------- */
-let AC = null, masterGain = null, musicTimer = null, musicStep = 0, nextNoteTime = 0;
+let AC = null, masterGain = null, musicStep = 0, nextNoteTime = 0;
 
 // A broken music box: minor lullaby with a sour note. -1 = rest.
 const LULLABY = [
@@ -1574,7 +1500,7 @@ function initAudio() {
   drone.start(); wob.start();
 
   nextNoteTime = AC.currentTime + 0.1;
-  musicTimer = setInterval(scheduleMusic, 120);
+  setInterval(scheduleMusic, 120);
 }
 
 function musicBoxNote(midi, when, vol, detune, type, decay) {
@@ -1810,6 +1736,12 @@ let paused = false;     // Esc freezes play and mini worlds
 let score = 0;
 let camX = 0;
 let frame = 0;
+function shakeOffset() {
+  return shakeT > 0
+    ? [Math.round((Math.random() - 0.5) * 2 * shakeMag),
+       Math.round((Math.random() - 0.5) * shakeMag)]
+    : [0, 0];
+}
 let inkMelt = false;            // past the second lantern, half of her runs to ink
 let shakeT = 0, shakeMag = 0;   // screen shake: frames left, pixel magnitude
 function addShake(mag, frames) {
@@ -1826,7 +1758,18 @@ let speedAcc = 0;               // fractional update accumulator for game speed
 function saveAssist() {
   try { localStorage.setItem('creepydoll-assist', JSON.stringify(assist)); } catch (e) {}
 }
-try { Object.assign(assist, JSON.parse(localStorage.getItem('creepydoll-assist') || '{}')); } catch (e) {}
+// load stored settings field-by-field — never merge unvalidated data
+// (a corrupted speed would freeze the update loop; foreign keys stay out)
+try {
+  const s = JSON.parse(localStorage.getItem('creepydoll-assist') || '{}');
+  if (s && typeof s === 'object') {
+    assist.invuln = s.invuln === true;
+    assist.hearts = s.hearts === true;
+    assist.calm = s.calm === true;
+    assist.skipMini = s.skipMini === true;
+    assist.speed = SPEEDS.includes(s.speed) ? s.speed : 1;
+  }
+} catch (e) {}
 
 function handleAssistKeys(key) {
   const ROWS = 5;
@@ -1990,6 +1933,13 @@ function hurtPlayer(fromX, dmg) {
 }
 
 /* ---------------- update ---------------- */
+function tickAttack() {
+  if (!player.attack) return;
+  player.attack.t++;
+  const dur = player.attack.type === 'punch' ? 14 : 18;
+  if (player.attack.t > dur) player.attack = null;
+}
+
 function attackHitbox() {
   const a = player.attack;
   if (!a) return null;
@@ -2104,11 +2054,7 @@ function updatePlayer() {
     }
   }
   punchHeld = kPunch(); kickHeld = kKick();
-  if (player.attack) {
-    player.attack.t++;
-    const dur = player.attack.type === 'punch' ? 14 : 18;
-    if (player.attack.t > dur) player.attack = null;
-  }
+  tickAttack();
 
   player.vy = Math.min(player.vy + 0.095, 3.5);
   const fallV = player.vy;
@@ -2224,7 +2170,6 @@ function updateKid() {
         if (kid.glimpses < lines.length)
           flashText = { msg: lines[kid.glimpses], t: 120 };
         kid.glimpses++;
-        kid.seen = true;
       }
     } else if (kid.mode === 'peek') {
       // one heartbeat to be seen, then he RUNS — he is always running
@@ -2322,6 +2267,17 @@ function killEnemy(e) {
   }
 }
 
+// look one step ahead; turn at patrol bounds, cliff edges, and walls
+function edgeTurn(e, bounds, walls, resetDash) {
+  const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+  if ((bounds && (e.x < e.minX || e.x > e.maxX)) ||
+      !solidAt(aheadX, e.y + e.h + 4) ||
+      (walls && solidAt(aheadX, e.y + e.h - 2))) {
+    e.dir *= -1;
+    if (resetDash) e.dashT = 0;
+  }
+}
+
 function updateEnemies() {
   const hb = attackHitbox();
   const pcx = player.x + player.w / 2;
@@ -2398,25 +2354,17 @@ function updateEnemies() {
 
     if (e.kind === 'snake' || e.kind === 'cobra') {
       e.x += e.dir * (e.kind === 'cobra' ? 0.55 : 0.45);
-      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-      if (e.x < e.minX || e.x > e.maxX || !solidAt(aheadX, e.y + e.h + 4))
-        e.dir *= -1;
+      edgeTurn(e, true, false, false);
     }
 
     if (e.kind === 'mummy') {   // it has been walking a long time
       e.x += e.dir * 0.25;
-      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-      if (e.x < e.minX || e.x > e.maxX ||
-          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
-        e.dir *= -1;
+      edgeTurn(e, true, true, false);
     }
 
     if (e.kind === 'ant') {     // small, certain, endless
       e.x += e.dir * 0.55;
-      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-      if (e.x < e.minX || e.x > e.maxX ||
-          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
-        e.dir *= -1;
+      edgeTurn(e, true, true, false);
     }
 
     if (e.kind === 'roach' || e.kind === 'scarab') {   // skitters, then bolts at her
@@ -2432,10 +2380,7 @@ function updateEnemies() {
           sfx(520, 0.05, 'square', 0.03, -200);          // a dry click
         }
       }
-      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-      if (!solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2)) {
-        e.dir *= -1; e.dashT = 0;
-      }
+      edgeTurn(e, false, true, true);
     }
 
     if (e.kind === 'goat') {    // grazes, snorts, and then arrives all at once
@@ -2461,10 +2406,7 @@ function updateEnemies() {
           e.windupT = 22; e.chargeCd = 200;
           sfx(340, 0.12, 'sawtooth', 0.05, -120);      // a snort of intent
         }
-        const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-        if (e.x < e.minX || e.x > e.maxX ||
-            !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
-          e.dir *= -1;
+        edgeTurn(e, true, true, false);
       }
     }
 
@@ -2487,10 +2429,7 @@ function updateEnemies() {
 
     if (e.kind === 'bear') {    // slow, wide, and very sure of itself
       e.x += e.dir * 0.3;
-      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-      if (e.x < e.minX || e.x > e.maxX ||
-          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
-        e.dir *= -1;
+      edgeTurn(e, true, true, false);
     }
 
     if (e.kind === 'wolf') {    // patrols, then closes fast
@@ -2506,11 +2445,7 @@ function updateEnemies() {
           sfx(300, 0.15, 'sawtooth', 0.04, -80);       // a low snarl
         }
       }
-      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-      if (e.x < e.minX || e.x > e.maxX ||
-          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2)) {
-        e.dir *= -1; e.dashT = 0;
-      }
+      edgeTurn(e, true, true, true);
     }
 
     if (e.kind === 'lion') {    // waits on a branch, then falls like weather
@@ -2537,10 +2472,7 @@ function updateEnemies() {
         if (e.y > MAP_H * TILE + 20) { e.dead = 26; }  // pounced into a ravine
       } else {                                          // prowls where it landed
         e.x += e.dir * 0.7;
-        const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-        if (e.x < e.minX || e.x > e.maxX ||
-            !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
-          e.dir *= -1;
+        edgeTurn(e, true, true, false);
       }
     }
 
@@ -2557,11 +2489,7 @@ function updateEnemies() {
           sfx(760, 0.08, 'square', 0.04, 300);           // a squeak with intent
         }
       }
-      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-      if (e.x < e.minX || e.x > e.maxX ||
-          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2)) {
-        e.dir *= -1; e.dashT = 0;
-      }
+      edgeTurn(e, true, true, true);
     }
 
     // the doll's fists and feet
@@ -3348,20 +3276,10 @@ function drawEnemies() {
       if (e.dir < 0) ctx.drawImage(img, x - 2, y);
       else { ctx.translate(x + 22, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
       ctx.restore();
-    } else if (e.kind === 'ant' || e.kind === 'roach' || e.kind === 'rat' ||
-               e.kind === 'bear' || e.kind === 'wolf' || e.kind === 'lion' ||
-               e.kind === 'goat' || e.kind === 'owl' ||
-               e.kind === 'mummy' || e.kind === 'scarab') {
-      const frames = e.kind === 'ant' ? ANT_FRAMES :
-                     e.kind === 'roach' ? ROACH_FRAMES :
-                     e.kind === 'rat' ? RAT_FRAMES :
-                     e.kind === 'bear' ? BEAR_FRAMES :
-                     e.kind === 'wolf' ? (level === 4 ? WHITEWOLF_FRAMES : WOLF_FRAMES) :
-                     e.kind === 'lion' ? LION_FRAMES :
-                     e.kind === 'goat' ? GOAT_FRAMES :
-                     e.kind === 'owl' ? OWL_FRAMES :
-                     e.kind === 'mummy' ? MUMMY_FRAMES : SCARAB_FRAMES;
-      let img = frames[(e.t >> (e.kind === 'ant' ? 2 : e.kind === 'bear' ? 4 : 3)) % 2];
+    } else if (ENEMY_SPRITES[e.kind]) {
+      const spec = ENEMY_SPRITES[e.kind];
+      const frames = typeof spec.frames === 'function' ? spec.frames() : spec.frames;
+      let img = frames[(e.t >> spec.shift) % 2];
       if (flash) img = whiten(img);
       const mirror = (e.kind === 'owl' ? e.face : e.dir) < 0;
       ctx.save();
@@ -3372,6 +3290,20 @@ function drawEnemies() {
     }
   }
 }
+
+// simple walkers/fliers drawn by one rule: frames, anim speed, mirror by dir
+const ENEMY_SPRITES = {
+  ant:    { frames: ANT_FRAMES, shift: 2 },
+  roach:  { frames: ROACH_FRAMES, shift: 3 },
+  rat:    { frames: RAT_FRAMES, shift: 3 },
+  bear:   { frames: BEAR_FRAMES, shift: 4 },
+  wolf:   { frames: () => (level === 4 ? WHITEWOLF_FRAMES : WOLF_FRAMES), shift: 3 },
+  lion:   { frames: LION_FRAMES, shift: 3 },
+  goat:   { frames: GOAT_FRAMES, shift: 3 },
+  owl:    { frames: OWL_FRAMES, shift: 3 },
+  mummy:  { frames: MUMMY_FRAMES, shift: 3 },
+  scarab: { frames: SCARAB_FRAMES, shift: 3 },
+};
 
 function drawParticles() {
   for (const p of particles) {
@@ -3665,6 +3597,65 @@ function bEdge(name, cur) {
   return cur && !was;
 }
 
+function healOne() {
+  if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+}
+const bossBox = () => ({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h });
+
+// the fetch-and-throw relics: one mechanic, two artifacts
+const RELICS = {
+  aztec:    { obj: dag,    name: 'dagger',     w: 10, h: 8,  g: 0.06,
+              tvx: 3.8, tvy: -0.6, throwF: 320, throwS: 200, pickF: 760,
+              clinkF: 700, clinkD: 0.08, clinkS: -250, onHit: () => aztecHit() },
+  werewolf: { obj: candel, name: 'candelabra', w: 12, h: 10, g: 0.08,
+              tvx: 3.6, tvy: -1.2, throwF: 300, throwS: 180, pickF: 700,
+              clinkF: 600, clinkD: 0.1, clinkS: -200, onHit: () => wolfHit() },
+};
+
+function updateRelicFlight(rc) {
+  const o = rc.obj;
+  if (o.state !== 'thrown') return;
+  o.x += o.vx; o.y += o.vy; o.vy += rc.g;
+  if (rectsOverlap({ x: o.x, y: o.y, w: rc.w, h: rc.h }, bossBox())) {
+    rc.onHit();
+  } else if (o.y >= 132) {
+    o.y = 132; o.state = 'ground'; o.vx = 0;
+    sfx(rc.clinkF, rc.clinkD, 'triangle', 0.04, rc.clinkS);   // metal on stone
+  } else if (o.x < 4 || o.x > VIEW_W - 16) {
+    o.vx *= -0.5;
+    o.x = Math.max(4, Math.min(VIEW_W - 16, o.x));
+  }
+}
+
+function relicPickOrThrow(rc) {
+  const o = rc.obj;
+  if (carrying === rc.name) {
+    o.state = 'thrown';
+    o.x = player.x + (player.face > 0 ? 10 : -10);
+    o.y = player.y + 2;
+    o.vx = player.face * rc.tvx;
+    o.vy = rc.tvy;
+    carrying = null;
+    sfx(rc.throwF, 0.1, 'square', 0.06, rc.throwS);
+  } else if (o.state === 'ground' && player.onGround &&
+             Math.abs(o.x - player.x) < 16) {
+    o.state = 'held';
+    carrying = rc.name;
+    sfx(rc.pickF, 0.08, 'triangle', 0.05);
+  } else {
+    sfx(180, 0.06, 'square', 0.04, -80);   // a swing at nothing that matters
+  }
+}
+
+// the boy, back to himself, drawn wherever a monster used to stand
+function drawBoyAt(x, y, pose) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (pose === 'crouch') { ctx.translate(0, 6); ctx.scale(1, 0.7); }
+  ctx.drawImage(pose === 'run' ? KID_FRAMES.run[(frame >> 3) % 2] : KID_FRAMES.idle, 0, 0);
+  ctx.restore();
+}
+
 function startBoss() {
   state = 'boss';
   boss.active = true;
@@ -3820,7 +3811,7 @@ function updateBoss() {
                     vy: -2.2, bounced: false });
       sfx(180, 0.12, 'square', 0.05, -70);             // a gift, hurled
     }
-    if (rectsOverlap({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h }, player))
+    if (rectsOverlap(bossBox(), player))
       hurtPlayer(boss.x + boss.w / 2, 1);
     // the skulls in flight
     for (let i = skulls.length - 1; i >= 0; i--) {
@@ -3839,20 +3830,7 @@ function updateBoss() {
       }
       if (sk.x < -12 || sk.x > VIEW_W + 12) skulls.splice(i, 1);
     }
-    // the dagger in flight
-    if (dag.state === 'thrown') {
-      dag.x += dag.vx; dag.y += dag.vy; dag.vy += 0.06;
-      if (rectsOverlap({ x: dag.x, y: dag.y, w: 10, h: 8 },
-                       { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
-        aztecHit();
-      } else if (dag.y >= 132) {
-        dag.y = 132; dag.state = 'ground'; dag.vx = 0;
-        sfx(700, 0.08, 'triangle', 0.04, -250);
-      } else if (dag.x < 4 || dag.x > VIEW_W - 16) {
-        dag.vx *= -0.5;
-        dag.x = Math.max(4, Math.min(VIEW_W - 16, dag.x));
-      }
-    }
+    updateRelicFlight(RELICS.aztec);
   } else if (boss.phase === 'fight' && boss.kind === 'yeti') {
     // he lumbers, and the cave lumbers with him
     const spd = 0.4 + (4 - Math.ceil(boss.hp)) * 0.15;
@@ -3884,7 +3862,7 @@ function updateBoss() {
       }
     }
     boss.x = Math.max(30, Math.min(VIEW_W - boss.w - 40, boss.x));
-    if (rectsOverlap({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h }, player))
+    if (rectsOverlap(bossBox(), player))
       hurtPlayer(boss.x + boss.w / 2, 1);
 
     // her fists and heels: half power on fur, full leverage on ice
@@ -3898,7 +3876,7 @@ function updateBoss() {
           sfx(1000, 0.08, 'square', 0.04, -500);
         }
       if (boss.lastHit !== hb.id &&
-          rectsOverlap(hb, { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+          rectsOverlap(hb, bossBox())) {
         boss.lastHit = hb.id;
         yetiHit(0.5);
       }
@@ -3909,7 +3887,7 @@ function updateBoss() {
         ic.vy = Math.min(ic.vy + 0.25, 5);
         ic.y += ic.vy;
         if (rectsOverlap({ x: ic.x - 2, y: ic.y, w: 6, h: 30 },
-                         { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+                         bossBox())) {
           ic.state = 'gone'; ic.regrowT = 480;
           burst(ic.x, ic.y + 20, '#9fe8ff', 8, 0, 1);
           yetiHit(1);
@@ -3927,7 +3905,7 @@ function updateBoss() {
       if (fi.state === 'sliding') {
         fi.x += fi.vx;
         if (rectsOverlap({ x: fi.x - 3, y: 130, w: 8, h: 14 },
-                         { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+                         bossBox())) {
           fi.state = 'gone'; fi.regrowT = 480;
           burst(fi.x, 134, '#9fe8ff', 8, Math.sign(fi.vx), 0);
           yetiHit(1);
@@ -3962,22 +3940,9 @@ function updateBoss() {
       }
     }
     boss.x = Math.max(28, Math.min(VIEW_W - boss.w - 34, boss.x));
-    if (rectsOverlap({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h }, player))
+    if (rectsOverlap(bossBox(), player))
       hurtPlayer(boss.x + boss.w / 2, 1);
-    // the silver candelabra in flight
-    if (candel.state === 'thrown') {
-      candel.x += candel.vx; candel.y += candel.vy; candel.vy += 0.08;
-      if (rectsOverlap({ x: candel.x, y: candel.y, w: 12, h: 10 },
-                       { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
-        wolfHit();
-      } else if (candel.y >= 132) {
-        candel.y = 132; candel.state = 'ground'; candel.vx = 0;
-        sfx(600, 0.1, 'triangle', 0.04, -200);         // silver on stone
-      } else if (candel.x < 4 || candel.x > VIEW_W - 16) {
-        candel.vx *= -0.5;
-        candel.x = Math.max(4, Math.min(VIEW_W - 16, candel.x));
-      }
-    }
+    updateRelicFlight(RELICS.werewolf);
   } else if (boss.phase === 'fight') {
     // he paces, faster as he bleeds
     const spd = 0.25 + (3 - boss.hp) * 0.3;
@@ -4000,7 +3965,7 @@ function updateBoss() {
                          y: 140, t: 0, w: 10, h: 4, state: 'run' });
     }
     // his body
-    if (rectsOverlap({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h }, player))
+    if (rectsOverlap(bossBox(), player))
       hurtPlayer(boss.x + boss.w / 2, 1);
   } else {
     updateBossOutro();
@@ -4045,7 +4010,7 @@ function updateBoss() {
     th.x += th.vx; th.y += th.vy; th.vy += 0.06;
     if (boss.phase === 'fight' &&
         rectsOverlap({ x: th.x, y: th.y, w: 10, h: 8 },
-                     { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+                     bossBox())) {
       thrown.splice(i, 1);
       bossHit();
     } else if (th.x < -15 || th.x > VIEW_W + 15 || th.y > 140) {
@@ -4108,31 +4073,12 @@ function updateBossDoll() {
   }
 
   // her attacks live here in the cave (fists, and boots against ice)
-  if (player.attack) {
-    player.attack.t++;
-    const dur = player.attack.type === 'punch' ? 14 : 18;
-    if (player.attack.t > dur) player.attack = null;
-  }
+  tickAttack();
 
   // punch or kick: pick something up, or let it fly
   const pz = bEdge('z', kPunch()), px = bEdge('x', kKick());
   if ((pz || px) && boss.phase === 'fight' && boss.kind === 'aztec') {
-    if (carrying === 'dagger') {
-      dag.state = 'thrown';
-      dag.x = player.x + (player.face > 0 ? 10 : -10);
-      dag.y = player.y + 2;
-      dag.vx = player.face * 3.8;
-      dag.vy = -0.6;
-      carrying = null;
-      sfx(320, 0.1, 'square', 0.06, 200);
-    } else if (dag.state === 'ground' && player.onGround &&
-               Math.abs(dag.x - player.x) < 16) {
-      dag.state = 'held';
-      carrying = 'dagger';
-      sfx(760, 0.08, 'triangle', 0.05);
-    } else {
-      sfx(180, 0.06, 'square', 0.04, -80);             // fists mean nothing to gods
-    }
+    relicPickOrThrow(RELICS.aztec);
   } else if ((pz || px) && boss.phase === 'fight' && boss.kind === 'yeti') {
     const fi = iceFloor.find(f => f.state === 'stand' &&
                                   Math.abs(f.x - (player.x + 5)) < 18);
@@ -4145,22 +4091,7 @@ function updateBossDoll() {
       (pz ? sndPunch : sndKick)();
     }
   } else if ((pz || px) && boss.phase === 'fight' && boss.kind === 'werewolf') {
-    if (carrying === 'candelabra') {
-      candel.state = 'thrown';
-      candel.x = player.x + (player.face > 0 ? 10 : -10);
-      candel.y = player.y + 2;
-      candel.vx = player.face * 3.6;
-      candel.vy = -1.2;
-      carrying = null;
-      sfx(300, 0.1, 'square', 0.06, 180);
-    } else if (candel.state === 'ground' && player.onGround &&
-               Math.abs(candel.x - player.x) < 16) {
-      candel.state = 'held';
-      carrying = 'candelabra';
-      sfx(700, 0.08, 'triangle', 0.05);
-    } else {
-      sfx(180, 0.06, 'square', 0.04, -80);             // a swing at moonlight
-    }
+    relicPickOrThrow(RELICS.werewolf);
   } else if ((pz || px) && boss.phase === 'fight') {
     if (carrying) {
       thrown.push({ kind: carrying,
@@ -4274,8 +4205,7 @@ function updateBossOutro() {
 }
 
 function drawBoss() {
-  const shX = shakeT > 0 ? Math.round((Math.random() - 0.5) * 2 * shakeMag) : 0;
-  const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
+  const [shX, shY] = shakeOffset();
   ctx.save();
   ctx.translate(shX, shY);
   if (boss.kind === 'aztec') { drawGoldChamber(); drawBossEntitiesAztec(); return endBossDraw(); }
@@ -4455,12 +4385,8 @@ function drawBossEntitiesAztec() {
 function drawAztec() {
   const P = boss;
   if (P.phase === 'revert') {
-    const x = Math.round(P.x), y = 124;
-    ctx.save();
-    ctx.translate(x, y + 6);
-    ctx.scale(1, 0.7);
-    ctx.drawImage(KID_FRAMES.idle, 0, 0);
-    ctx.restore();
+    const x = Math.round(P.x);
+    drawBoyAt(x, 124, 'crouch');
     ctx.fillStyle = '#d8b23a';                         // the mask, face down beside him
     ctx.fillRect(x - 14, 136, 12, 7);
     return;
@@ -4562,13 +4488,7 @@ function drawBossEntitiesYeti() {
 function drawYeti() {
   const P = boss;
   if (P.phase === 'revert' || P.phase === 'run') {
-    const x = Math.round(P.x), y = 124;
-    ctx.save();
-    ctx.translate(x, y);
-    if (P.phase === 'revert') { ctx.translate(0, 6); ctx.scale(1, 0.7); }
-    ctx.drawImage(P.phase === 'revert' ? KID_FRAMES.idle
-                                       : KID_FRAMES.run[(frame >> 3) % 2], 0, 0);
-    ctx.restore();
+    drawBoyAt(Math.round(P.x), 124, P.phase === 'revert' ? 'crouch' : 'run');
     return;
   }
   if (P.phase === 'gone') return;
@@ -4682,13 +4602,7 @@ function drawWerewolf() {
   const P = boss;
   if (P.phase === 'revert' || P.phase === 'wallbreak') {
     // the boy again, small and pleased with himself
-    const x = Math.round(P.x), y = 124;
-    ctx.save();
-    ctx.translate(x, y);
-    if (P.phase === 'revert') { ctx.translate(0, 6); ctx.scale(1, 0.7); }
-    ctx.drawImage(P.phase === 'revert' ? KID_FRAMES.idle
-                                       : KID_FRAMES.run[(frame >> 3) % 2], 0, 0);
-    ctx.restore();
+    drawBoyAt(Math.round(P.x), 124, P.phase === 'revert' ? 'crouch' : 'run');
     return;
   }
   if (P.phase === 'gone') return;
@@ -4774,20 +4688,14 @@ function drawDracula() {
 
 function drawOutroBoy() {
   const x = Math.round(boss.x), y = 124;
-  ctx.save();
   if (boss.phase === 'crouch') {
-    ctx.translate(x, y + 6);
-    ctx.scale(1, 0.7);
-    ctx.drawImage(KID_FRAMES.idle, 0, 0);
+    drawBoyAt(x, y, 'crouch');
   } else if (boss.phase === 'laugh') {
-    ctx.translate(x, y + ((frame >> 3) % 2));
-    ctx.drawImage(KID_FRAMES.idle, 0, 0);
+    drawBoyAt(x, y + ((frame >> 3) % 2), 'idle');
     if ((frame >> 4) % 2) pixelText('HA HA', x - 2, y - 12, '#f0e040');
   } else {
-    ctx.translate(x, y);
-    ctx.drawImage(KID_FRAMES.run[(frame >> 3) % 2], 0, 0);
+    drawBoyAt(x, y, 'run');
   }
-  ctx.restore();
 }
 
 function drawBossCat() {
@@ -5057,7 +4965,7 @@ function startMini(door) {
                           sel: 0, first: -1, flips: 0, matched: 0, revealT: 0 });
   }
   if (door.kind === 'bell')
-    Object.assign(mini, { swings: 3, rung: 0, best: 0, p: 0, bellT: 0 });
+    Object.assign(mini, { swings: 3, rung: 0, p: 0, bellT: 0 });
   if (door.kind === 'crows')
     Object.assign(mini, {
       darts: 5, hits: 0, dart: null, aimY: 90, hopT: 0,
@@ -5152,7 +5060,7 @@ function updateGlyphs() {
         if (++mini.inputI >= 4) {
           mini.over = true; mini.won = true;
           score += 400;
-          if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+          healOne();
           mini.msg = 'THE WALL REMEMBERS HER   +400';
         }
       } else {
@@ -5321,7 +5229,7 @@ function updateTarot() {
           mini.over = true; mini.won = true;
           const bonus = Math.max(100, 800 - mini.flips * 100);
           score += bonus;
-          if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+          healOne();
           mini.msg = 'THE CARDS REMEMBER HER   +' + bonus;
         }
       } else {
@@ -5386,7 +5294,7 @@ function updateBell() {
     mini.swings--;
     mini.bellT = 24;
     if (q > 0.8) {
-      mini.rung++; mini.best = Math.max(mini.best, q);
+      mini.rung++;
       score += 200;
       sfx(220, 1.2, 'triangle', 0.09, -8); sfx(440, 0.9, 'sine', 0.05, -12);
       mpBurst(240, 66, '#e8c66a', 12);
@@ -5528,7 +5436,7 @@ function updateDig() {
         mini.dug = true;
         if (mini.sel === mini.locket) {
           score += 300;
-          if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+          healOne();
           sfx(660, 0.3, 'triangle', 0.07); sfx(990, 0.4, 'sine', 0.04);
         } else {
           mini.spiderT = 1;
@@ -5610,7 +5518,7 @@ function updateHollow() {
     mini.eyeTaken = true;
     eyesFound++;
     score += 200;
-    if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+    healOne();
     sfx(880, 0.3, 'sine', 0.06); sfx(1320, 0.4, 'sine', 0.04);
     mpBurst(160, 118, '#e8c66a', 12);
     mini.msg2 = 'IT FITS.'; mini.msg2T = 130;
@@ -5859,7 +5767,7 @@ function updateCoffin() {
       mini.pickOk = mini.slots[mini.heartCoffin] === mini.sel;
       if (mini.pickOk) {
         score += 200;
-        if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+        healOne();
         sfx(660, 0.3, 'triangle', 0.07);
       } else sfx(140, 0.4, 'sawtooth', 0.06, -70);
     }
@@ -6123,8 +6031,7 @@ function tick() {
 
   const st = creepStage();
   if (!paused && shakeT > 0 && --shakeT === 0) shakeMag = 0;
-  const shX = shakeT > 0 ? Math.round((Math.random() - 0.5) * 2 * shakeMag) : 0;
-  const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
+  const [shX, shY] = shakeOffset();
   ctx.save();
   ctx.translate(shX, shY);
   if (level === 5) drawTombBackground(st);
