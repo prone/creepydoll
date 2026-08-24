@@ -715,14 +715,20 @@ function section(name) { console.log('\n== ' + name + ' =='); }
     player.x = e.x - 2; player.y = e.y + e.h - player.h; player.vy = 0;
     for (let i = 0; i < 12; i++) {
       await new Promise(r => requestAnimationFrame(r));
-      if (player.hp < 5) return player.hp;
+      if (player.hp < 5) break;
     }
-    return player.hp;
+    await new Promise(r => requestAnimationFrame(r));
+    return { hp: player.hp, died: e.dead > 0 };
   }, kind);
-  check((await nib('ant')) === 4.5, 'an ant only nips half a heart');
-  check((await nib('roach')) === 4.5, 'a cockroach bites half a heart');
+  const antNib = await nib('ant');
+  check(antNib.hp === 4.5 && antNib.died,
+        'an ant nips half a heart — and the bite is the last thing it does');
+  const roachNib = await nib('roach');
+  check(roachNib.hp === 4.5 && roachNib.died,
+        'a cockroach bites half a heart — and dies doing it');
   const ratBite = await nib('rat');
-  check(ratBite === 4 || ratBite === 'none', 'a rat still costs a full heart');
+  check(ratBite === 'none' || (ratBite.hp === 4 && !ratBite.died),
+        'a rat costs a full heart and lives to lunge again');
   await ev(() => { player.invuln = 999999; player.hp = 5; });
 
   /* ---------- the house's own sound ---------- */
@@ -775,6 +781,23 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await ev(() => { boss.roachCd = 1; });
   await frames(8);
   check(await ev(() => bossRoaches.length > 0), 'cockroaches crash the fight');
+  const fightRoachBite = await page.evaluate(async () => {
+    const r = bossRoaches.find(r => r.state === 'run');
+    if (!r) return 'none';
+    r.x = 60;                                // away from the boss and his bats
+    player.invuln = 0; player.hp = 5;
+    player.x = 58; player.y = 126; player.vy = 0;
+    for (let i = 0; i < 20; i++) {
+      player.x = r.x - 2;
+      await new Promise(res => requestAnimationFrame(res));
+      if (player.hp < 5) return { hp: player.hp, gone: !bossRoaches.includes(r) };
+    }
+    return 'no-bite';
+  });
+  check(fightRoachBite === 'none' ||
+        (fightRoachBite.hp === 4.5 && fightRoachBite.gone),
+        'a fight roach is spent on its bite too');
+  await ev(() => { player.invuln = 999999; player.hp = 5; });
   // jump onto a bat mid-flight
   const stomp = await page.evaluate(async () => {
     const b = bossBats.find(b => b.state === 'fly');

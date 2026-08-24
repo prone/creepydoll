@@ -1747,10 +1747,18 @@ function updateEnemies() {
       else e.x += player.face * 6;
     }
 
-    // touching the doll — the small things only take half a heart
-    if (!e.dead && rectsOverlap(e, player))
-      hurtPlayer(e.x + e.w / 2,
-                 e.kind === 'ant' || e.kind === 'roach' ? 0.5 : 1);
+    // touching the doll — the small things only take half a heart,
+    // and the bite is the last thing they do
+    if (!e.dead && rectsOverlap(e, player)) {
+      const small = e.kind === 'ant' || e.kind === 'roach';
+      hurtPlayer(e.x + e.w / 2, small ? 0.5 : 1);
+      if (small && player.invuln === 80) {     // the bite landed; it is spent
+        e.dead = 1;
+        burst(e.x + e.w / 2, e.y + e.h / 2,
+              e.kind === 'ant' ? '#3e2c1e' : '#5a3a1e', 5);
+        sfx(220, 0.08, 'square', 0.04, -120);
+      }
+    }
   }
 
   // sweep the long-dead
@@ -2615,8 +2623,13 @@ function updateBoss() {
     if (r.state === 'run') {
       r.x += r.dir * 0.9;
       if (r.x < -16 || r.x > VIEW_W + 6) { bossRoaches.splice(i, 1); continue; }
-      if (boss.phase === 'fight' && rectsOverlap(r, player))
+      if (boss.phase === 'fight' && rectsOverlap(r, player)) {
         hurtPlayer(r.x + 5, 0.5);
+        if (player.invuln === 80) {              // spent on the bite
+          burst(r.x + 5, r.y + 2, '#5a3a1e', 5);
+          bossRoaches.splice(i, 1);
+        }
+      }
     }
   }
 
