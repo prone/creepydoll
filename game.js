@@ -535,6 +535,14 @@ const HOUSE_GLIMPSE_LINES = [
   'no more running after this one.',
   'she can already see his door.',
 ];
+// and once the woods close around them both
+const WOODS_GLIMPSE_LINES = [
+  'the trees know him. they let him pass.',
+  'he cannot run forever.',
+  'the dark is on her side now.',
+  'nearly out of woods to hide in.',
+  'the chapel. of course. the chapel.',
+];
 
 /* ---------------- level ---------------- */
 // map[r][c]: 0 empty, 1 ground, 2 platform, 3 furniture (solid wood)
@@ -1121,6 +1129,15 @@ const HOUSE = [
 ];
 const HOUSE_STEP = 0.27;
 
+// the deep woods: long sine tolls with too much silence between them
+const WOODS = [
+  45, -1, -1, 57, -1, 52, -1, -1,
+  44, -1, -1, 56, -1, 51, -1, -1,
+  45, -1, -1, 57, -1, 60, -1, 59,
+  52, -1, -1, 45, -1, -1, -1, -1,
+];
+const WOODS_STEP = 0.32;
+
 // the boss fight: fast, low, and wrong — a tritone gnawing at the floor
 const BOSS_THEME = [
   38, -1, 50, 44, 38, -1, 49, 44,
@@ -1195,6 +1212,16 @@ function scheduleMusic() {
       }
       musicStep++;
       nextNoteTime += BOSS_STEP;
+    } else if (level === 3) {
+      // the woods keep their own time
+      const m = WOODS[musicStep % WOODS.length];
+      if (m > 0) {
+        musicBoxNote(m, nextNoteTime, 0.08, (Math.random() - 0.5) * 6, 'sine', 0.9);
+        if (Math.random() < 0.3)
+          musicBoxNote(m + 24, nextNoteTime + 0.05, 0.02, -6, 'triangle', 0.5);
+      }
+      musicStep++;
+      nextNoteTime += WOODS_STEP;
     } else if (level === 2) {
       // the house waltz — cozy, with a sour lean that grows with her
       const m = HOUSE[musicStep % HOUSE.length];
@@ -1278,9 +1305,25 @@ const HOUSE_AMBIENTS = [
       sfx(1200, 0.5, 'sawtooth', 0.006, -700);
       setTimeout(() => sfx(1000, 0.4, 'sawtooth', 0.005, -500), 350); } },
 ];
+// and the deep woods, making bigger ones (level 3)
+const WOODS_AMBIENTS = [
+  { minStage: 0, name: 'howl', play: () => {                 // something claims the hill
+      sfx(280, 1.1, 'triangle', 0.035, 160);
+      setTimeout(() => sfx(430, 0.9, 'triangle', 0.028, -60), 900); } },
+  { minStage: 0, name: 'crack', play: () => {                // a branch gives up
+      sfx(90, 0.06, 'square', 0.05, -40);
+      setTimeout(() => sfx(70, 0.05, 'square', 0.04, -30), 90); } },
+  { minStage: 0, name: 'owl', play: () => {                  // the same question as always
+      sfx(392, 0.18, 'triangle', 0.03);
+      setTimeout(() => sfx(330, 0.3, 'triangle', 0.028, -20), 230); } },
+  { minStage: 0, name: 'pines', play: () => {                // wind through a thousand needles
+      sfx(140, 2.0, 'triangle', 0.02, 50);
+      setTimeout(() => sfx(180, 1.5, 'triangle', 0.014, -60), 700); } },
+];
 let ambientCd = 600;
 function playAmbient(stage) {
-  const pool = (level === 2 ? HOUSE_AMBIENTS : AMBIENTS)
+  const pool = (level === 3 ? WOODS_AMBIENTS :
+                level === 2 ? HOUSE_AMBIENTS : AMBIENTS)
     .filter(a => stage >= a.minStage);
   pool[Math.floor(Math.random() * pool.length)].play();
 }
@@ -1723,7 +1766,8 @@ function updateKid() {
         kid.x = c * TILE + 3; kid.y = 9 * TILE - kid.h - 1;
         kid.vx = 0; kid.vy = 0;
         kid.mode = 'peek'; kid.glimpseT = 0;
-        const lines = level === 2 ? HOUSE_GLIMPSE_LINES : GLIMPSE_LINES;
+        const lines = level === 3 ? WOODS_GLIMPSE_LINES :
+                      level === 2 ? HOUSE_GLIMPSE_LINES : GLIMPSE_LINES;
         if (kid.glimpses < lines.length)
           flashText = { msg: lines[kid.glimpses], t: 120 };
         kid.glimpses++;

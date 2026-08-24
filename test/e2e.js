@@ -1079,6 +1079,23 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => state === 'play' && doors.every(d => d.used)),
         'all four stones are spent');
 
+  /* ---------- the woods' own sound ---------- */
+  section('woods sound');
+  check(await ev(() => WOODS.length >= 24 && WOODS_AMBIENTS.length >= 4),
+        'the woods have their own tune and their own voices');
+  await ev(() => { ambientCd = 1; });
+  await frames(4);
+  check(await ev(() => ambientCd > 100), 'the night reschedules itself out here too');
+  const woodsLine = await page.evaluate(async () => {
+    player.x = 1000; player.y = 100; player.vy = 0; player.maxX = 1000;
+    kid.stage = 'roam'; kid.mode = 'hidden'; kid.hideT = 1;
+    kid.x = -1000; kid.glimpses = 0;
+    for (let i = 0; i < 8; i++) await new Promise(r => requestAnimationFrame(r));
+    return flashText && flashText.msg;
+  });
+  check(woodsLine === 'the trees know him. they let him pass.',
+        'his glimpses speak in woods lines now');
+
   // death in the woods retries the woods
   await ev(() => { player.invuln = 0; player.hp = 1; player.y = 400; player.vy = 3; });
   await page.waitForFunction(() => state === 'gameover', null, { timeout: 5000 });
