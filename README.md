@@ -97,6 +97,19 @@ jump launches her about twice as high.
   work as ammo too. Beaten, he shrinks back into a boy, laughs, and runs out
   the door — which stays open just long enough for a cat to wander in, meowing.
   Level three, the forest, is coming.
+- **Level 3 — the deep woods:** past the house, the trees are tall and the dark
+  is old. Rocky ground and ravines, giant trees with root arches to run beneath
+  and branches to climb, will-o-wisp checkpoints, bears, wolves, and mountain
+  lions — and four standing-stone minigames: the Fortune Teller (match the
+  tarot pairs), the Bell Toll (strike gold), the Crow Gallery (they hop), and
+  the Grave Dig (mash before the marker runs out).
+- **The werewolf:** at the old chapel, under a moon with nothing missing from
+  it, the boy is gone again. He stalks on all fours and claws when she strays
+  close. Her only weapon is a **silver candelabra**: punch to lift it, punch to
+  throw it — and every hit knocks it flying, so she must dodge around him to
+  fetch it. Four wounds, each tearing his clothes and bloodying him further,
+  and he crumples — a naked hairy beast — turns back into the boy, and breaks
+  THROUGH the chapel wall into the night. And still he runs.
 - **Assist mode:** press **Esc** — the pause screen is also the assist menu
   (↑/↓ pick, ←/→ set): invincibility, game speed (100/80/60%), infinite
   hearts, reduced flash (no screen shake or hit-strobe), and skip-minigames

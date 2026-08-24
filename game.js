@@ -1849,12 +1849,7 @@ function updateKid() {
     } else if (level === 2) {
       startBoss();                                 // the boy is not a boy
     } else {
-      // level 3, at the chapel — the werewolf fight lands here next;
-      // for now the woods end the story
-      score += 1000;
-      state = 'win';
-      sndWin();
-      burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
+      startBoss();                                 // under a full moon, at the chapel
     }
   }
 }
@@ -2960,10 +2955,14 @@ function drawFireballs() {
 }
 
 /* ---------------- level 2 boss: the boy, at his worst ---------------- */
-const boss = { active: false, hp: 3, x: 235, w: 40, h: 56, dir: -1, t: 0,
-               phase: 'fight',   // fight | shrink | crouch | laugh | run | cat
+const boss = { active: false, kind: 'dracula', hp: 3, x: 235, w: 40, h: 56,
+               dir: -1, t: 0,
+               phase: 'fight',   // dracula: fight|shrink|crouch|laugh|run|cat
+                                 // werewolf: fight|crumple|revert|wallbreak|gone
                phaseT: 0, hurtT: 0, shootCd: 100,
-               boltT: 0, boltCd: 180, roachCd: 200, held: {} };
+               boltT: 0, boltCd: 180, roachCd: 200,
+               swipeT: 0, swipeCd: 60, wallHole: false, held: {} };
+const candel = { x: 250, y: 132, vx: 0, vy: 0, state: 'ground' };  // the silver candelabra
 const bossBats = [];     // {x,y,baseY,vx,t,w,h,state:'fly'|'down'}
 const bossRoaches = [];  // {x,y,dir,t,w,h,state:'run'|'down'}
 const thrown = [];       // {kind,x,y,vx,vy}
@@ -2978,13 +2977,20 @@ function bEdge(name, cur) {
 
 function startBoss() {
   state = 'boss';
-  boss.active = true; boss.hp = 3; boss.t = 0;
+  boss.active = true;
+  boss.kind = level === 3 ? 'werewolf' : 'dracula';
+  boss.hp = boss.kind === 'werewolf' ? 4 : 3;
+  boss.w = boss.kind === 'werewolf' ? 34 : 40;
+  boss.h = boss.kind === 'werewolf' ? 34 : 56;
+  boss.t = 0;
   boss.phase = 'fight'; boss.phaseT = 0; boss.hurtT = 0;
   boss.x = 235; boss.dir = -1;
   boss.shootCd = 100; boss.boltCd = 180; boss.boltT = 0; boss.roachCd = 200;
+  boss.swipeT = 0; boss.swipeCd = 60; boss.wallHole = false;
   boss.held = {};
   bossBats.length = 0; bossRoaches.length = 0; thrown.length = 0;
   carrying = null;
+  candel.x = 250; candel.y = 132; candel.vx = 0; candel.vy = 0; candel.state = 'ground';
   cat.x = -40; cat.t = 0;
   camX = 0;
   particles.length = 0;
@@ -2992,8 +2998,34 @@ function startBoss() {
   player.crouch = false; player.h = 18; player.attack = null; player.chargeT = 0;
   player.invuln = 60;
   musicStep = 0;
-  flashText = { msg: 'the boy is not a boy.', t: 150 };
+  flashText = boss.kind === 'werewolf'
+    ? { msg: 'the moon is full. the boy is gone.', t: 150 }
+    : { msg: 'the boy is not a boy.', t: 150 };
   sfx(60, 1.5, 'sawtooth', 0.08, 30);
+  if (boss.kind === 'werewolf')
+    setTimeout(() => { sfx(280, 1.1, 'triangle', 0.05, 160); }, 400);   // the first howl
+}
+
+function wolfHit() {
+  boss.hp--;
+  boss.hurtT = 30;
+  score += 400;
+  addShake(3, 12);
+  burst(boss.x + boss.w / 2, 120, '#a01828', 12, -1.5);
+  sfx(120, 0.5, 'sawtooth', 0.09, -40);                // a howl with a hole in it
+  sfx(900, 0.15, 'triangle', 0.05, -300);              // silver rings true
+  // the candelabra flies wide — go and get it
+  const farLeft = boss.x + boss.w / 2 > VIEW_W / 2;
+  candel.x = farLeft ? 24 + Math.random() * 40 : 240 + Math.random() * 40;
+  candel.y = 132; candel.vx = 0; candel.vy = 0; candel.state = 'ground';
+  if (boss.hp <= 0) {
+    boss.phase = 'crumple'; boss.phaseT = 0;
+    flashText = { msg: 'the fourth finds the heart of him.', t: 110 };
+  } else {
+    flashText = { msg: boss.hp === 3 ? 'his shirt tears. he howls.' :
+                       boss.hp === 2 ? 'more blood than boy now.' :
+                                       'one more. one more.', t: 100 };
+  }
 }
 
 function bossHit() {
@@ -3018,8 +3050,8 @@ function updateBoss() {
   if (boss.hurtT > 0) boss.hurtT--;
   if (boss.boltT > 0) boss.boltT--;
 
-  // the storm keeps time with his wounds
-  if (--boss.boltCd <= 0) {
+  // the storm keeps time with his wounds (the werewolf gets a still full moon)
+  if (boss.kind === 'dracula' && --boss.boltCd <= 0) {
     boss.boltCd = 240 - (3 - boss.hp) * 65 + Math.random() * 90;
     boss.boltT = 12;
     sfx(1400, 0.1, 'sawtooth', 0.03, -900);
@@ -3028,7 +3060,46 @@ function updateBoss() {
 
   updateBossDoll();
 
-  if (boss.phase === 'fight') {
+  if (boss.phase === 'fight' && boss.kind === 'werewolf') {
+    // he stalks her on all fours, quicker with every wound
+    const spd = 0.5 + (4 - boss.hp) * 0.2;
+    if (boss.swipeT > 0) {
+      boss.swipeT--;
+      boss.x += boss.dir * 1.6;                        // the lunge behind the claws
+      if (boss.swipeT > 4 && boss.swipeT < 14) {
+        const claw = { x: boss.dir > 0 ? boss.x + boss.w : boss.x - 22,
+                       y: 144 - 32, w: 22, h: 30 };
+        if (rectsOverlap(claw, player)) hurtPlayer(boss.x + boss.w / 2, 1);
+      }
+    } else {
+      boss.dir = Math.sign(player.x - boss.x - boss.w / 2) || 1;
+      boss.x += boss.dir * spd;
+      if (boss.swipeCd > 0) boss.swipeCd--;
+      if (boss.swipeCd <= 0 &&
+          Math.abs((player.x + 5) - (boss.x + boss.w / 2)) < 46) {
+        boss.swipeT = 18;
+        boss.swipeCd = 90 - (4 - boss.hp) * 12;
+        sfx(160, 0.2, 'sawtooth', 0.06, -60);          // a wet snarl
+      }
+    }
+    boss.x = Math.max(28, Math.min(VIEW_W - boss.w - 34, boss.x));
+    if (rectsOverlap({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h }, player))
+      hurtPlayer(boss.x + boss.w / 2, 1);
+    // the silver candelabra in flight
+    if (candel.state === 'thrown') {
+      candel.x += candel.vx; candel.y += candel.vy; candel.vy += 0.08;
+      if (rectsOverlap({ x: candel.x, y: candel.y, w: 12, h: 10 },
+                       { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+        wolfHit();
+      } else if (candel.y >= 132) {
+        candel.y = 132; candel.state = 'ground'; candel.vx = 0;
+        sfx(600, 0.1, 'triangle', 0.04, -200);         // silver on stone
+      } else if (candel.x < 4 || candel.x > VIEW_W - 16) {
+        candel.vx *= -0.5;
+        candel.x = Math.max(4, Math.min(VIEW_W - 16, candel.x));
+      }
+    }
+  } else if (boss.phase === 'fight') {
     // he paces, faster as he bleeds
     const spd = 0.25 + (3 - boss.hp) * 0.3;
     boss.x += boss.dir * spd;
@@ -3157,9 +3228,26 @@ function updateBossDoll() {
       }
   }
 
-  // punch or kick: pick a carcass up, or let one fly
+  // punch or kick: pick something up, or let it fly
   const pz = bEdge('z', kPunch()), px = bEdge('x', kKick());
-  if ((pz || px) && boss.phase === 'fight') {
+  if ((pz || px) && boss.phase === 'fight' && boss.kind === 'werewolf') {
+    if (carrying === 'candelabra') {
+      candel.state = 'thrown';
+      candel.x = player.x + (player.face > 0 ? 10 : -10);
+      candel.y = player.y + 2;
+      candel.vx = player.face * 3.6;
+      candel.vy = -1.2;
+      carrying = null;
+      sfx(300, 0.1, 'square', 0.06, 180);
+    } else if (candel.state === 'ground' && player.onGround &&
+               Math.abs(candel.x - player.x) < 16) {
+      candel.state = 'held';
+      carrying = 'candelabra';
+      sfx(700, 0.08, 'triangle', 0.05);
+    } else {
+      sfx(180, 0.06, 'square', 0.04, -80);             // a swing at moonlight
+    }
+  } else if ((pz || px) && boss.phase === 'fight') {
     if (carrying) {
       thrown.push({ kind: carrying,
                     x: player.x + (player.face > 0 ? 10 : -8), y: player.y + 3,
@@ -3180,8 +3268,30 @@ function updateBossDoll() {
   }
 }
 
-// after the third hit: he shrinks, crouches, laughs, and runs
+// after the last hit: each monster leaves in its own way
 function updateBossOutro() {
+  if (boss.kind === 'werewolf') {
+    boss.phaseT++;
+    if (boss.phase === 'crumple' && boss.phaseT > 90) {
+      boss.phase = 'revert'; boss.phaseT = 0;
+      sfx(320, 0.6, 'sine', 0.05, -140);               // the fur lets go of him
+    } else if (boss.phase === 'revert' && boss.phaseT > 70) {
+      boss.phase = 'wallbreak'; boss.phaseT = 0;
+      boss.wallHole = true;
+      addShake(4, 18);
+      sfx(80, 0.5, 'sawtooth', 0.09, -30);             // the wall loses
+      burst(VIEW_W - 28, 110, '#59626e', 16, 1.5);
+      burst(VIEW_W - 24, 128, '#48505c', 10, 1.2);
+    } else if (boss.phase === 'wallbreak') {
+      boss.x += 2.4;                                   // through, not around
+      if (boss.phaseT > 80) { boss.phase = 'gone'; boss.phaseT = 0; }
+    } else if (boss.phase === 'gone' && boss.phaseT > 90) {
+      state = 'win';
+      score += 1500;
+      sndWin();
+    }
+    return;
+  }
   boss.phaseT++;
   if (boss.phase === 'shrink' && boss.phaseT > 70) {
     boss.phase = 'crouch'; boss.phaseT = 0;
@@ -3220,6 +3330,7 @@ function drawBoss() {
   const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
   ctx.save();
   ctx.translate(shX, shY);
+  if (boss.kind === 'werewolf') { drawChapelArena(); drawBossEntitiesWolf(); return endBossDraw(); }
   // his room, at night
   ctx.fillStyle = '#241a20'; ctx.fillRect(-8, -8, VIEW_W + 16, VIEW_H + 16);
   ctx.fillStyle = '#2e222a';
@@ -3319,6 +3430,144 @@ function drawBoss() {
   }
   ctx.restore();
   drawHUD();
+}
+
+function endBossDraw() {
+  ctx.restore();
+  drawHUD();
+}
+
+/* --- the chapel, the moon, the wolf --- */
+function drawChapelArena() {
+  ctx.fillStyle = '#1e222a'; ctx.fillRect(-8, -8, VIEW_W + 16, VIEW_H + 16);
+  ctx.fillStyle = '#252a34';
+  for (let j = 0; j < 5; j++)
+    for (let i = 0; i < 9; i++)
+      ctx.fillRect(i * 42 + (j % 2) * 21 - 14, j * 30 + 4, 38, 26);
+  ctx.fillStyle = '#2c313a'; ctx.fillRect(-8, 144, VIEW_W + 16, 40);
+  ctx.fillStyle = '#3a4048'; ctx.fillRect(-8, 144, VIEW_W + 16, 4);
+  // the arched window, and a moon with nothing missing from it
+  const wx = 66, wy = 24;
+  ctx.fillStyle = '#141820';
+  ctx.fillRect(wx - 5, wy + 16, 74, 62);
+  ctx.beginPath(); ctx.arc(wx + 32, wy + 18, 37, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#0a0812';
+  ctx.fillRect(wx, wy + 18, 64, 56);
+  ctx.beginPath(); ctx.arc(wx + 32, wy + 19, 32, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#e8e4d5';
+  ctx.beginPath(); ctx.arc(wx + 32, wy + 24, 17, 0, 7); ctx.fill();
+  ctx.fillStyle = '#d5d0be';
+  ctx.fillRect(wx + 24, wy + 18, 5, 4); ctx.fillRect(wx + 38, wy + 28, 4, 3);
+  ctx.fillStyle = '#141820';
+  ctx.fillRect(wx + 30, wy - 12, 4, 88); ctx.fillRect(wx, wy + 44, 64, 4);
+  // candles along the left
+  for (let i = 0; i < 3; i++) {
+    const cx2 = 14 + i * 16;
+    ctx.fillStyle = '#e8e0c8'; ctx.fillRect(cx2, 128, 3, 14);
+    ctx.fillStyle = (frame + i * 5) % 8 < 6 ? '#ffce6a' : '#e8a050';
+    ctx.fillRect(cx2, 124, 3, 4);
+  }
+  ctx.fillStyle = 'rgba(255,206,106,0.05)'; ctx.fillRect(4, 112, 56, 40);
+  // the east wall — thick, until it isn't
+  ctx.fillStyle = '#39424e'; ctx.fillRect(VIEW_W - 30, -8, 38, 152);
+  ctx.fillStyle = '#2f3742';
+  for (let j = 0; j < 6; j++) ctx.fillRect(VIEW_W - 30, j * 26 + (j % 2) * 4, 38, 2);
+  if (boss.wallHole) {
+    ctx.fillStyle = '#0a0812';
+    ctx.fillRect(VIEW_W - 30, 92, 38, 52);
+    ctx.fillRect(VIEW_W - 26, 80, 30, 14);
+    ctx.fillStyle = '#48505c';                        // rubble where the wall was
+    ctx.fillRect(VIEW_W - 40, 138, 10, 6); ctx.fillRect(VIEW_W - 52, 141, 8, 3);
+    ctx.fillRect(VIEW_W - 30, 136, 6, 8);
+    ctx.fillStyle = '#e8e4d5';                        // moonlight through the hole
+    ctx.fillRect(VIEW_W - 30, 100, 2, 40);
+  }
+}
+
+function drawBossEntitiesWolf() {
+  drawWerewolf();
+  if (candel.state !== 'held')
+    drawCandelabra(Math.round(candel.x), Math.round(candel.y));
+  drawPlayer();
+  if (carrying === 'candelabra')
+    drawCandelabra(Math.round(player.x) - 1, Math.round(player.y) - 15);
+  drawParticles();
+}
+
+function drawCandelabra(x, y) {
+  ctx.fillStyle = '#c9cede';
+  ctx.fillRect(x + 5, y + 4, 2, 6);                    // stem
+  ctx.fillRect(x + 3, y + 10, 6, 2);                   // foot
+  ctx.fillRect(x + 1, y + 2, 10, 2);                   // arms
+  ctx.fillRect(x + 1, y - 1, 2, 3); ctx.fillRect(x + 9, y - 1, 2, 3);
+  ctx.fillRect(x + 5, y - 2, 2, 3);
+  ctx.fillStyle = '#ffce6a';                           // three stubborn flames
+  ctx.fillRect(x + 1, y - 3, 2, 2); ctx.fillRect(x + 9, y - 3, 2, 2);
+  ctx.fillRect(x + 5, y - 4, 2, 2);
+}
+
+function drawWerewolf() {
+  const P = boss;
+  if (P.phase === 'revert' || P.phase === 'wallbreak') {
+    // the boy again, small and pleased with himself
+    const x = Math.round(P.x), y = 124;
+    ctx.save();
+    ctx.translate(x, y);
+    if (P.phase === 'revert') { ctx.translate(0, 6); ctx.scale(1, 0.7); }
+    ctx.drawImage(P.phase === 'revert' ? KID_FRAMES.idle
+                                       : KID_FRAMES.run[(frame >> 3) % 2], 0, 0);
+    ctx.restore();
+    return;
+  }
+  if (P.phase === 'gone') return;
+  const x = Math.round(P.x), tear = 4 - Math.max(0, P.hp);
+  ctx.save();
+  const crumpled = P.phase === 'crumple';
+  const y = crumpled ? 144 - 16 : 144 - P.h;
+  ctx.translate(x, y);
+  if (P.dir < 0 && !crumpled) { ctx.translate(P.w, 0); ctx.scale(-1, 1); }
+  if (P.hurtT > 0 && (frame >> 1) % 2) ctx.globalAlpha = 0.55;
+  const F = '#3a3028', D = '#2a221c', W = '#8a8a94';
+  if (crumpled) {
+    // a naked hairy beast, breathing its last borrowed breaths
+    const bob = (frame >> 4) % 2;
+    ctx.fillStyle = F; ctx.fillRect(0, 4 - bob, 34, 12 + bob);
+    ctx.fillStyle = D; ctx.fillRect(4, 10, 26, 6);
+    ctx.fillRect(28, 0, 8, 8);                          // head down
+    ctx.fillStyle = '#8c2f39'; ctx.fillRect(30, 6, 3, 1);
+  } else {
+    const lunge = P.swipeT > 4 && P.swipeT < 14;
+    ctx.fillStyle = F;
+    ctx.fillRect(0, 8, 30, 16);                        // torso, all fours
+    ctx.fillRect(24, 0, 12, 12);                       // head
+    ctx.fillStyle = D;
+    ctx.fillRect(2, 22, 5, 12); ctx.fillRect(12, 22, 5, 12);   // haunches
+    ctx.fillRect(22, 20, 4, 14); ctx.fillRect(29, 20, 4, 14);  // forelegs
+    ctx.fillRect(24, -4, 4, 5); ctx.fillRect(31, -4, 4, 5);    // ears
+    ctx.fillRect(-6, 6, 7, 4);                          // tail
+    ctx.fillStyle = '#ff2030';                          // the eyes stayed his
+    ctx.fillRect(31, 3, 3, 2);
+    ctx.fillStyle = '#f0f0f4';                          // teeth and claws
+    ctx.fillRect(33, 8, 3, 2);
+    ctx.fillRect(22, 32, 5, 2); ctx.fillRect(29, 32, 5, 2);
+    if (lunge) {                                        // the swipe itself
+      ctx.fillRect(36, 12, 8, 2); ctx.fillRect(38, 16, 8, 2); ctx.fillRect(36, 20, 8, 2);
+    }
+    // what's left of his clothes, by wound
+    ctx.fillStyle = '#d8c23a';                          // the bright shirt
+    if (tear < 1) { ctx.fillRect(2, 8, 22, 6); ctx.fillRect(4, 14, 18, 4); }
+    else if (tear < 2) { ctx.fillRect(4, 9, 12, 5); ctx.fillRect(18, 8, 5, 3); }
+    else if (tear < 3) ctx.fillRect(6, 9, 6, 4);
+    ctx.fillStyle = '#3a5cc9';                          // the jeans
+    if (tear < 2) { ctx.fillRect(2, 20, 6, 8); ctx.fillRect(12, 20, 6, 8); }
+    else if (tear < 3) ctx.fillRect(2, 20, 5, 5);
+    else if (tear < 4) ctx.fillRect(3, 21, 3, 3);
+    // and the blood he earned
+    ctx.fillStyle = '#a01828';
+    for (let i = 0; i < tear * 4; i++)
+      ctx.fillRect((i * 53) % 30 + 1, (i * 29) % 20 + 6, 3, 4);
+  }
+  ctx.restore();
 }
 
 function drawDracula() {
@@ -4405,14 +4654,15 @@ function drawInterlude() {
 function drawWin() {
   ctx.fillStyle = 'rgba(4,2,10,0.55)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-  bigText('THE HOUSE IS HERS.', 34, 52, '#e8c66a', 20);
-  pixelText('the boy ran laughing into the forest.', 58, 82, '#cfc3e8');
-  pixelText('the cat, at least, seems friendly.', 66, 92, '#cfc3e8');
+  bigText('AND STILL HE RUNS.', 34, 46, '#e8c66a', 20);
+  pixelText('through the wall, into the night, gone again.', 40, 76, '#cfc3e8');
+  pixelText('she is patient. she is porcelain.', 66, 88, '#cfc3e8');
+  pixelText('some friendships take forever.', 76, 100, '#e8d8f0');
   if (eyesFound >= EYES_TOTAL)
-    pixelText('and with every eye found, she sees him clearly.', 22, 102, '#e8c66a');
-  pixelText('score ' + score, 136, eyesFound >= EYES_TOTAL ? 116 : 106, '#cfc3e8');
-  pixelText('level three: the forest. soon.', 82, 132, '#9a8fb0');
-  if ((frame >> 5) % 2) pixelText('press ENTER', 126, 148, '#cfc3e8');
+    pixelText('and with every eye found, she sees him clearly.', 22, 112, '#e8c66a');
+  pixelText('score ' + score, 136, eyesFound >= EYES_TOTAL ? 126 : 116, '#cfc3e8');
+  pixelText('thanks for playing', 118, 136, '#9a8fb0');
+  if ((frame >> 5) % 2) pixelText('press ENTER', 126, 150, '#cfc3e8');
 }
 
 /* ---------------- main loop ---------------- */

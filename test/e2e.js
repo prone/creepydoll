@@ -1109,9 +1109,88 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(4);
   check(await ev(() => kid.stage === 'final'), 'the boy waits at the old chapel');
   await page.keyboard.down('ArrowRight');
-  await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
+  await page.waitForFunction(() => state === 'boss', null, { timeout: 30000 });
   await page.keyboard.up('ArrowRight');
-  check(true, 'reaching him at the chapel ends the story (for now)');
+  check(true, 'reaching him at the chapel wakes the werewolf');
+
+  /* ---------- the werewolf ---------- */
+  section('werewolf');
+  await ev(() => { player.invuln = 999999; });
+  check(await ev(() => boss.kind === 'werewolf' && boss.hp === 4 &&
+        candel.state === 'ground'),
+        'four wounds to give, and a silver candelabra waiting');
+  // he swipes when she is close
+  const swipe = await page.evaluate(async () => {
+    for (let i = 0; i < 60; i++) {
+      player.x = boss.x - 30; player.y = 126; player.vy = 0;
+      await new Promise(r => requestAnimationFrame(r));
+      if (boss.swipeT > 0) return 'swiped';
+    }
+    return 'calm';
+  });
+  check(swipe === 'swiped', 'he claws at her when she strays close');
+  // pick the candelabra up
+  const grabbed = await page.evaluate(async () => {
+    player.x = candel.x; player.y = 126; player.vy = 0; player.attack = null;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    let got = 'empty-handed';
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (carrying === 'candelabra') { got = 'held'; break; }
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    await new Promise(r => requestAnimationFrame(r));
+    return got;
+  });
+  check(grabbed === 'held', 'punch lifts the silver candelabra');
+  // throw it — first wound, and the candelabra lands far away
+  const wolfHit1 = await page.evaluate(async () => {
+    const cx0 = candel.x;
+    player.x = boss.x - 70; player.y = 126; player.vy = 0; player.face = 1;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    let ret = 'miss';
+    for (let i = 0; i < 80; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      if (boss.hp < 4) {
+        ret = { hp: boss.hp, moved: Math.abs(candel.x - cx0) > 50,
+                grounded: candel.state === 'ground' };
+        break;
+      }
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    return ret;
+  });
+  check(wolfHit1 !== 'miss' && wolfHit1.hp === 3, 'silver lands — his shirt tears');
+  check(wolfHit1 !== 'miss' && wolfHit1.moved && wolfHit1.grounded,
+        'the candelabra flies wide; she must fetch it again');
+  // three more, by the same ritual
+  for (let h = 0; h < 3; h++) {
+    await page.evaluate(async () => {
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+      carrying = 'candelabra'; candel.state = 'held';
+      player.x = boss.x < 160 ? boss.x + boss.w + 60 : boss.x - 70;
+      player.face = boss.x < 160 ? -1 : 1;
+      player.y = 126; player.vy = 0;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      for (let i = 0; i < 80; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+        if (candel.state === 'ground' && !carrying) break;
+        if (boss.phase !== 'fight') break;
+      }
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    });
+  }
+  check(await ev(() => boss.phase !== 'fight' && boss.hp <= 0),
+        'the fourth finds the heart of him');
+  // crumple, revert, and THROUGH the wall
+  await page.waitForFunction(() => boss.wallHole === true, null, { timeout: 30000 });
+  check(true, 'the boy breaks through the chapel wall');
+  await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
+  check(await ev(() => boss.phase === 'gone'), 'and he is gone — the true ending');
   await page.keyboard.press('Enter');
   await frames(4);
   check(await ev(() => level === 1 && state === 'play' && score === 0),
