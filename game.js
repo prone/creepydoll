@@ -2058,10 +2058,10 @@ function updateKid() {
       burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
     } else if (level === 2) {
       startBoss();                                 // the boy is not a boy
-    } else if (level === 3) {
-      startBoss();                                 // under a full moon, at the chapel
+    } else if (level === 3 || level === 4) {
+      startBoss();                                 // the chapel wolf, or the cave's tenant
     } else {
-      // levels 4/5: the yeti and the god land here next; for now, the summit ends it
+      // level 5: the god lands here next; for now the tomb ends it
       score += 1000;
       state = 'win';
       sndWin();
@@ -3311,6 +3311,8 @@ const boss = { active: false, kind: 'dracula', hp: 3, x: 235, w: 40, h: 56,
                boltT: 0, boltCd: 180, roachCd: 200,
                swipeT: 0, swipeCd: 60, wallHole: false, held: {} };
 const candel = { x: 250, y: 132, vx: 0, vy: 0, state: 'ground' };  // the silver candelabra
+const iceCeil = [];   // hanging icicles: {x, state:'hung'|'falling'|'gone', y, vy, regrowT, lastHit}
+const iceFloor = [];  // standing icicles: {x, state:'stand'|'sliding'|'gone', vx, regrowT}
 const bossBats = [];     // {x,y,baseY,vx,t,w,h,state:'fly'|'down'}
 const bossRoaches = [];  // {x,y,dir,t,w,h,state:'run'|'down'}
 const thrown = [];       // {kind,x,y,vx,vy}
@@ -3326,10 +3328,18 @@ function bEdge(name, cur) {
 function startBoss() {
   state = 'boss';
   boss.active = true;
-  boss.kind = level === 3 ? 'werewolf' : 'dracula';
-  boss.hp = boss.kind === 'werewolf' ? 4 : 3;
-  boss.w = boss.kind === 'werewolf' ? 34 : 40;
-  boss.h = boss.kind === 'werewolf' ? 34 : 56;
+  boss.kind = level === 4 ? 'yeti' : level === 3 ? 'werewolf' : 'dracula';
+  boss.hp = boss.kind === 'dracula' ? 3 : 4;
+  boss.w = boss.kind === 'yeti' ? 38 : boss.kind === 'werewolf' ? 34 : 40;
+  boss.h = boss.kind === 'yeti' ? 44 : boss.kind === 'werewolf' ? 34 : 56;
+  boss.lastHit = -1;
+  iceCeil.length = 0; iceFloor.length = 0;
+  if (boss.kind === 'yeti') {
+    [70, 120, 170, 220, 270].forEach(x =>
+      iceCeil.push({ x, state: 'hung', y: 40, vy: 0, regrowT: 0, lastHit: -1 }));
+    [90, 160, 230].forEach(x =>
+      iceFloor.push({ x, state: 'stand', vx: 0, regrowT: 0 }));
+  }
   boss.t = 0;
   boss.phase = 'fight'; boss.phaseT = 0; boss.hurtT = 0;
   boss.x = 235; boss.dir = -1;
@@ -3346,12 +3356,32 @@ function startBoss() {
   player.crouch = false; player.h = 18; player.attack = null; player.chargeT = 0;
   player.invuln = 60;
   musicStep = 0;
-  flashText = boss.kind === 'werewolf'
-    ? { msg: 'the moon is full. the boy is gone.', t: 150 }
-    : { msg: 'the boy is not a boy.', t: 150 };
+  flashText = boss.kind === 'yeti'
+    ? { msg: 'the cave breathes. so does something else.', t: 150 }
+    : boss.kind === 'werewolf'
+      ? { msg: 'the moon is full. the boy is gone.', t: 150 }
+      : { msg: 'the boy is not a boy.', t: 150 };
   sfx(60, 1.5, 'sawtooth', 0.08, 30);
   if (boss.kind === 'werewolf')
     setTimeout(() => { sfx(280, 1.1, 'triangle', 0.05, 160); }, 400);   // the first howl
+  if (boss.kind === 'yeti')
+    setTimeout(() => { sfx(70, 1.2, 'sawtooth', 0.08, 25); }, 400);     // something answers
+}
+
+function yetiHit(dmg) {
+  boss.hp -= dmg;
+  boss.hurtT = 24;
+  score += dmg >= 1 ? 400 : 150;
+  addShake(dmg >= 1 ? 3 : 1.5, dmg >= 1 ? 12 : 6);
+  burst(boss.x + boss.w / 2, 120, dmg >= 1 ? '#9fe8ff' : '#a01828', 10, -1.2);
+  sfx(100, 0.4, 'sawtooth', 0.08, -35);                // a roar off the ice
+  if (dmg >= 1) sfx(1200, 0.12, 'triangle', 0.05, -500);
+  if (boss.hp <= 0) {
+    boss.phase = 'crumple'; boss.phaseT = 0;
+    flashText = { msg: 'the mountain lets him go.', t: 110 };
+  } else {
+    flashText = { msg: dmg >= 1 ? 'the ice knows its own work.' : 'porcelain stings. a little.', t: 80 };
+  }
 }
 
 function wolfHit() {
@@ -3408,7 +3438,93 @@ function updateBoss() {
 
   updateBossDoll();
 
-  if (boss.phase === 'fight' && boss.kind === 'werewolf') {
+  if (boss.phase === 'fight' && boss.kind === 'yeti') {
+    // he lumbers, and the cave lumbers with him
+    const spd = 0.4 + (4 - Math.ceil(boss.hp)) * 0.15;
+    if (boss.swipeT > 0) {
+      boss.swipeT--;
+      if (boss.swipeT === 8) {                        // the slam lands
+        addShake(3, 10);
+        sfx(60, 0.3, 'square', 0.08, -20);
+        const slam = { x: boss.dir > 0 ? boss.x + boss.w : boss.x - 26,
+                       y: 144 - 36, w: 26, h: 36 };
+        if (rectsOverlap(slam, player)) hurtPlayer(boss.x + boss.w / 2, 1);
+        // his own slams shake the ceiling loose sometimes
+        const hung = iceCeil.filter(i => i.state === 'hung');
+        if (hung.length && Math.random() < 0.25) {
+          const ic = hung[Math.floor(Math.random() * hung.length)];
+          ic.state = 'falling'; ic.vy = 0;
+          sfx(1000, 0.08, 'square', 0.03, -500);
+        }
+      }
+    } else {
+      boss.dir = Math.sign(player.x - boss.x - boss.w / 2) || 1;
+      boss.x += boss.dir * spd;
+      if (boss.swipeCd > 0) boss.swipeCd--;
+      if (boss.swipeCd <= 0 &&
+          Math.abs((player.x + 5) - (boss.x + boss.w / 2)) < 52) {
+        boss.swipeT = 20;
+        boss.swipeCd = 110 - (4 - Math.ceil(boss.hp)) * 12;
+        sfx(90, 0.25, 'sawtooth', 0.07, -30);          // he inhales the room
+      }
+    }
+    boss.x = Math.max(30, Math.min(VIEW_W - boss.w - 40, boss.x));
+    if (rectsOverlap({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h }, player))
+      hurtPlayer(boss.x + boss.w / 2, 1);
+
+    // her fists and heels: half power on fur, full leverage on ice
+    const hb = attackHitbox();
+    if (hb) {
+      for (const ic of iceCeil)
+        if (ic.state === 'hung' && ic.lastHit !== hb.id &&
+            rectsOverlap(hb, { x: ic.x - 3, y: ic.y, w: 8, h: 30 })) {
+          ic.lastHit = hb.id;
+          ic.state = 'falling'; ic.vy = 0;
+          sfx(1000, 0.08, 'square', 0.04, -500);
+        }
+      if (boss.lastHit !== hb.id &&
+          rectsOverlap(hb, { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+        boss.lastHit = hb.id;
+        yetiHit(0.5);
+      }
+    }
+    // falling icicles
+    for (const ic of iceCeil) {
+      if (ic.state === 'falling') {
+        ic.vy = Math.min(ic.vy + 0.25, 5);
+        ic.y += ic.vy;
+        if (rectsOverlap({ x: ic.x - 2, y: ic.y, w: 6, h: 30 },
+                         { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+          ic.state = 'gone'; ic.regrowT = 480;
+          burst(ic.x, ic.y + 20, '#9fe8ff', 8, 0, 1);
+          yetiHit(1);
+        } else if (ic.y + 30 >= 144) {
+          ic.state = 'gone'; ic.regrowT = 480;
+          burst(ic.x, 140, '#9fe8ff', 6, 0, 1);
+          sfx(800, 0.1, 'square', 0.04, -400);
+        }
+      } else if (ic.state === 'gone' && --ic.regrowT <= 0) {
+        ic.state = 'hung'; ic.y = 40; ic.vy = 0;
+      }
+    }
+    // sliding icicles
+    for (const fi of iceFloor) {
+      if (fi.state === 'sliding') {
+        fi.x += fi.vx;
+        if (rectsOverlap({ x: fi.x - 3, y: 130, w: 8, h: 14 },
+                         { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+          fi.state = 'gone'; fi.regrowT = 480;
+          burst(fi.x, 134, '#9fe8ff', 8, Math.sign(fi.vx), 0);
+          yetiHit(1);
+        } else if (fi.x < 6 || fi.x > VIEW_W - 10) {
+          fi.state = 'gone'; fi.regrowT = 480;
+          burst(fi.x, 134, '#9fe8ff', 5);
+        }
+      } else if (fi.state === 'gone' && --fi.regrowT <= 0) {
+        fi.state = 'stand'; fi.vx = 0;
+      }
+    }
+  } else if (boss.phase === 'fight' && boss.kind === 'werewolf') {
     // he stalks her on all fours, quicker with every wound
     const spd = 0.5 + (4 - boss.hp) * 0.2;
     if (boss.swipeT > 0) {
@@ -3576,9 +3692,27 @@ function updateBossDoll() {
       }
   }
 
+  // her attacks live here in the cave (fists, and boots against ice)
+  if (player.attack) {
+    player.attack.t++;
+    const dur = player.attack.type === 'punch' ? 14 : 18;
+    if (player.attack.t > dur) player.attack = null;
+  }
+
   // punch or kick: pick something up, or let it fly
   const pz = bEdge('z', kPunch()), px = bEdge('x', kKick());
-  if ((pz || px) && boss.phase === 'fight' && boss.kind === 'werewolf') {
+  if ((pz || px) && boss.phase === 'fight' && boss.kind === 'yeti') {
+    const fi = iceFloor.find(f => f.state === 'stand' &&
+                                  Math.abs(f.x - (player.x + 5)) < 18);
+    if (fi && player.onGround) {
+      fi.state = 'sliding';
+      fi.vx = (player.face || 1) * 3;
+      sfx(700, 0.1, 'triangle', 0.05, -200);           // ice given purpose
+    } else if (!player.attack) {
+      player.attack = { type: pz ? 'punch' : 'kick', t: 0, id: ++player.attackId };
+      (pz ? sndPunch : sndKick)();
+    }
+  } else if ((pz || px) && boss.phase === 'fight' && boss.kind === 'werewolf') {
     if (carrying === 'candelabra') {
       candel.state = 'thrown';
       candel.x = player.x + (player.face > 0 ? 10 : -10);
@@ -3618,6 +3752,24 @@ function updateBossDoll() {
 
 // after the last hit: each monster leaves in its own way
 function updateBossOutro() {
+  if (boss.kind === 'yeti') {
+    boss.phaseT++;
+    if (boss.phase === 'crumple' && boss.phaseT > 90) {
+      boss.phase = 'revert'; boss.phaseT = 0;
+      sfx(320, 0.6, 'sine', 0.05, -140);               // the cold gives him back
+    } else if (boss.phase === 'revert' && boss.phaseT > 70) {
+      boss.phase = 'run'; boss.phaseT = 0;
+      sfx(200, 0.2, 'square', 0.04, 120);
+    } else if (boss.phase === 'run') {
+      boss.x += 2.4;                                   // for the tunnel at the back
+      if (boss.phaseT > 90 || boss.x > VIEW_W - 30) { boss.phase = 'gone'; boss.phaseT = 0; }
+    } else if (boss.phase === 'gone' && boss.phaseT > 80) {
+      state = 'interlude';                             // down, into the old halls
+      score += 1500;
+      sndWin();
+    }
+    return;
+  }
   if (boss.kind === 'werewolf') {
     boss.phaseT++;
     if (boss.phase === 'crumple' && boss.phaseT > 90) {
@@ -3678,6 +3830,7 @@ function drawBoss() {
   const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
   ctx.save();
   ctx.translate(shX, shY);
+  if (boss.kind === 'yeti') { drawIceCave(); drawBossEntitiesYeti(); return endBossDraw(); }
   if (boss.kind === 'werewolf') { drawChapelArena(); drawBossEntitiesWolf(); return endBossDraw(); }
   // his room, at night
   ctx.fillStyle = '#241a20'; ctx.fillRect(-8, -8, VIEW_W + 16, VIEW_H + 16);
@@ -3783,6 +3936,108 @@ function drawBoss() {
 function endBossDraw() {
   ctx.restore();
   drawHUD();
+}
+
+/* --- the ice cave, and what it kept --- */
+function drawIceCave() {
+  ctx.fillStyle = '#25324a'; ctx.fillRect(-8, -8, VIEW_W + 16, VIEW_H + 16);
+  // walls of old blue ice
+  ctx.fillStyle = '#2e3d5a';
+  for (let i = 0; i < 9; i++)
+    ctx.fillRect(i * 40 - 12, 34 + (i % 3) * 28, 34, 24);
+  ctx.fillStyle = 'rgba(159,232,255,0.06)';
+  for (let i = 0; i < 5; i++)
+    ctx.fillRect(i * 70 + 20, 30 + (i % 2) * 40, 3, 60);   // glints in the depth
+  // the ceiling mass
+  ctx.fillStyle = '#3a4a6e'; ctx.fillRect(-8, -8, VIEW_W + 16, 48);
+  ctx.fillStyle = '#4a5c84';
+  for (let i = 0; i < 11; i++)
+    ctx.fillRect(i * 30 - 4, 32 + (i % 2) * 4, 22, 8);
+  // the floor
+  ctx.fillStyle = '#2c3852'; ctx.fillRect(-8, 144, VIEW_W + 16, 40);
+  ctx.fillStyle = '#9fb4d8'; ctx.fillRect(-8, 144, VIEW_W + 16, 3);
+  // the tunnel he is saving for later
+  ctx.fillStyle = '#0c1018';
+  ctx.fillRect(VIEW_W - 28, 96, 30, 48);
+  ctx.beginPath(); ctx.arc(VIEW_W - 13, 96, 15, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#1a2438';
+  ctx.fillRect(VIEW_W - 30, 92, 4, 52); ctx.fillRect(VIEW_W - 2, 92, 4, 52);
+}
+
+function drawIcicleHang(x, y) {
+  ctx.fillStyle = '#bfe0f4';
+  ctx.fillRect(x - 3, y, 8, 12);
+  ctx.fillRect(x - 1, y + 12, 5, 10);
+  ctx.fillRect(x, y + 22, 3, 6);
+  ctx.fillRect(x + 1, y + 28, 1, 3);
+  ctx.fillStyle = '#e8f4fc'; ctx.fillRect(x - 2, y + 2, 1, 18);
+}
+
+function drawBossEntitiesYeti() {
+  for (const ic of iceCeil)
+    if (ic.state !== 'gone') drawIcicleHang(ic.x, ic.y);
+  for (const fi of iceFloor)
+    if (fi.state !== 'gone') {
+      const x = Math.round(fi.x);
+      ctx.fillStyle = '#bfe0f4';
+      ctx.fillRect(x - 3, 138, 8, 6);
+      ctx.fillRect(x - 1, 133, 5, 6);
+      ctx.fillRect(x, 130, 3, 4);
+      ctx.fillStyle = '#e8f4fc'; ctx.fillRect(x - 2, 134, 1, 8);
+    }
+  drawYeti();
+  drawPlayer();
+  drawParticles();
+}
+
+function drawYeti() {
+  const P = boss;
+  if (P.phase === 'revert' || P.phase === 'run') {
+    const x = Math.round(P.x), y = 124;
+    ctx.save();
+    ctx.translate(x, y);
+    if (P.phase === 'revert') { ctx.translate(0, 6); ctx.scale(1, 0.7); }
+    ctx.drawImage(P.phase === 'revert' ? KID_FRAMES.idle
+                                       : KID_FRAMES.run[(frame >> 3) % 2], 0, 0);
+    ctx.restore();
+    return;
+  }
+  if (P.phase === 'gone') return;
+  const crumpled = P.phase === 'crumple';
+  const x = Math.round(P.x), y = crumpled ? 144 - 18 : 144 - P.h;
+  ctx.save();
+  ctx.translate(x, y);
+  if (P.dir < 0 && !crumpled) { ctx.translate(P.w, 0); ctx.scale(-1, 1); }
+  if (P.hurtT > 0 && (frame >> 1) % 2) ctx.globalAlpha = 0.55;
+  const F = '#dce4ee', S = '#a8b4c8', D = '#3a4250';
+  if (crumpled) {
+    const bob = (frame >> 4) % 2;
+    ctx.fillStyle = F; ctx.fillRect(0, 4 - bob, 38, 14 + bob);
+    ctx.fillStyle = S; ctx.fillRect(4, 12, 30, 6);
+    ctx.fillRect(30, 0, 8, 8);
+  } else {
+    const slam = P.swipeT > 8;
+    ctx.fillStyle = F;
+    ctx.fillRect(4, 10, 30, 34);                      // shaggy bulk
+    ctx.fillRect(8, 0, 22, 14);                       // head
+    ctx.fillStyle = S;
+    ctx.fillRect(4, 38, 30, 6);
+    ctx.fillRect(6, 20, 4, 18); ctx.fillRect(28, 20, 4, 18);
+    ctx.fillStyle = D;                                // the face in the fur
+    ctx.fillRect(12, 4, 14, 8);
+    ctx.fillStyle = '#7ec9e8';                        // ice-water eyes
+    ctx.fillRect(14, 6, 3, 2); ctx.fillRect(21, 6, 3, 2);
+    ctx.fillStyle = '#f0f4fa';                        // teeth
+    ctx.fillRect(15, 10, 2, 2); ctx.fillRect(20, 10, 2, 2);
+    // the arms — up for the slam, down for the walk
+    ctx.fillStyle = F;
+    if (slam) { ctx.fillRect(30, -6, 8, 22); ctx.fillRect(-2, 8, 8, 18); }
+    else { ctx.fillRect(32, 12, 7, 26); ctx.fillRect(-1, 12, 7, 26); }
+    ctx.fillStyle = '#a01828';                        // what she has cost him
+    for (let i = 0, cuts = (4 - Math.max(0, Math.ceil(P.hp))) * 3; i < cuts; i++)
+      ctx.fillRect((i * 47) % 28 + 5, (i * 31) % 30 + 8, 3, 4);
+  }
+  ctx.restore();
 }
 
 /* --- the chapel, the moon, the wolf --- */
