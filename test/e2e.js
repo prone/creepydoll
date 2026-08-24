@@ -602,6 +602,9 @@ function section(name) { console.log('\n== ' + name + ' =='); }
                    dog.x = player.x - 4; dog.y = player.y; dog.vy = 0; });
   await frames(4);
   check(await ev(() => player.hp === 4), 'its teeth cost a heart');
+  check(await ev(() => dog.deadT > 0 && dog.fleeT > 0),
+        'one bite and it trots off satisfied — gone for ten seconds');
+  await ev(() => { dog.deadT = 0; dog.fleeT = 0; dog.hp = 3; });
   await ev(() => { player.invuln = 999999; player.vx = 0;
                    dog.x = player.x + 12; dog.y = player.y + 6;
                    dog.vy = 0; dog.retreatT = 0; player.face = 1; });
@@ -611,7 +614,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'a punch backs it off');
   // three hits put it down for ten seconds — position and punch atomically
   const dogDown = await page.evaluate(async () => {
-    dog.hp = 3; dog.deadT = 0; dog.retreatT = 0;
+    dog.hp = 3; dog.deadT = 0; dog.fleeT = 0; dog.retreatT = 0;
     let hits = 0;
     for (let h = 0; h < 3; h++) {
       dog.x = player.x + 12; dog.y = player.y + 6;

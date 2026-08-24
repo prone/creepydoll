@@ -2999,9 +2999,17 @@ function updateDog() {
     setTimeout(() => sfx(160, 0.1, 'sawtooth', 0.05, 90), 110);
   }
 
-  // teeth
-  if (dog.retreatT <= 0 && player.respawnT <= 0 && rectsOverlap(dog, player))
+  // teeth — and one landed bite is a job well done: it trots off,
+  // satisfied, to come back for another in ten seconds
+  if (dog.retreatT <= 0 && player.respawnT <= 0 && rectsOverlap(dog, player)) {
     hurtPlayer(dog.x + dog.w / 2);
+    if (player.invuln === 80) {              // the bite landed just now
+      dog.deadT = 600;
+      dog.fleeT = 1;
+      dog.barkCd = 0;
+      flashText = { msg: 'the dog trots off, satisfied.', t: 100 };
+    }
+  }
 
   // her fists push it back — and the third one puts it down
   const hb = attackHitbox();
