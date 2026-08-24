@@ -1184,7 +1184,7 @@ function resetGame() {
   player.stretchT = 0; player.squashT = 0; player.respawnT = 0;
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
-  inkMelt = level === 2;        // in the house she is already half ink
+  inkMelt = false;
   shakeT = 0; shakeMag = 0;
   particles.length = 0;
   fireballs.length = 0;
@@ -1478,8 +1478,8 @@ function afterMove(prevStage) {
       sfx(660, 0.12, 'triangle', 0.05);
       sfx(990, 0.2, 'sine', 0.03);
       burst(cp.x + 4, 9 * TILE - 20, '#e8c66a', 8);
-      // the second lantern is one lantern too many
-      if (!inkMelt && level === 1 &&
+      // the house's second candle is one candle too many
+      if (!inkMelt && level === 2 &&
           checkpoints.filter(c => c.reached).length === 2) {
         inkMelt = true;
         flashText = { msg: 'she is annoyed.', t: 120, hold: true };
@@ -2167,7 +2167,7 @@ function drawPlayer() {
       ctx.fillRect(18, 13, 4, 4);
     }
   }
-  // half of her has run to ink since the second lantern
+  // half of her has run to ink since the house's second candle
   if (inkMelt) {
     ctx.fillStyle = '#0c0a12';
     const H = img.height;
@@ -2971,7 +2971,8 @@ function updateDog() {
     dog.x = Math.max(8, camX - 24);
     dog.y = 9 * TILE - dog.h - 1;
     dog.vx = 0; dog.vy = 0; dog.face = 1; dog.retreatT = 0;
-    flashText = { msg: 'the dog knows what she is.', t: 150 };
+    if (!(flashText && flashText.hold))            // held beats keep the floor
+      flashText = { msg: 'the dog knows what she is.', t: 150 };
     sfx(180, 0.1, 'sawtooth', 0.06, 140);
     setTimeout(() => sfx(200, 0.12, 'sawtooth', 0.06, 110), 130);
   }

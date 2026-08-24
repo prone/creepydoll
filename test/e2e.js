@@ -340,9 +340,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await ev(() => { player.invuln = 999999;
                    player.x = checkpoints[1].x + 8; player.y = 126; player.vy = 0; });
   await frames(4);
-  check(await ev(() => inkMelt && flashText && flashText.msg === 'she is annoyed.' &&
-        flashText.hold === true),
-        'the second lantern melts half of her to ink — she is annoyed');
+  check(await ev(() => !inkMelt), 'outdoor lanterns never melt her');
 
   /* ---------- lost button eyes ---------- */
   section('button eyes');
@@ -577,8 +575,8 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'she follows him home — level 2 begins');
   check((await ev(() => score)) >= preWin + 2000, 'the score follows her inside');
   check(await ev(() => map[0].every(t => t === 1)), 'the house has a ceiling');
-  check(await ev(() => creepStage() === 3 && inkMelt),
-        'she arrives already far gone and half ink — something is very wrong');
+  check(await ev(() => creepStage() === 3 && !inkMelt),
+        'she arrives already far gone — something is very wrong');
   check(await ev(() => tables.length >= 3 && tables[0] <= 26 * TILE),
         'tables to jump, the first just past the start');
   check(await ev(() => doors.length === 0 && eyePickups.length === 0),
@@ -590,6 +588,13 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         if (map[r][c] === 2 && map[r + 2][c]) return false;
     return true;
   }), 'every shelf leaves standing room beneath it');
+  // the house's second candle takes half of her
+  await ev(() => { player.invuln = 999999;
+                   player.x = checkpoints[1].x + 8; player.y = 126; player.vy = 0; });
+  await frames(4);
+  check(await ev(() => inkMelt && flashText && flashText.msg === 'she is annoyed.' &&
+        flashText.hold === true),
+        'the second candle melts half of her to ink — she is annoyed');
   await ev(() => { playTime = 4000; });
   await frames(4);
   check(await ev(() => !dragon.active), 'a minute passes; no wings in the house');
