@@ -926,6 +926,15 @@ const HOUSE = [
 ];
 const HOUSE_STEP = 0.27;
 
+// the boss fight: fast, low, and wrong — a tritone gnawing at the floor
+const BOSS_THEME = [
+  38, -1, 50, 44, 38, -1, 49, 44,
+  38, -1, 50, 44, 51, 50, 49, 44,
+  36, -1, 48, 42, 36, -1, 47, 42,
+  41, 44, 47, 50, 53, 50, 47, 44,
+];
+const BOSS_STEP = 0.15;
+
 function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
 function startAudio() {
@@ -982,6 +991,15 @@ function scheduleMusic() {
       }
       musicStep++;
       nextNoteTime += CARNIVAL_STEP;
+    } else if (state === 'boss') {
+      // his music: fast, low, tritone teeth
+      const m = BOSS_THEME[musicStep % BOSS_THEME.length];
+      if (m > 0) {
+        musicBoxNote(m, nextNoteTime, 0.085, (Math.random() - 0.5) * 10, 'sawtooth', 0.18);
+        musicBoxNote(m + 24, nextNoteTime + 0.01, 0.028, 8, 'square', 0.14);
+      }
+      musicStep++;
+      nextNoteTime += BOSS_STEP;
     } else if (level === 2) {
       // the house waltz — cozy, with a sour lean that grows with her
       const m = HOUSE[musicStep % HOUSE.length];
@@ -1078,7 +1096,7 @@ window.addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
   startAudio();
   if (e.key === 'Escape') { togglePause(); return; }
-  if (paused && (state === 'play' || state === 'mini')) {
+  if (paused && (state === 'play' || state === 'mini' || state === 'boss')) {
     handleAssistKeys(e.key);               // the pause screen is the assist menu
     return;
   }
@@ -1175,10 +1193,13 @@ function resetGame() {
   dog.active = false; dog.vx = dog.vy = 0; dog.t = 0;
   dog.retreatT = 0; dog.barkCd = 0; dog.lastHit = -1;
   dog.hp = 3; dog.deadT = 0; dog.fleeT = 0; dog.flashT = 0;
+  boss.active = false;
+  bossBats.length = 0; bossRoaches.length = 0; thrown.length = 0;
+  carrying = null;
 }
 
 function togglePause() {
-  if (state !== 'play' && state !== 'mini') return;
+  if (state !== 'play' && state !== 'mini' && state !== 'boss') return;
   paused = !paused;
   if (AC) { if (paused) AC.suspend(); else AC.resume(); }
   Object.keys(keys).forEach(k => { keys[k] = false; });  // drop held inputs
@@ -1260,7 +1281,7 @@ function rectsOverlap(a, b) {
 }
 
 function hurtPlayer(fromX, dmg) {
-  if (player.invuln > 0 || state !== 'play' || assist.invuln) return;
+  if (player.invuln > 0 || (state !== 'play' && state !== 'boss') || assist.invuln) return;
   player.hp -= dmg || 1;
   if (assist.hearts && player.hp < 5) player.hp = 5;   // the hearts refuse to empty
   player.invuln = 80;
@@ -1562,15 +1583,15 @@ function updateKid() {
 
   // tag! the doll only wanted a friend
   if (rectsOverlap(kid, player)) {
-    score += 1000;
     if (level === 1) {
+      score += 1000;
       if (eyesFound >= EYES_TOTAL) score += 1000;  // she found every eye
       state = 'interlude';                         // but he slips away, and runs home
+      sndWin();
+      burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
     } else {
-      state = 'win';                               // nowhere left to run
+      startBoss();                                 // the boy is not a boy
     }
-    sndWin();
-    burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
   }
 }
 
@@ -2474,6 +2495,427 @@ function drawFireballs() {
   }
 }
 
+/* ---------------- level 2 boss: the boy, at his worst ---------------- */
+const boss = { active: false, hp: 3, x: 235, w: 40, h: 56, dir: -1, t: 0,
+               phase: 'fight',   // fight | shrink | crouch | laugh | run | cat
+               phaseT: 0, hurtT: 0, shootCd: 100,
+               boltT: 0, boltCd: 180, roachCd: 200, held: {} };
+const bossBats = [];     // {x,y,baseY,vx,t,w,h,state:'fly'|'down'}
+const bossRoaches = [];  // {x,y,dir,t,w,h,state:'run'|'down'}
+const thrown = [];       // {kind,x,y,vx,vy}
+let carrying = null;     // 'bat' | 'roach'
+const cat = { x: -40, t: 0 };
+
+function bEdge(name, cur) {
+  const was = boss.held[name];
+  boss.held[name] = cur;
+  return cur && !was;
+}
+
+function startBoss() {
+  state = 'boss';
+  boss.active = true; boss.hp = 3; boss.t = 0;
+  boss.phase = 'fight'; boss.phaseT = 0; boss.hurtT = 0;
+  boss.x = 235; boss.dir = -1;
+  boss.shootCd = 100; boss.boltCd = 180; boss.boltT = 0; boss.roachCd = 200;
+  boss.held = {};
+  bossBats.length = 0; bossRoaches.length = 0; thrown.length = 0;
+  carrying = null;
+  cat.x = -40; cat.t = 0;
+  camX = 0;
+  particles.length = 0;
+  player.x = 30; player.y = 126; player.vx = 0; player.vy = 0; player.face = 1;
+  player.crouch = false; player.h = 18; player.attack = null; player.chargeT = 0;
+  player.invuln = 60;
+  musicStep = 0;
+  flashText = { msg: 'the boy is not a boy.', t: 150 };
+  sfx(60, 1.5, 'sawtooth', 0.08, 30);
+}
+
+function bossHit() {
+  boss.hp--;
+  boss.hurtT = 30;
+  score += 500;
+  addShake(3, 12);
+  boss.boltCd = Math.min(boss.boltCd, 18);           // the sky answers
+  burst(boss.x + 18, 110, '#a01828', 12, -1.5);
+  sfx(90, 0.5, 'sawtooth', 0.09, -30);               // a roar too big for a boy
+  sfx(700, 0.2, 'sawtooth', 0.05, -300);
+  if (boss.hp <= 0) {
+    boss.phase = 'shrink'; boss.phaseT = 0;
+    flashText = { msg: 'the third one lands.', t: 100 };
+  } else {
+    flashText = { msg: boss.hp === 2 ? 'he bleeds. he quickens.' : 'again. one more.', t: 100 };
+  }
+}
+
+function updateBoss() {
+  boss.t++;
+  if (boss.hurtT > 0) boss.hurtT--;
+  if (boss.boltT > 0) boss.boltT--;
+
+  // the storm keeps time with his wounds
+  if (--boss.boltCd <= 0) {
+    boss.boltCd = 240 - (3 - boss.hp) * 65 + Math.random() * 90;
+    boss.boltT = 12;
+    sfx(1400, 0.1, 'sawtooth', 0.03, -900);
+    setTimeout(() => sfx(55, 0.9, 'sawtooth', 0.07, -15), 220);
+  }
+
+  updateBossDoll();
+
+  if (boss.phase === 'fight') {
+    // he paces, faster as he bleeds
+    const spd = 0.25 + (3 - boss.hp) * 0.3;
+    boss.x += boss.dir * spd;
+    if (boss.x < 170) boss.dir = 1;
+    if (boss.x > 272) boss.dir = -1;
+    // he looses bats
+    if (--boss.shootCd <= 0) {
+      boss.shootCd = 150 - (3 - boss.hp) * 30 + Math.random() * 40;
+      bossBats.push({ x: boss.x + 6, y: 100, baseY: 88 + Math.random() * 34,
+                      vx: -(1.0 + (3 - boss.hp) * 0.25), t: 0, w: 12, h: 7,
+                      state: 'fly' });
+      sfx(900, 0.1, 'square', 0.04, -400);
+    }
+    // roaches crash the fight
+    if (--boss.roachCd <= 0) {
+      boss.roachCd = 260 + Math.random() * 200;
+      const fromLeft = Math.random() < 0.5;
+      bossRoaches.push({ x: fromLeft ? -12 : VIEW_W + 2, dir: fromLeft ? 1 : -1,
+                         y: 140, t: 0, w: 10, h: 4, state: 'run' });
+    }
+    // his body
+    if (rectsOverlap({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h }, player))
+      hurtPlayer(boss.x + boss.w / 2, 1);
+  } else {
+    updateBossOutro();
+  }
+
+  // bats: flying ones hunt; downed ones drop to the boards
+  for (let i = bossBats.length - 1; i >= 0; i--) {
+    const b = bossBats[i];
+    b.t++;
+    if (b.state === 'fly') {
+      b.x += b.vx;
+      b.y = b.baseY + Math.sin(b.t / 14) * 8;
+      if (b.x < -20) { bossBats.splice(i, 1); continue; }
+      if (boss.phase === 'fight' && rectsOverlap(b, player)) {
+        hurtPlayer(b.x + 6, 1);
+        burst(b.x + 6, b.y + 3, '#3a2c4a', 6);
+        bossBats.splice(i, 1);
+      }
+    } else if (b.y < 137) b.y += 2;
+  }
+
+  // roaches: scuttle through, or lie where they were stomped
+  for (let i = bossRoaches.length - 1; i >= 0; i--) {
+    const r = bossRoaches[i];
+    r.t++;
+    if (r.state === 'run') {
+      r.x += r.dir * 0.9;
+      if (r.x < -16 || r.x > VIEW_W + 6) { bossRoaches.splice(i, 1); continue; }
+      if (boss.phase === 'fight' && rectsOverlap(r, player))
+        hurtPlayer(r.x + 5, 0.5);
+    }
+  }
+
+  // thrown carcasses arc toward him
+  for (let i = thrown.length - 1; i >= 0; i--) {
+    const th = thrown[i];
+    th.x += th.vx; th.y += th.vy; th.vy += 0.06;
+    if (boss.phase === 'fight' &&
+        rectsOverlap({ x: th.x, y: th.y, w: 10, h: 8 },
+                     { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+      thrown.splice(i, 1);
+      bossHit();
+    } else if (th.x < -15 || th.x > VIEW_W + 15 || th.y > 140) {
+      burst(th.x + 4, Math.min(th.y, 140), '#6a5f80', 5);
+      thrown.splice(i, 1);
+    }
+  }
+
+  updateParticles();
+}
+
+// her side of the room: plain floor physics, stomps, and the pickup/throw
+function updateBossDoll() {
+  const spd = 1.7;
+  if (kLeft())       { player.vx = -spd; player.face = -1; }
+  else if (kRight()) { player.vx = spd;  player.face = 1; }
+  else player.vx *= player.onGround ? 0.6 : 0.95;
+  if (kJump() && !jumpHeld && player.onGround) {
+    player.vy = -3.45; player.stretchT = 8; sndJump();
+  }
+  jumpHeld = kJump();
+  if (!kJump() && player.vy < -1.2) player.vy = -1.2;
+  player.vy = Math.min(player.vy + 0.095, 3.5);
+  player.x += player.vx;
+  player.y += player.vy;
+  player.x = Math.max(2, Math.min(VIEW_W - 12, player.x));
+  const wasAir = !player.onGround;
+  player.onGround = false;
+  if (player.y >= 126) {
+    if (wasAir && player.vy > 2) {
+      player.squashT = 8;
+      sfx(80, 0.07, 'triangle', 0.05, -30);
+    }
+    player.y = 126; player.vy = 0; player.onGround = true;
+  }
+  if (player.invuln > 0) player.invuln--;
+  if (player.stretchT > 0) player.stretchT--;
+  if (player.squashT > 0) player.squashT--;
+  player.animT += Math.abs(player.vx) > 0.3 ? 1 : 0;
+
+  // her heels: a falling doll knocks bats and roaches out of the fight
+  if (player.vy > 0.5) {
+    const feet = { x: player.x, y: player.y + player.h - 3, w: player.w, h: 6 };
+    for (const b of bossBats)
+      if (b.state === 'fly' && rectsOverlap(feet, b)) {
+        b.state = 'down';
+        player.vy = -2.6;
+        score += 50;
+        sfx(600, 0.08, 'square', 0.05, -250);
+        burst(b.x + 6, b.y + 3, '#3a2c4a', 6, 0, 1);
+      }
+    for (const r of bossRoaches)
+      if (r.state === 'run' && rectsOverlap(feet, r)) {
+        r.state = 'down';
+        player.vy = -2.6;
+        score += 50;
+        sfx(300, 0.06, 'square', 0.05, -150);
+        burst(r.x + 5, r.y + 2, '#5a3a1e', 6, 0, 1);
+      }
+  }
+
+  // punch or kick: pick a carcass up, or let one fly
+  const pz = bEdge('z', kPunch()), px = bEdge('x', kKick());
+  if ((pz || px) && boss.phase === 'fight') {
+    if (carrying) {
+      thrown.push({ kind: carrying,
+                    x: player.x + (player.face > 0 ? 10 : -8), y: player.y + 3,
+                    vx: player.face * 3.4, vy: -0.9 });
+      carrying = null;
+      sfx(280, 0.1, 'square', 0.06, 160);
+    } else {
+      const near = it => it.state === 'down' && it.y > 130 &&
+                         Math.abs(it.x - player.x) < 16 && player.onGround;
+      let idx = bossBats.findIndex(near);
+      if (idx >= 0) { bossBats.splice(idx, 1); carrying = 'bat'; sfx(500, 0.07, 'triangle', 0.05); }
+      else {
+        idx = bossRoaches.findIndex(near);
+        if (idx >= 0) { bossRoaches.splice(idx, 1); carrying = 'roach'; sfx(500, 0.07, 'triangle', 0.05); }
+        else sfx(180, 0.06, 'square', 0.04, -80);      // a swing at nothing
+      }
+    }
+  }
+}
+
+// after the third hit: he shrinks, crouches, laughs, and runs
+function updateBossOutro() {
+  boss.phaseT++;
+  if (boss.phase === 'shrink' && boss.phaseT > 70) {
+    boss.phase = 'crouch'; boss.phaseT = 0;
+  } else if (boss.phase === 'crouch' && boss.phaseT > 90) {
+    boss.phase = 'laugh'; boss.phaseT = 0;
+    [0, 160, 320].forEach((d, i) =>
+      setTimeout(() => sfx(500 - i * 60, 0.12, 'square', 0.06, -80), d));
+    flashText = { msg: 'ha. ha. ha.', t: 90 };
+  } else if (boss.phase === 'laugh' && boss.phaseT > 80) {
+    boss.phase = 'run'; boss.phaseT = 0;
+    sfx(160, 0.3, 'sawtooth', 0.04, 90);              // the door swings wide
+  } else if (boss.phase === 'run') {
+    boss.x += 2.2;                                     // laughing all the way
+    if (boss.phaseT > 100 || boss.x > 300) {
+      boss.phase = 'cat'; boss.phaseT = 0;
+      cat.x = 318;
+    }
+  } else if (boss.phase === 'cat') {
+    cat.t++;
+    if (cat.x > 250) cat.x -= 0.5;
+    if (boss.phaseT === 30 || boss.phaseT === 140) {
+      sfx(880, 0.18, 'triangle', 0.05, 140);
+      setTimeout(() => sfx(760, 0.22, 'triangle', 0.045, -120), 150);
+      flashText = { msg: 'meow.', t: 60 };
+    }
+    if (boss.phaseT > 210) {
+      state = 'win';
+      score += 1000;
+      sndWin();
+    }
+  }
+}
+
+function drawBoss() {
+  const shX = shakeT > 0 ? Math.round((Math.random() - 0.5) * 2 * shakeMag) : 0;
+  const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
+  ctx.save();
+  ctx.translate(shX, shY);
+  // his room, at night
+  ctx.fillStyle = '#241a20'; ctx.fillRect(-8, -8, VIEW_W + 16, VIEW_H + 16);
+  ctx.fillStyle = '#2e222a';
+  for (let i = 0; i < 10; i++) ctx.fillRect(i * 34, 16, 17, 104);
+  ctx.fillStyle = '#3a2a1c'; ctx.fillRect(0, 144, VIEW_W, 32);
+  ctx.fillStyle = '#4a3626'; ctx.fillRect(0, 144, VIEW_W, 4);
+
+  // the big window: moon, rain, and the answering lightning
+  const wx = 100, wy = 22, ww = 120, wh = 86;
+  ctx.fillStyle = '#2e2018'; ctx.fillRect(wx - 5, wy - 5, ww + 10, wh + 10);
+  const flashing = boss.boltT > 0;
+  ctx.fillStyle = flashing && !assist.calm ? '#dfe8ff' : '#10101c';
+  ctx.fillRect(wx, wy, ww, wh);
+  if (!flashing || assist.calm) {
+    ctx.fillStyle = '#c9d0d8';
+    ctx.beginPath(); ctx.arc(wx + 88, wy + 22, 11, 0, 7); ctx.fill();
+    ctx.fillStyle = '#10101c';
+    ctx.beginPath(); ctx.arc(wx + 83, wy + 19, 9, 0, 7); ctx.fill();
+  }
+  if (flashing) {
+    ctx.strokeStyle = assist.calm ? '#8a92c9' : '#f0f4ff';
+    ctx.beginPath();
+    const bx = wx + 24 + (boss.t * 7) % 70;
+    ctx.moveTo(bx, wy);
+    for (let s = 1; s <= 4; s++)
+      ctx.lineTo(bx + (s % 2 ? -6 : 9), wy + s * (wh / 4.5));
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(160,180,220,0.35)';
+  for (let i = 0; i < 26; i++) {                       // rain on the glass
+    const rx = wx + ((i * 37 + frame * 2.5) % ww);
+    const ry = wy + ((i * 53 + frame * 3.7) % wh);
+    ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 2, ry + 6); ctx.stroke();
+  }
+  ctx.fillStyle = '#2e2018';                           // window cross
+  ctx.fillRect(wx + ww / 2 - 2, wy, 4, wh);
+  ctx.fillRect(wx, wy + wh / 2 - 2, ww, 4);
+
+  // his bed, and the door he will not stop for
+  ctx.fillStyle = '#3a2a34'; ctx.fillRect(2, 128, 40, 16);
+  ctx.fillStyle = '#5a4a5c'; ctx.fillRect(2, 124, 40, 6);
+  ctx.fillStyle = '#8a7a8c'; ctx.fillRect(4, 121, 10, 5);
+  const doorOpen = boss.phase === 'run' || boss.phase === 'cat';
+  ctx.fillStyle = '#2e2018'; ctx.fillRect(286, 96, 32, 48);
+  ctx.fillStyle = doorOpen ? '#08060e' : '#5a3f24';
+  ctx.fillRect(290, 100, 24, 44);
+  if (!doorOpen) { ctx.fillStyle = '#e8c66a'; ctx.fillRect(292, 120, 2, 2); }
+  else { ctx.fillStyle = '#10101c'; ctx.fillRect(294, 104, 16, 40); }  // the night beyond
+
+  drawDracula();
+  drawBossCat();
+
+  for (const b of bossBats) {                          // his bats
+    const img = BAT_FRAMES[(b.t >> 3) % 2];
+    if (b.state === 'down') {
+      ctx.save();
+      ctx.translate(Math.round(b.x), Math.round(b.y) + 7);
+      ctx.scale(1, -1);                                // wings up, done flying
+      ctx.drawImage(BAT_FRAMES[0], -1, 0);
+      ctx.restore();
+    } else {
+      ctx.drawImage(img, Math.round(b.x) - 1, Math.round(b.y));
+    }
+  }
+  for (const r of bossRoaches) {                       // the uninvited
+    const img = ROACH_FRAMES[(r.t >> 3) % 2];
+    ctx.save();
+    if (r.state === 'down') {
+      ctx.translate(Math.round(r.x), Math.round(r.y) + 4);
+      ctx.scale(1, -1);
+      ctx.drawImage(ROACH_FRAMES[0], 0, 0);
+    } else if (r.dir < 0) {
+      ctx.translate(Math.round(r.x) + 10, Math.round(r.y));
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, 0, 0);
+    } else {
+      ctx.drawImage(img, Math.round(r.x), Math.round(r.y));
+    }
+    ctx.restore();
+  }
+  for (const th of thrown) {                           // return to sender
+    const img = th.kind === 'bat' ? BAT_FRAMES[(frame >> 2) % 2] : ROACH_FRAMES[0];
+    ctx.drawImage(img, Math.round(th.x), Math.round(th.y));
+  }
+
+  drawPlayer();
+  if (carrying) {                                      // held over her head
+    const img = carrying === 'bat' ? BAT_FRAMES[0] : ROACH_FRAMES[0];
+    ctx.drawImage(img, Math.round(player.x) - 1, Math.round(player.y) - 8);
+  }
+  drawParticles();
+
+  // the whole room catches the flash
+  if (flashing && !assist.calm) {
+    ctx.fillStyle = 'rgba(220,230,255,' + (boss.boltT / 12) * 0.25 + ')';
+    ctx.fillRect(-8, -8, VIEW_W + 16, VIEW_H + 16);
+  }
+  ctx.restore();
+  drawHUD();
+}
+
+function drawDracula() {
+  if (boss.phase === 'crouch' || boss.phase === 'laugh' ||
+      boss.phase === 'run' || boss.phase === 'cat') { drawOutroBoy(); return; }
+  let scale = 1;
+  if (boss.phase === 'shrink')
+    scale = 1 - 0.72 * Math.min(1, boss.phaseT / 70);
+  const x = Math.round(boss.x), y = Math.round(144 - boss.h * scale);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  if (boss.hurtT > 0 && (frame >> 1) % 2) ctx.globalAlpha = 0.55;
+  ctx.fillStyle = '#181020'; ctx.fillRect(-6, 8, 52, 46);   // the cape
+  ctx.fillStyle = '#241428'; ctx.fillRect(-2, 10, 44, 42);
+  ctx.fillStyle = '#2a1e33'; ctx.fillRect(8, 20, 24, 32);   // the suit
+  ctx.fillStyle = '#0e0a14'; ctx.fillRect(14, 22, 12, 28);
+  ctx.fillStyle = '#8c2f39'; ctx.fillRect(18, 24, 4, 8);    // cravat
+  ctx.fillStyle = '#d8d8e4'; ctx.fillRect(10, 0, 20, 20);   // gone pale
+  ctx.fillStyle = '#0a0810';                                // widow's peak
+  ctx.fillRect(8, -4, 24, 6); ctx.fillRect(18, 2, 4, 4);
+  ctx.fillStyle = '#ff2030';                                // the eyes
+  ctx.fillRect(13, 8, 4, 3); ctx.fillRect(23, 8, 4, 3);
+  ctx.fillStyle = '#8c2f39'; ctx.fillRect(14, 14, 12, 3);
+  ctx.fillStyle = '#f0f0f4';                                // fangs
+  ctx.fillRect(15, 16, 2, 3); ctx.fillRect(23, 16, 2, 3);
+  ctx.fillStyle = '#a01828';                                // he wears his hits
+  for (let i = 0, cuts = (3 - Math.max(0, boss.hp)) * 4; i < cuts; i++)
+    ctx.fillRect((i * 61) % 36, (i * 37) % 44 + 4, 3, 5);
+  ctx.restore();
+}
+
+function drawOutroBoy() {
+  const x = Math.round(boss.x), y = 124;
+  ctx.save();
+  if (boss.phase === 'crouch') {
+    ctx.translate(x, y + 6);
+    ctx.scale(1, 0.7);
+    ctx.drawImage(KID_FRAMES.idle, 0, 0);
+  } else if (boss.phase === 'laugh') {
+    ctx.translate(x, y + ((frame >> 3) % 2));
+    ctx.drawImage(KID_FRAMES.idle, 0, 0);
+    if ((frame >> 4) % 2) pixelText('HA HA', x - 2, y - 12, '#f0e040');
+  } else {
+    ctx.translate(x, y);
+    ctx.drawImage(KID_FRAMES.run[(frame >> 3) % 2], 0, 0);
+  }
+  ctx.restore();
+}
+
+function drawBossCat() {
+  if (boss.phase !== 'cat') return;
+  const x = Math.round(cat.x), y = 134;
+  ctx.fillStyle = '#8a8a92';
+  ctx.fillRect(x, y + 2, 12, 5);                       // body
+  ctx.fillRect(x - 3, y, 6, 5);                        // head, facing in
+  ctx.fillStyle = '#6a6a72';
+  ctx.fillRect(x - 3, y - 2, 2, 2); ctx.fillRect(x, y - 2, 2, 2);   // ears
+  ctx.fillRect(x + 12, y - 2, 2, 6);                   // tail up, pleased
+  ctx.fillStyle = '#d0f050'; ctx.fillRect(x - 2, y + 1, 1, 1);      // an eye
+  ctx.fillStyle = '#6a6a72';
+  const step = (cat.t >> 3) % 2;
+  ctx.fillRect(x + (step ? 1 : 2), y + 7, 2, 3);
+  ctx.fillRect(x + (step ? 8 : 7), y + 7, 2, 3);
+}
+
 /* ---------------- the house dog ---------------- */
 function updateDog() {
   if (level !== 2) return;
@@ -3124,12 +3566,14 @@ function drawInterlude() {
 function drawWin() {
   ctx.fillStyle = 'rgba(4,2,10,0.55)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-  bigText('TAG. YOU\'RE IT.', 56, 56, '#e8c66a', 20);
-  pixelText('nowhere left to run. friends forever.', 60, 86, '#cfc3e8');
+  bigText('THE HOUSE IS HERS.', 34, 52, '#e8c66a', 20);
+  pixelText('the boy ran laughing into the forest.', 58, 82, '#cfc3e8');
+  pixelText('the cat, at least, seems friendly.', 66, 92, '#cfc3e8');
   if (eyesFound >= EYES_TOTAL)
-    pixelText('and with every eye found, she sees you clearly.', 22, 96, '#e8c66a');
-  pixelText('score ' + score, 136, eyesFound >= EYES_TOTAL ? 110 : 102, '#cfc3e8');
-  if ((frame >> 5) % 2) pixelText('press ENTER', 126, 126, '#9a8fb0');
+    pixelText('and with every eye found, she sees him clearly.', 22, 102, '#e8c66a');
+  pixelText('score ' + score, 136, eyesFound >= EYES_TOTAL ? 116 : 106, '#cfc3e8');
+  pixelText('level three: the forest. soon.', 82, 132, '#9a8fb0');
+  if ((frame >> 5) % 2) pixelText('press ENTER', 126, 148, '#cfc3e8');
 }
 
 /* ---------------- main loop ---------------- */
@@ -3149,6 +3593,20 @@ function tick() {
     }
     drawMini();
     if (paused) drawPauseOverlay();
+    requestAnimationFrame(tick);
+    return;
+  }
+
+  if (state === 'boss' || (boss.active && (state === 'gameover' || state === 'win'))) {
+    if (state === 'boss' && !paused) {
+      speedAcc += assist.speed;
+      if (speedAcc >= 1) { speedAcc -= 1; updateBoss(); }
+      if (shakeT > 0 && --shakeT === 0) shakeMag = 0;
+    }
+    drawBoss();
+    if (state === 'gameover') drawGameOver();
+    if (state === 'win') drawWin();
+    if (paused && state === 'boss') drawPauseOverlay();
     requestAnimationFrame(tick);
     return;
   }

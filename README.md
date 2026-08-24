@@ -88,6 +88,14 @@ jump launches her about twice as high.
   ceiling spiders. A slow waltz plays, cozy with something wrong underneath.
   Corner the boy at his bedroom door to end it — this time there's nowhere
   left to run.
+- **The boss:** at his bedroom door, the boy is not a boy. He towers, Dracula-
+  pale, and looses bats at her while lightning stutters past the window. Jump
+  onto a bat mid-flight to knock it down, pick it up with punch or kick, and
+  throw it back with the same button — three hits break the spell. Each wound
+  makes him bloodier and faster, and the storm answers. Stomped cockroaches
+  work as ammo too. Beaten, he shrinks back into a boy, laughs, and runs out
+  the door — which stays open just long enough for a cat to wander in, meowing.
+  Level three, the forest, is coming.
 - **Assist mode:** press **Esc** — the pause screen is also the assist menu
   (↑/↓ pick, ←/→ set): invincibility, game speed (100/80/60%), infinite
   hearts, reduced flash (no screen shake or hit-strobe), and skip-minigames

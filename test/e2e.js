@@ -750,15 +750,104 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(4);
   check(await ev(() => level === 2 && state === 'play'),
         'game over retries the house, not the road');
-  // corner him in his room
+  // reach him at his bedroom door
   await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
                    player.vy = 0; player.maxX = houseX - 250; });
   await frames(4);
   check(await ev(() => kid.stage === 'final'), 'the boy waits at his bedroom door');
   await page.keyboard.down('ArrowRight');
-  await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
+  await page.waitForFunction(() => state === 'boss', null, { timeout: 30000 });
   await page.keyboard.up('ArrowRight');
-  check(true, 'cornering him in his room ends the game');
+  check(true, 'reaching the boy opens the boss fight');
+
+  /* ---------- the boss: the boy at his worst ---------- */
+  section('boss fight');
+  await ev(() => { player.invuln = 999999; });
+  check(await ev(() => boss.hp === 3 && boss.phase === 'fight' &&
+        BOSS_THEME.length >= 16),
+        'the dracula-boy stands giant; his own music is ready');
+  await ev(() => { boss.shootCd = 1; });
+  await frames(8);
+  check(await ev(() => bossBats.some(b => b.state === 'fly')), 'he looses bats at her');
+  await ev(() => { boss.roachCd = 1; });
+  await frames(8);
+  check(await ev(() => bossRoaches.length > 0), 'cockroaches crash the fight');
+  // jump onto a bat mid-flight
+  const stomp = await page.evaluate(async () => {
+    const b = bossBats.find(b => b.state === 'fly');
+    if (!b) return 'no-bat';
+    for (let i = 0; i < 40; i++) {
+      player.x = b.x - 2; player.y = b.y - 16; player.vy = 1;
+      await new Promise(r => requestAnimationFrame(r));
+      if (b.state === 'down') return 'down';
+    }
+    return b.state;
+  });
+  check(stomp === 'down', 'jumping onto a bat knocks it out of the air');
+  // walk over and pick it up
+  const picked = await page.evaluate(async () => {
+    const b = bossBats.find(b => b.state === 'down');
+    if (!b) return 'no-down-bat';
+    for (let i = 0; i < 120; i++) {          // wait out her bounce and its fall
+      await new Promise(r => requestAnimationFrame(r));
+      player.x = b.x - 1;
+      if (b.y >= 137 && player.onGround) break;
+    }
+    player.vx = 0;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    let got = 'empty-handed';
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (carrying) { got = carrying; break; }
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    await new Promise(r => requestAnimationFrame(r));
+    return got;
+  });
+  check(picked === 'bat', 'punch picks the downed bat up');
+  // throw it back at him
+  const hit1 = await page.evaluate(async () => {
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    player.x = 130; player.y = 126; player.vy = 0; player.face = 1;
+    boss.x = 210; boss.dir = 1;
+    const hp0 = boss.hp;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    let ret = 'miss';
+    for (let i = 0; i < 70; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      if (boss.hp < hp0) { ret = { hp: boss.hp, boltCd: boss.boltCd }; break; }
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    return ret;
+  });
+  check(hit1 !== 'miss' && hit1.hp === 2, 'the thrown bat lands — first blood');
+  check(hit1 !== 'miss' && hit1.boltCd <= 18, 'the lightning answers the wound');
+  // two more, and the spell breaks
+  for (let h = 0; h < 2; h++) {
+    await page.evaluate(async () => {
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+      carrying = 'bat';
+      player.x = 130; player.y = 126; player.vy = 0; player.face = 1;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      for (let i = 0; i < 70; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+        if (!carrying && thrown.length === 0) break;
+        if (boss.phase !== 'fight') break;
+      }
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    });
+  }
+  check(await ev(() => boss.phase !== 'fight' && boss.hp <= 0),
+        'three hits break the spell');
+  // he shrinks, laughs, runs; the door stays open; the cat wanders in
+  await page.waitForFunction(() => state === 'win', null, { timeout: 60000 });
+  check(await ev(() => boss.phase === 'cat' && cat.x < 318),
+        'he runs out laughing and the cat wanders in — level 2 ends');
   await page.keyboard.press('Enter');
   await frames(4);
   check(await ev(() => level === 1 && state === 'play' && score === 0),
