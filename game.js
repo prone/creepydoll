@@ -2301,14 +2301,8 @@ function updateKid() {
       burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
     } else if (level === 2) {
       startBoss();                                 // the boy is not a boy
-    } else if (level === 3 || level === 4) {
-      startBoss();                                 // the chapel wolf, or the cave's tenant
     } else {
-      // level 5: the god lands here next; for now the tomb ends it
-      score += 1000;
-      state = 'win';
-      sndWin();
-      burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
+      startBoss();       // the wolf, the yeti, or the god — level decides
     }
   }
 }
@@ -3657,6 +3651,8 @@ const boss = { active: false, kind: 'dracula', hp: 3, x: 235, w: 40, h: 56,
 const candel = { x: 250, y: 132, vx: 0, vy: 0, state: 'ground' };  // the silver candelabra
 const iceCeil = [];   // hanging icicles: {x, state:'hung'|'falling'|'gone', y, vy, regrowT, lastHit}
 const iceFloor = [];  // standing icicles: {x, state:'stand'|'sliding'|'gone', vx, regrowT}
+const dag = { x: 250, y: 132, vx: 0, vy: 0, state: 'ground' };     // the obsidian-and-gold dagger
+const skulls = [];    // his offerings: {x, y, vx, vy, bounced}
 const bossBats = [];     // {x,y,baseY,vx,t,w,h,state:'fly'|'down'}
 const bossRoaches = [];  // {x,y,dir,t,w,h,state:'run'|'down'}
 const thrown = [];       // {kind,x,y,vx,vy}
@@ -3672,10 +3668,15 @@ function bEdge(name, cur) {
 function startBoss() {
   state = 'boss';
   boss.active = true;
-  boss.kind = level === 4 ? 'yeti' : level === 3 ? 'werewolf' : 'dracula';
+  boss.kind = level === 5 ? 'aztec' : level === 4 ? 'yeti' :
+              level === 3 ? 'werewolf' : 'dracula';
   boss.hp = boss.kind === 'dracula' ? 3 : 4;
-  boss.w = boss.kind === 'yeti' ? 38 : boss.kind === 'werewolf' ? 34 : 40;
-  boss.h = boss.kind === 'yeti' ? 44 : boss.kind === 'werewolf' ? 34 : 56;
+  boss.w = boss.kind === 'yeti' ? 38 : boss.kind === 'werewolf' ? 34 :
+           boss.kind === 'aztec' ? 30 : 40;
+  boss.h = boss.kind === 'yeti' ? 44 : boss.kind === 'werewolf' ? 34 :
+           boss.kind === 'aztec' ? 46 : 56;
+  dag.x = 250; dag.y = 132; dag.vx = 0; dag.vy = 0; dag.state = 'ground';
+  skulls.length = 0;
   boss.lastHit = -1;
   iceCeil.length = 0; iceFloor.length = 0;
   if (boss.kind === 'yeti') {
@@ -3700,16 +3701,39 @@ function startBoss() {
   player.crouch = false; player.h = 18; player.attack = null; player.chargeT = 0;
   player.invuln = 60;
   musicStep = 0;
-  flashText = boss.kind === 'yeti'
-    ? { msg: 'the cave breathes. so does something else.', t: 150 }
-    : boss.kind === 'werewolf'
-      ? { msg: 'the moon is full. the boy is gone.', t: 150 }
-      : { msg: 'the boy is not a boy.', t: 150 };
+  flashText = boss.kind === 'aztec'
+    ? { msg: 'the boy wears a god\'s gold face.', t: 150 }
+    : boss.kind === 'yeti'
+      ? { msg: 'the cave breathes. so does something else.', t: 150 }
+      : boss.kind === 'werewolf'
+        ? { msg: 'the moon is full. the boy is gone.', t: 150 }
+        : { msg: 'the boy is not a boy.', t: 150 };
   sfx(60, 1.5, 'sawtooth', 0.08, 30);
   if (boss.kind === 'werewolf')
     setTimeout(() => { sfx(280, 1.1, 'triangle', 0.05, 160); }, 400);   // the first howl
   if (boss.kind === 'yeti')
     setTimeout(() => { sfx(70, 1.2, 'sawtooth', 0.08, 25); }, 400);     // something answers
+}
+
+function aztecHit() {
+  boss.hp--;
+  boss.hurtT = 26;
+  score += 400;
+  addShake(3, 12);
+  burst(boss.x + boss.w / 2, 110, '#d8b23a', 12, -1.4);
+  sfx(140, 0.5, 'sawtooth', 0.09, -50);                // a voice too old for the room
+  sfx(1100, 0.15, 'triangle', 0.05, -400);             // obsidian on gold
+  const farLeft = boss.x + boss.w / 2 > VIEW_W / 2;
+  dag.x = farLeft ? 24 + Math.random() * 40 : 230 + Math.random() * 40;
+  dag.y = 132; dag.vx = 0; dag.vy = 0; dag.state = 'ground';
+  if (boss.hp <= 0) {
+    boss.phase = 'crumple'; boss.phaseT = 0;
+    flashText = { msg: 'the mask falls.', t: 110 };
+  } else {
+    flashText = { msg: boss.hp === 3 ? 'the mask cracks. the god notices.' :
+                       boss.hp === 2 ? 'gold chips. feathers fall.' :
+                                       'one more. the last one.', t: 100 };
+  }
 }
 
 function yetiHit(dmg) {
@@ -3782,7 +3806,54 @@ function updateBoss() {
 
   updateBossDoll();
 
-  if (boss.phase === 'fight' && boss.kind === 'yeti') {
+  if (boss.phase === 'fight' && boss.kind === 'aztec') {
+    // he drifts above the gold, throwing what the tomb gave him
+    const spd = 0.3 + (4 - boss.hp) * 0.2;
+    boss.x += boss.dir * spd;
+    if (boss.x < 160) boss.dir = 1;
+    if (boss.x > 268) boss.dir = -1;
+    if (--boss.shootCd <= 0) {
+      boss.shootCd = 130 - (4 - boss.hp) * 22 + Math.random() * 30;
+      const dx = (player.x + 5) - (boss.x + boss.w / 2);
+      skulls.push({ x: boss.x + boss.w / 2, y: 144 - boss.h + 8,
+                    vx: Math.sign(dx) * (1.3 + Math.random() * 0.8) || -1.5,
+                    vy: -2.2, bounced: false });
+      sfx(180, 0.12, 'square', 0.05, -70);             // a gift, hurled
+    }
+    if (rectsOverlap({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h }, player))
+      hurtPlayer(boss.x + boss.w / 2, 1);
+    // the skulls in flight
+    for (let i = skulls.length - 1; i >= 0; i--) {
+      const sk = skulls[i];
+      sk.x += sk.vx; sk.y += sk.vy; sk.vy += 0.08;
+      if (rectsOverlap({ x: sk.x, y: sk.y, w: 8, h: 8 }, player)) {
+        hurtPlayer(sk.x + 4, 1);
+        burst(sk.x + 4, sk.y + 4, '#e8e4da', 6);
+        skulls.splice(i, 1);
+        continue;
+      }
+      if (sk.y >= 136) {
+        if (!sk.bounced) { sk.bounced = true; sk.y = 136; sk.vy = -1.6;
+                           sfx(400, 0.05, 'square', 0.03, -150); }
+        else { burst(sk.x + 4, 140, '#e8e4da', 5); skulls.splice(i, 1); continue; }
+      }
+      if (sk.x < -12 || sk.x > VIEW_W + 12) skulls.splice(i, 1);
+    }
+    // the dagger in flight
+    if (dag.state === 'thrown') {
+      dag.x += dag.vx; dag.y += dag.vy; dag.vy += 0.06;
+      if (rectsOverlap({ x: dag.x, y: dag.y, w: 10, h: 8 },
+                       { x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h })) {
+        aztecHit();
+      } else if (dag.y >= 132) {
+        dag.y = 132; dag.state = 'ground'; dag.vx = 0;
+        sfx(700, 0.08, 'triangle', 0.04, -250);
+      } else if (dag.x < 4 || dag.x > VIEW_W - 16) {
+        dag.vx *= -0.5;
+        dag.x = Math.max(4, Math.min(VIEW_W - 16, dag.x));
+      }
+    }
+  } else if (boss.phase === 'fight' && boss.kind === 'yeti') {
     // he lumbers, and the cave lumbers with him
     const spd = 0.4 + (4 - Math.ceil(boss.hp)) * 0.15;
     if (boss.swipeT > 0) {
@@ -4045,7 +4116,24 @@ function updateBossDoll() {
 
   // punch or kick: pick something up, or let it fly
   const pz = bEdge('z', kPunch()), px = bEdge('x', kKick());
-  if ((pz || px) && boss.phase === 'fight' && boss.kind === 'yeti') {
+  if ((pz || px) && boss.phase === 'fight' && boss.kind === 'aztec') {
+    if (carrying === 'dagger') {
+      dag.state = 'thrown';
+      dag.x = player.x + (player.face > 0 ? 10 : -10);
+      dag.y = player.y + 2;
+      dag.vx = player.face * 3.8;
+      dag.vy = -0.6;
+      carrying = null;
+      sfx(320, 0.1, 'square', 0.06, 200);
+    } else if (dag.state === 'ground' && player.onGround &&
+               Math.abs(dag.x - player.x) < 16) {
+      dag.state = 'held';
+      carrying = 'dagger';
+      sfx(760, 0.08, 'triangle', 0.05);
+    } else {
+      sfx(180, 0.06, 'square', 0.04, -80);             // fists mean nothing to gods
+    }
+  } else if ((pz || px) && boss.phase === 'fight' && boss.kind === 'yeti') {
     const fi = iceFloor.find(f => f.state === 'stand' &&
                                   Math.abs(f.x - (player.x + 5)) < 18);
     if (fi && player.onGround) {
@@ -4096,6 +4184,22 @@ function updateBossDoll() {
 
 // after the last hit: each monster leaves in its own way
 function updateBossOutro() {
+  if (boss.kind === 'aztec') {
+    boss.phaseT++;
+    if (boss.phase === 'crumple' && boss.phaseT > 90) {
+      boss.phase = 'revert'; boss.phaseT = 0;
+      sfx(320, 0.6, 'sine', 0.05, -140);               // just a boy, and a heavy mask
+    } else if (boss.phase === 'revert' && boss.phaseT > 80) {
+      boss.phase = 'gone'; boss.phaseT = 0;
+      sfx(60, 1.0, 'sawtooth', 0.05, -12);             // the dark behind the sarcophagus takes him
+      burst(boss.x + 10, 120, '#2a2216', 10, 1);
+    } else if (boss.phase === 'gone' && boss.phaseT > 100) {
+      state = 'win';                                   // the true, final ending
+      score += 2000;
+      sndWin();
+    }
+    return;
+  }
   if (boss.kind === 'yeti') {
     boss.phaseT++;
     if (boss.phase === 'crumple' && boss.phaseT > 90) {
@@ -4174,6 +4278,7 @@ function drawBoss() {
   const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
   ctx.save();
   ctx.translate(shX, shY);
+  if (boss.kind === 'aztec') { drawGoldChamber(); drawBossEntitiesAztec(); return endBossDraw(); }
   if (boss.kind === 'yeti') { drawIceCave(); drawBossEntitiesYeti(); return endBossDraw(); }
   if (boss.kind === 'werewolf') { drawChapelArena(); drawBossEntitiesWolf(); return endBossDraw(); }
   // his room, at night
@@ -4280,6 +4385,126 @@ function drawBoss() {
 function endBossDraw() {
   ctx.restore();
   drawHUD();
+}
+
+/* --- the burial chamber, and its gold --- */
+function drawGoldChamber() {
+  ctx.fillStyle = '#2a2210'; ctx.fillRect(-8, -8, VIEW_W + 16, VIEW_H + 16);
+  ctx.fillStyle = '#332a14';
+  for (let i = 0; i < 10; i++) ctx.fillRect(i * 34, 12, 17, 122);
+  // the sun stone behind him
+  const sx = 214, sy = 74;
+  ctx.fillStyle = '#8a742a';
+  ctx.beginPath(); ctx.arc(sx, sy, 44, 0, 7); ctx.fill();
+  ctx.fillStyle = '#a8903a';
+  ctx.beginPath(); ctx.arc(sx, sy, 34, 0, 7); ctx.fill();
+  ctx.fillStyle = '#6d5a20';
+  ctx.beginPath(); ctx.arc(sx, sy, 22, 0, 7); ctx.fill();
+  ctx.fillStyle = '#d8b23a';
+  for (let a = 0; a < 8; a++) {
+    const ang = a * Math.PI / 4 + frame / 400;
+    ctx.fillRect(sx + Math.cos(ang) * 38 - 2, sy + Math.sin(ang) * 38 - 2, 5, 5);
+  }
+  // the great sarcophagus
+  ctx.fillStyle = '#54442c'; ctx.fillRect(VIEW_W - 40, 60, 30, 84);
+  ctx.fillStyle = '#d8b23a'; ctx.fillRect(VIEW_W - 35, 70, 20, 26);
+  ctx.fillStyle = '#2a2210';
+  ctx.fillRect(VIEW_W - 30, 76, 3, 4); ctx.fillRect(VIEW_W - 23, 76, 3, 4);
+  // the floor, and its treasure drifts
+  ctx.fillStyle = '#3a2f18'; ctx.fillRect(-8, 144, VIEW_W + 16, 40);
+  ctx.fillStyle = '#54442c'; ctx.fillRect(-8, 144, VIEW_W + 16, 3);
+  ctx.fillStyle = '#d8b23a';
+  for (let i = 0; i < 14; i++)
+    ctx.fillRect((i * 47) % VIEW_W, 140 + (i % 3), 5, 3);
+  for (let i = 0; i < 3; i++) {                        // braziers
+    const bx = 30 + i * 60;
+    ctx.fillStyle = '#3e2c18'; ctx.fillRect(bx, 128, 8, 14);
+    ctx.fillStyle = (frame + i * 5) % 8 < 6 ? '#ffce6a' : '#e8a050';
+    ctx.fillRect(bx + 1, 122, 6, 6);
+  }
+}
+
+function drawSkull(x, y) {
+  ctx.fillStyle = '#e8e4da';
+  ctx.fillRect(x, y, 8, 6);
+  ctx.fillRect(x + 1, y + 6, 6, 2);
+  ctx.fillStyle = '#241c10';
+  ctx.fillRect(x + 1, y + 2, 2, 2); ctx.fillRect(x + 5, y + 2, 2, 2);
+  ctx.fillRect(x + 2, y + 6, 1, 1); ctx.fillRect(x + 4, y + 6, 1, 1);
+}
+
+function drawDagger(x, y) {
+  ctx.fillStyle = '#1c1a22';                           // obsidian blade
+  ctx.fillRect(x, y + 2, 8, 3);
+  ctx.fillRect(x + 8, y + 3, 2, 1);
+  ctx.fillStyle = '#d8b23a';                           // gold grip
+  ctx.fillRect(x - 3, y + 1, 4, 5);
+  ctx.fillStyle = '#5aa88a'; ctx.fillRect(x - 2, y + 3, 1, 1);   // one jade eye
+}
+
+function drawBossEntitiesAztec() {
+  if (dag.state !== 'held') drawDagger(Math.round(dag.x), Math.round(dag.y));
+  for (const sk of skulls) drawSkull(Math.round(sk.x), Math.round(sk.y));
+  drawAztec();
+  drawPlayer();
+  if (carrying === 'dagger')
+    drawDagger(Math.round(player.x), Math.round(player.y) - 12);
+  drawParticles();
+}
+
+function drawAztec() {
+  const P = boss;
+  if (P.phase === 'revert') {
+    const x = Math.round(P.x), y = 124;
+    ctx.save();
+    ctx.translate(x, y + 6);
+    ctx.scale(1, 0.7);
+    ctx.drawImage(KID_FRAMES.idle, 0, 0);
+    ctx.restore();
+    ctx.fillStyle = '#d8b23a';                         // the mask, face down beside him
+    ctx.fillRect(x - 14, 136, 12, 7);
+    return;
+  }
+  if (P.phase === 'gone') {
+    ctx.fillStyle = '#d8b23a'; ctx.fillRect(Math.round(P.x) - 14, 136, 12, 7);
+    return;
+  }
+  const crumpled = P.phase === 'crumple';
+  const cracks = 4 - Math.max(0, P.hp);
+  const hov = crumpled ? 0 : Math.sin(frame / 22) * 3;
+  const x = Math.round(P.x), y = Math.round((crumpled ? 144 - 24 : 144 - P.h) - hov);
+  ctx.save();
+  ctx.translate(x, y);
+  if (P.dir < 0 && !crumpled) { ctx.translate(P.w, 0); ctx.scale(-1, 1); }
+  if (P.hurtT > 0 && (frame >> 1) % 2) ctx.globalAlpha = 0.55;
+  if (crumpled) {
+    ctx.fillStyle = '#8c5a30'; ctx.fillRect(4, 8, 22, 16);        // kneeling
+    ctx.fillStyle = '#d8b23a'; ctx.fillRect(8, 0, 14, 10);        // mask bowed
+    ctx.fillStyle = '#241c10';
+    ctx.fillRect(11, 3, 2, 2); ctx.fillRect(17, 3, 2, 2);
+  } else {
+    // the feather crown, thinning as the gold chips
+    for (let i = 0; i < 7 - cracks; i++) {
+      ctx.fillStyle = i % 2 ? '#2a8a5a' : '#c93a3a';
+      ctx.fillRect(2 + i * 4, -10 - (i % 3) * 3, 3, 12);
+    }
+    ctx.fillStyle = '#d8b23a';                         // the mask itself
+    ctx.fillRect(6, 0, 18, 16);
+    ctx.fillRect(4, 4, 22, 8);
+    ctx.fillStyle = '#241c10';                         // its patient eyes
+    ctx.fillRect(10, 5, 3, 3); ctx.fillRect(18, 5, 3, 3);
+    ctx.fillRect(13, 11, 5, 2);
+    ctx.fillStyle = '#8a742a';                         // and its cracks
+    for (let i = 0; i < cracks * 3; i++)
+      ctx.fillRect(6 + (i * 41) % 17, 1 + (i * 23) % 13, 1, 4);
+    ctx.fillStyle = '#8c5a30';                         // the boy beneath, gone regal
+    ctx.fillRect(8, 16, 14, 18);
+    ctx.fillStyle = '#d8b23a'; ctx.fillRect(8, 18, 14, 5);        // pectoral
+    ctx.fillStyle = '#c93a3a'; ctx.fillRect(4, 16, 4, 20);        // cape edge
+    ctx.fillStyle = '#8c5a30';
+    ctx.fillRect(9, 34, 4, 12); ctx.fillRect(17, 34, 4, 12);      // legs, above the floor
+  }
+  ctx.restore();
 }
 
 /* --- the ice cave, and what it kept --- */
@@ -5813,7 +6038,7 @@ function drawWin() {
   ctx.fillStyle = 'rgba(4,2,10,0.55)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   bigText('AND STILL HE RUNS.', 34, 46, '#e8c66a', 20);
-  pixelText('through the wall, into the night, gone again.', 40, 76, '#cfc3e8');
+  pixelText('past the gold, past the dead, gone again.', 46, 76, '#cfc3e8');
   pixelText('she is patient. she is porcelain.', 66, 88, '#cfc3e8');
   pixelText('some friendships take forever.', 76, 100, '#e8d8f0');
   if (eyesFound >= EYES_TOTAL)

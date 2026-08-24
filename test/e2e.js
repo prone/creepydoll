@@ -1472,9 +1472,76 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(4);
   check(await ev(() => kid.stage === 'final'), 'the boy waits at the burial door');
   await page.keyboard.down('ArrowRight');
-  await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
+  await page.waitForFunction(() => state === 'boss', null, { timeout: 30000 });
   await page.keyboard.up('ArrowRight');
-  check(true, 'the tomb ends the story (until the god wakes)');
+  check(true, 'reaching him at the burial door wakes the god');
+
+  /* ---------- the aztec god ---------- */
+  section('aztec god');
+  await ev(() => { player.invuln = 999999; });
+  check(await ev(() => boss.kind === 'aztec' && boss.hp === 4 &&
+        dag.state === 'ground'),
+        'a gold mask, four cracks to give, and a dagger in the dust');
+  await ev(() => { boss.shootCd = 1; });
+  await frames(8);
+  check(await ev(() => skulls.length > 0), 'he throws the tomb\'s own skulls');
+  const dagGrab = await page.evaluate(async () => {
+    player.x = dag.x; player.y = 126; player.vy = 0; player.attack = null;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    let got = 'empty-handed';
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (carrying === 'dagger') { got = 'held'; break; }
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    await new Promise(r => requestAnimationFrame(r));
+    return got;
+  });
+  check(dagGrab === 'held', 'punch lifts the obsidian dagger');
+  const godHit1 = await page.evaluate(async () => {
+    const dx0 = dag.x;
+    player.x = 100; player.y = 126; player.vy = 0; player.face = 1;
+    boss.x = 200; boss.dir = 1;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    let ret = 'miss';
+    for (let i = 0; i < 80; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      if (boss.hp < 4) {
+        ret = { hp: boss.hp, moved: Math.abs(dag.x - dx0) > 40,
+                grounded: dag.state === 'ground' };
+        break;
+      }
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    return ret;
+  });
+  check(godHit1 !== 'miss' && godHit1.hp === 3, 'obsidian finds gold — the mask cracks');
+  check(godHit1 !== 'miss' && godHit1.moved && godHit1.grounded,
+        'the dagger skids away; she must fetch it again');
+  for (let h = 0; h < 3; h++) {
+    await page.evaluate(async () => {
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+      carrying = 'dagger'; dag.state = 'held';
+      player.x = boss.x < 160 ? boss.x + boss.w + 60 : boss.x - 70;
+      player.face = boss.x < 160 ? -1 : 1;
+      player.y = 126; player.vy = 0;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      for (let i = 0; i < 80; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+        if (dag.state === 'ground' && !carrying) break;
+        if (boss.phase !== 'fight') break;
+      }
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    });
+  }
+  check(await ev(() => boss.phase !== 'fight' && boss.hp <= 0), 'the mask falls');
+  await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
+  check(await ev(() => boss.phase === 'gone'),
+        'the boy slips behind the sarcophagus — the true, final ending');
   await page.keyboard.press('Enter');
   await frames(4);
   check(await ev(() => level === 1 && state === 'play' && score === 0),

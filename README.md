@@ -110,6 +110,22 @@ jump launches her about twice as high.
   fetch it. Four wounds, each tearing his clothes and bloodying him further,
   and he crumples — a naked hairy beast — turns back into the boy, and breaks
   THROUGH the chapel wall into the night. And still he runs.
+- **Level 4 — the snowy mountain:** the climb. Stepped shelves rise from the
+  valley floor to a summit plateau across crevasses, through constant snowfall,
+  past charging mountain goats, diving snowy owls, and wolves in winter coats,
+  with frozen crystals for checkpoints. In the ice cave at the top the boy is
+  a **yeti** — strike the hanging icicles mid-jump to drop them on his head,
+  kick the standing ones so they skid into him, or use your fists at half
+  power. Beaten, he escapes down a tunnel.
+- **Level 5 — the tomb:** torchlit sandstone corridors under a ceiling of old
+  stone: pit traps, fallen pillars, mummies, scarabs, and cobras — and three
+  doorways: the Glyph Rite (say the wall's four words back), the Scarab Race
+  (back the right beetle), and the Spear Gauntlet (dash the gates while the
+  spears are up). At the burial door the boy wears a god's gold face: the
+  **Aztec god** throws skulls in arcs while she fetches and throws an
+  obsidian-and-gold dagger — every hit cracks his mask and sends the dagger
+  skidding. Four hits and the mask falls, and the boy slips into the dark
+  behind the sarcophagus. And still he runs.
 - **Assist mode:** press **Esc** — the pause screen is also the assist menu
   (↑/↓ pick, ←/→ set): invincibility, game speed (100/80/60%), infinite
   hearts, reduced flash (no screen shake or hit-strobe), and skip-minigames
