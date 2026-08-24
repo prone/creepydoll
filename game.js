@@ -471,8 +471,8 @@ const HOUSE_GLIMPSE_LINES = [
 // map[r][c]: 0 empty, 1 ground, 2 platform, 3 furniture (solid wood)
 let map = [];
 const enemies = [];
-let houseX = 0;         // level 1: the dollhouse. level 2: the boy's bedroom door.
-let level = 1;          // 1: the road outside. 2: inside the boy's house.
+let houseX = 0;         // level 1: the dollhouse. 2: the bedroom door. 3: the old chapel.
+let level = 1;          // 1: the road outside. 2: the boy's house. 3: the deep woods.
 const tables = [];      // level 2: world-x of each table she must jump
 
 // a lone heart floating over the second ravine — heals one heart, once
@@ -507,8 +507,89 @@ const fireballs = [];
 let playTime = 0;
 
 function genLevel() {
-  if (level === 2) genHouse();
+  if (level === 3) genWoods();
+  else if (level === 2) genHouse();
   else genOutside();
+}
+
+/* ---------------- level 3: the deep woods ---------------- */
+function genWoods() {
+  map = [];
+  enemies.length = 0;
+  tables.length = 0;
+  rngState = 0xF07E57;
+  for (let r = 0; r < MAP_H; r++) map.push(new Array(MAP_W).fill(0));
+
+  // rocky ground broken by ravines, with low stone outcrops
+  let c = 0;
+  while (c < MAP_W) {
+    let run = rint(10, 20);
+    if (c < 14) run = 16;
+    if (c + run > MAP_W - 14) run = MAP_W - c;
+    for (let i = 0; i < run && c + i < MAP_W; i++) {
+      map[9][c + i] = 1; map[10][c + i] = 1;
+    }
+    if (run >= 12 && c + run < MAP_W - 20) {      // the chapel approach stays flat
+      const oc = c + rint(3, run - 6), ow = rint(2, 3);
+      for (let i = 0; i < ow && oc + i < MAP_W; i++) map[8][oc + i] = 1;
+    }
+    c += run;
+    if (c >= MAP_W - 14) break;
+    c += rint(2, 3);
+  }
+
+  // giant trees: a trunk two tiles wide, a root arch to run beneath,
+  // and branches to climb on either side
+  for (let tc = 24; tc < MAP_W - 26; tc += rint(28, 42)) {
+    if (map[9][tc] !== 1 || map[9][tc + 1] !== 1) continue;
+    if (map[8][tc] || map[8][tc + 1]) continue;         // not atop an outcrop
+    for (let r = 2; r <= 6; r++) { map[r][tc] = 4; map[r][tc + 1] = 4; }
+    for (let i = tc - 3; i <= tc - 1; i++)
+      if (i >= 0 && !map[4][i]) map[4][i] = 2;          // left branch, high
+    for (let i = tc + 2; i <= tc + 4; i++)
+      if (i < MAP_W && !map[6][i]) map[6][i] = 2;       // right branch, low
+  }
+
+  // headroom pass — standing room beneath every branch over solid ground
+  for (let r = 2; r < MAP_H - 2; r++)
+    for (let cc = 0; cc < MAP_W; cc++)
+      if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
+
+  doors.length = 0;                                     // minigames come later
+  eyePickups.length = 0;
+
+  // a heart over the second ravine
+  heartPickup.taken = false; heartPickup.t = 0;
+  heartPickup.x = -100; heartPickup.y = -100;
+  let gapCount = 0, inGap = false;
+  for (let cc = 0; cc < MAP_W; cc++) {
+    if (map[9][cc] === 0) {
+      if (!inGap) {
+        inGap = true; gapCount++;
+        if (gapCount === 2) {
+          let end = cc;
+          while (end < MAP_W && map[9][end] === 0) end++;
+          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
+          heartPickup.y = 6 * TILE - 4;
+          break;
+        }
+      }
+    } else inGap = false;
+  }
+
+  // will-o-wisps mark the way (the same souls, thinner air)
+  checkpoints.length = 0;
+  for (let target = 30; target < MAP_W - 22; target += 30) {
+    let cc = target;
+    while (cc < MAP_W - 18 &&
+           !(map[9][cc] === 1 && !map[8][cc] && !map[7][cc]))
+      cc++;
+    checkpoints.push({ x: cc * TILE + 4, reached: false });
+  }
+  lastCP.x = 40; lastCP.y = 100;
+
+  houseX = (MAP_W - 6) * TILE;                          // the old chapel
+  resetKid();
 }
 
 function genOutside() {
@@ -1171,7 +1252,7 @@ const STAGE_MSGS = [
 ];
 
 function creepStage() {
-  if (level === 2) return 3;    // she arrives as she left level 1: something is very wrong
+  if (level >= 2) return 3;     // past the road she stays as she left it: very wrong
   return Math.min(3, Math.floor(player.maxX / (LEVEL_W / 4.2)));
 }
 
@@ -1184,7 +1265,7 @@ function resetGame() {
   player.stretchT = 0; player.squashT = 0; player.respawnT = 0;
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
-  inkMelt = false;
+  inkMelt = level >= 3;         // the house's candle already took half of her
   shakeT = 0; shakeMag = 0;
   particles.length = 0;
   fireballs.length = 0;
@@ -1241,7 +1322,7 @@ function handleMenuKeys(key) {
   if (state === 'title' || state === 'gameover' || state === 'win' ||
       state === 'interlude') {
     const carry = state === 'interlude' ? score : 0;   // the score follows her in
-    if (state === 'interlude') level = 2;
+    if (state === 'interlude') level = level === 1 ? 2 : 3;
     else if (state !== 'gameover') level = 1;          // game over retries the level
     resetGame();
     score = carry;
@@ -1608,8 +1689,15 @@ function updateKid() {
       state = 'interlude';                         // but he slips away, and runs home
       sndWin();
       burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
-    } else {
+    } else if (level === 2) {
       startBoss();                                 // the boy is not a boy
+    } else {
+      // level 3, at the chapel — the werewolf fight lands here next;
+      // for now the woods end the story
+      score += 1000;
+      state = 'win';
+      sndWin();
+      burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
     }
   }
 }
@@ -1906,8 +1994,56 @@ function drawBackground(st) {
   }
 }
 
+/* ---------------- the deep woods, drawn ---------------- */
+function drawWoodsBackground(st) {
+  // a sky gone almost black
+  ctx.fillStyle = '#0a0812'; ctx.fillRect(0, 0, VIEW_W, 60);
+  ctx.fillStyle = '#0e0a16'; ctx.fillRect(0, 60, VIEW_W, 60);
+  ctx.fillStyle = '#120c18'; ctx.fillRect(0, 120, VIEW_W, VIEW_H - 120);
+  // a few hard stars
+  for (let i = 0; i < 18; i++) {
+    const sx = (i * 131 + 17) % (VIEW_W + 40) - ((camX * 0.08) % (VIEW_W + 40));
+    const wx = ((sx % (VIEW_W + 40)) + VIEW_W + 40) % (VIEW_W + 40) - 20;
+    if ((i + (frame >> 6)) % 9 === 0) continue;
+    ctx.fillStyle = '#4a4260';
+    ctx.fillRect(wx, (i * 37) % 50 + 4, 1, 1);
+  }
+  // a sliver of moon, mostly swallowed
+  const mx = 260 - camX * 0.04;
+  ctx.fillStyle = '#c9c2b0';
+  ctx.beginPath(); ctx.arc(mx, 26, 10, 0, 7); ctx.fill();
+  ctx.fillStyle = '#0a0812';
+  ctx.beginPath(); ctx.arc(mx - 4, 24, 9.5, 0, 7); ctx.fill();
+  // far pines, ranked and patient
+  ctx.fillStyle = '#0c0f14';
+  for (let i = 0; i < 16; i++) {
+    const tx = ((i * 120 + 30 - camX * 0.25) % (VIEW_W + 120) + VIEW_W + 120) % (VIEW_W + 120) - 60;
+    const h = 60 + (i * 17) % 30;
+    for (let s = 0; s < 4; s++)
+      ctx.fillRect(tx - (10 - s * 2), 132 - h + s * (h / 4), 20 - s * 4 < 2 ? 2 : 20 - s * 4, h / 4 + 1);
+  }
+  // nearer crags
+  ctx.fillStyle = '#141820';
+  for (let i = 0; i < 10; i++) {
+    const cx = ((i * 170 + 60 - camX * 0.5) % (VIEW_W + 170) + VIEW_W + 170) % (VIEW_W + 170) - 85;
+    const h = 18 + (i * 23) % 16;
+    ctx.fillRect(cx, 142 - h, 30 + (i % 3) * 8, h);
+    ctx.fillRect(cx + 8, 136 - h, 14, 6);
+  }
+  // fireflies
+  for (let i = 0; i < 6; i++) {
+    if ((frame + i * 47) % 90 > 60) continue;
+    const fx = ((i * 210 + frame * 0.3 - camX * 0.7) % (VIEW_W + 40) + VIEW_W + 40) % (VIEW_W + 40) - 20;
+    ctx.fillStyle = '#9fd08a';
+    ctx.fillRect(fx, 90 + Math.sin(frame / 25 + i * 2) * 14 + (i * 11) % 30, 1, 1);
+  }
+  // low fog, thicker than the road's
+  ctx.fillStyle = 'rgba(40,44,64,0.32)';
+  ctx.fillRect(0, 116, VIEW_W, 18);
+}
+
 function drawTiles() {
-  const indoor = level === 2;
+  const indoor = level === 2, woods = level === 3;
   const c0 = Math.max(0, Math.floor(camX / TILE));
   const c1 = Math.min(MAP_W - 1, Math.ceil((camX + VIEW_W) / TILE));
   for (let r = 0; r < MAP_H; r++) {
@@ -1917,12 +2053,12 @@ function drawTiles() {
       const x = cc * TILE - camX, y = r * TILE;
       if (t === 1) {
         const top = r === 0 || !map[r - 1][cc];
-        ctx.fillStyle = indoor ? '#4a3626' : '#3a3244';
+        ctx.fillStyle = woods ? '#343a42' : indoor ? '#4a3626' : '#3a3244';
         ctx.fillRect(x, y, TILE, TILE);
         if (top && r > 0) {
-          ctx.fillStyle = indoor ? '#6d5138' : '#4b3f5c';
+          ctx.fillStyle = woods ? '#48505c' : indoor ? '#6d5138' : '#4b3f5c';
           ctx.fillRect(x, y, TILE, 4);
-          ctx.fillStyle = indoor ? '#7d5f42' : '#5d4f72';
+          ctx.fillStyle = woods ? '#59626e' : indoor ? '#7d5f42' : '#5d4f72';
           for (let i = 0; i < 4; i++)
             if (tileNoise(cc * 4 + i, r) > 0.4) ctx.fillRect(x + i * 4 + 1, y, 2, 2);
         }
@@ -1936,6 +2072,23 @@ function drawTiles() {
         } else if (!indoor && tileNoise(cc, r) > 0.6) {
           ctx.fillStyle = '#2e2738';                   // stones
           ctx.fillRect(x + 3 + (cc % 3) * 3, y + 7 + (r % 2) * 3, 4, 3);
+        }
+      } else if (t === 4) {
+        // giant-tree trunk — old bark, older shadows
+        ctx.fillStyle = '#241c14';
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.fillStyle = '#332a1e';
+        ctx.fillRect(x + ((cc * 7 + r * 3) % 3) * 4, y, 3, TILE);
+        ctx.fillRect(x + 9 + (r % 2) * 3, y + 4, 2, TILE - 4);
+        if (r === 2 && !map[1][cc]) {                  // the crown starts
+          ctx.fillStyle = '#101710';
+          ctx.fillRect(x - 4, y - 8, TILE + 8, 10);
+          ctx.fillRect(x - 1, y - 14, TILE + 2, 8);
+        }
+        if (r === 6) {                                 // root flare beside the arch
+          ctx.fillStyle = '#241c14';
+          ctx.fillRect(x - 2, y + TILE - 4, 3, 4);
+          ctx.fillRect(x + TILE - 1, y + TILE - 4, 3, 4);
         }
       } else if (t === 3) {
         // solid furniture — a good oak table
@@ -2051,6 +2204,20 @@ function drawCheckpoints() {
   for (const cp of checkpoints) {
     const x = Math.round(cp.x - camX);
     if (x < -12 || x > VIEW_W + 12) continue;
+    if (level === 3) {                            // a will-o-wisp, waiting
+      const y = 9 * TILE - 22 + Math.sin((frame + cp.x) / 30) * 2;
+      const lit = cp.reached && (frame >> 3) % 6 !== 5;
+      ctx.fillStyle = lit ? '#bfe8ff' : '#2a3240';
+      ctx.fillRect(x + 2, Math.round(y), 4, 4);
+      ctx.fillRect(x + 3, Math.round(y) - 2, 2, 2);
+      if (cp.reached) {
+        ctx.fillStyle = 'rgba(160,220,255,0.10)';
+        ctx.fillRect(x - 4, Math.round(y) - 7, 16, 18);
+        ctx.fillStyle = 'rgba(160,220,255,0.35)';
+        ctx.fillRect(x + 3, Math.round(y) + 6 + ((frame >> 2) % 4), 1, 1);
+      }
+      continue;
+    }
     if (level === 2) {                            // a candle on the floor
       const y = 9 * TILE - 12;
       ctx.fillStyle = '#3e2c22'; ctx.fillRect(x, y + 9, 8, 3);     // saucer
@@ -2081,6 +2248,7 @@ function drawCheckpoints() {
 }
 
 function drawHouse() {
+  if (level === 3) { drawChapel(); return; }
   if (level === 2) { drawBedroomDoor(); return; }
   const x = houseX - camX, y = 9 * TILE - 46;
   if (x < -60 || x > VIEW_W) return;
@@ -2095,6 +2263,29 @@ function drawHouse() {
   ctx.fillRect(x + 32, y + 22, 8, 8);
   ctx.fillStyle = '#120c14'; ctx.fillRect(x + 20, y + 28, 9, 18);
   ctx.fillStyle = '#e8c66a'; ctx.fillRect(x + 26, y + 37, 2, 2); // doorknob
+}
+
+function drawChapel() {
+  const x = houseX - camX, y = 9 * TILE - 56;
+  if (x < -80 || x > VIEW_W) return;
+  // an old stone chapel, leaning into the dark
+  ctx.fillStyle = '#2a2e36'; ctx.fillRect(x - 6, y + 18, 60, 38);   // body
+  ctx.fillStyle = '#343a44';
+  ctx.beginPath();
+  ctx.moveTo(x - 10, y + 20); ctx.lineTo(x + 24, y); ctx.lineTo(x + 58, y + 20);
+  ctx.fill();
+  ctx.fillStyle = '#1c2028'; ctx.fillRect(x + 21, y - 14, 6, 16);   // crooked spire
+  ctx.fillRect(x + 19, y - 18, 10, 4);
+  // rose window, faintly lit
+  ctx.fillStyle = (frame >> 4) % 5 ? '#6a4a7a' : '#8a5f9e';
+  ctx.beginPath(); ctx.arc(x + 24, y + 26, 6, 0, 7); ctx.fill();
+  ctx.fillStyle = '#2a2e36'; ctx.fillRect(x + 23, y + 20, 2, 12);
+  ctx.fillRect(x + 18, y + 25, 12, 2);
+  // the arched door
+  ctx.fillStyle = '#141018';
+  ctx.fillRect(x + 17, y + 40, 14, 16);
+  ctx.beginPath(); ctx.arc(x + 24, y + 40, 7, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#e8c66a'; ctx.fillRect(x + 27, y + 47, 2, 2);    // a knob, warm
 }
 
 function drawBedroomDoor() {
@@ -2796,7 +2987,7 @@ function updateBossOutro() {
       flashText = { msg: 'meow.', t: 60 };
     }
     if (boss.phaseT > 210) {
-      state = 'win';
+      state = 'interlude';       // the house is hers — but he ran for the trees
       score += 1000;
       sndWin();
     }
@@ -3621,12 +3812,20 @@ function drawGameOver() {
 function drawInterlude() {
   ctx.fillStyle = 'rgba(4,2,10,0.68)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-  bigText('TAG. YOU\'RE IT.', 56, 42, '#e8c66a', 20);
-  pixelText('but he twists free, and runs home,', 70, 74, '#cfc3e8');
-  pixelText('and slams the door behind him.', 78, 86, '#cfc3e8');
-  pixelText('she knows the way. she follows.', 74, 102, '#e8d8f0');
+  if (level === 1) {
+    bigText('TAG. YOU\'RE IT.', 56, 42, '#e8c66a', 20);
+    pixelText('but he twists free, and runs home,', 70, 74, '#cfc3e8');
+    pixelText('and slams the door behind him.', 78, 86, '#cfc3e8');
+    pixelText('she knows the way. she follows.', 74, 102, '#e8d8f0');
+    if ((frame >> 5) % 2) pixelText('press ENTER — into the house', 90, 140, '#9a8fb0');
+  } else {
+    bigText('THE HOUSE IS HERS.', 34, 42, '#e8c66a', 20);
+    pixelText('but the boy ran laughing for the deep woods,', 40, 74, '#cfc3e8');
+    pixelText('where the trees are tall and the dark is old.', 40, 86, '#cfc3e8');
+    pixelText('she follows. she always follows.', 70, 102, '#e8d8f0');
+    if ((frame >> 5) % 2) pixelText('press ENTER — into the trees', 92, 140, '#9a8fb0');
+  }
   pixelText('score ' + score, 136, 120, '#cfc3e8');
-  if ((frame >> 5) % 2) pixelText('press ENTER — into the house', 90, 140, '#9a8fb0');
 }
 
 function drawWin() {
@@ -3716,7 +3915,8 @@ function tick() {
   const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
   ctx.save();
   ctx.translate(shX, shY);
-  if (level === 2) drawHouseBackground(st);
+  if (level === 3) drawWoodsBackground(st);
+  else if (level === 2) drawHouseBackground(st);
   else drawBackground(st);
   drawTiles();
   drawCheckpoints();

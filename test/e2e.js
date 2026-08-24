@@ -894,9 +894,53 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => boss.phase !== 'fight' && boss.hp <= 0),
         'three hits break the spell');
   // he shrinks, laughs, runs; the door stays open; the cat wanders in
-  await page.waitForFunction(() => state === 'win', null, { timeout: 60000 });
+  await page.waitForFunction(() => state === 'interlude', null, { timeout: 60000 });
   check(await ev(() => boss.phase === 'cat' && cat.x < 318),
         'he runs out laughing and the cat wanders in — level 2 ends');
+
+  /* ---------- level 3: the deep woods ---------- */
+  section('level 3');
+  const preWoods = await ev(() => score);
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => level === 3 && state === 'play' && player.x === 40),
+        'she follows him into the deep woods');
+  check((await ev(() => score)) >= preWoods, 'the score follows her under the trees');
+  check(await ev(() => creepStage() === 3 && inkMelt),
+        'she arrives far gone and half ink');
+  check(await ev(() => map.some(row => row.includes(4))),
+        'giant trees stand in the woods');
+  check(await ev(() => {
+    for (let c = 0; c < MAP_W; c++)
+      if (map[6][c] === 4 && (map[7][c] || map[8][c])) return false;
+    return true;
+  }), 'every trunk leaves a root arch to run beneath');
+  check(await ev(() => {
+    for (let r = 2; r < MAP_H - 2; r++)
+      for (let c = 0; c < MAP_W; c++)
+        if (map[r][c] === 2 && map[r + 2][c]) return false;
+    return true;
+  }), 'every branch leaves standing room beneath it');
+  check(await ev(() => checkpoints.length >= 4 && doors.length === 0 &&
+        eyePickups.length === 0), 'wisps mark the way; no doors or eyes out here');
+  check(await ev(() => map[8].some((t, c) => t === 1 && map[9][c] === 1)),
+        'stone outcrops break the ground');
+  // death in the woods retries the woods
+  await ev(() => { player.invuln = 0; player.hp = 1; player.y = 400; player.vy = 3; });
+  await page.waitForFunction(() => state === 'gameover', null, { timeout: 5000 });
+  await page.keyboard.press('Enter');
+  await frames(4);
+  check(await ev(() => level === 3 && state === 'play' && inkMelt),
+        'game over retries the woods, still half ink');
+  // corner him at the chapel (the werewolf will land here next)
+  await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
+                   player.vy = 0; player.maxX = houseX - 250; });
+  await frames(4);
+  check(await ev(() => kid.stage === 'final'), 'the boy waits at the old chapel');
+  await page.keyboard.down('ArrowRight');
+  await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
+  await page.keyboard.up('ArrowRight');
+  check(true, 'reaching him at the chapel ends the story (for now)');
   await page.keyboard.press('Enter');
   await frames(4);
   check(await ev(() => level === 1 && state === 'play' && score === 0),
