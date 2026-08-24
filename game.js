@@ -514,6 +514,77 @@ const WHITEWOLF_FRAMES = [
   ], WHITEWOLF_PAL),
 ];
 
+// the tomb's tenants (level 5)
+const MUMMY_PAL = { B: '#c9bfa2', b: '#a89e84', d: '#6d6350', e: '#7ec9e8' };
+const MUMMY_FRAMES = [
+  sprite([
+    '..BBBBBB..',
+    '.BBBBBBBB.',
+    '.BbeBBebB.',
+    '.BBBbBBBB.',
+    '..BbBBbB..',
+    '.BBBBBBBb.',
+    'bBBBbBBBB.',
+    '.BBbBBBbB.',
+    '..BB..BB..',
+    '..Bb..Bb..',
+    '..BB..BB..',
+    '..bb...bb.',
+  ], MUMMY_PAL),
+  sprite([
+    '..BBBBBB..',
+    '.BBBBBBBB.',
+    '.BbeBBebB.',
+    '.BBBbBBBB.',
+    '..BbBBbB..',
+    '.bBBBBBBB.',
+    '.BBBbBBBb.',
+    '.BbBBBbBB.',
+    '..BB..BB..',
+    '.BB....Bb.',
+    '.Bb....BB.',
+    '.bb.....bb',
+  ], MUMMY_PAL),
+];
+const SCARAB_PAL = { S: '#2a6a5a', s: '#1c4a3e', g: '#5aa88a', L: '#14342c' };
+const SCARAB_FRAMES = [
+  sprite([
+    '.ssSSs.L',
+    'SSSSSSL.',
+    'SgSSgSs.',
+    'L.L.L...',
+  ], SCARAB_PAL),
+  sprite([
+    '.ssSSs.L',
+    'SSSSSSL.',
+    'SgSSgSs.',
+    '.L.L.L..',
+  ], SCARAB_PAL),
+];
+const COBRA_PAL = { G: '#8a7a3a', g: '#6d5f2c', y: '#c9b26b', e: '#ff3040', t: '#d04a4a' };
+const COBRA_FRAMES = [
+  sprite([
+    '.................GGGG...',
+    '................GGGGGG..',
+    '.....GGG........GeGGGG..',
+    '...GGgggGG......GGGGG.t.',
+    '..GGg....gGG...GGgGG.tt.',
+    '.GGg.......gGGGGgG......',
+    'yGG..........ggg........',
+    'yy......................',
+  ], COBRA_PAL),
+  sprite([
+    '................GGGG....',
+    '...............GGGGGG...',
+    '.........GGG...GeGGGG...',
+    '.......GGgggG..GGGGG..t.',
+    '.....GGg....gGGGgGG...t.',
+    '..GGGg.......gGGgG......',
+    'yGGg..........gg........',
+    'yy......................',
+  ], COBRA_PAL),
+];
+
 /* ---------------- the healthy kid (NPC) ---------------- */
 const KID_PAL = {
   C: '#c9903a',  // cap
@@ -615,6 +686,14 @@ const SNOW_GLIMPSE_LINES = [
   'he climbs. she climbs.',
   'the mountain is on nobody\'s side.',
   'a cave above. nowhere past it.',
+];
+// and down among the old kings
+const TOMB_GLIMPSE_LINES = [
+  'the dead make room for him. odd.',
+  'dust settles on everyone but her.',
+  'these halls end. everything here ends.',
+  'the torches lean toward the deep door.',
+  'a gold face over a door. his last one.',
 ];
 
 /* ---------------- level ---------------- */
@@ -747,10 +826,124 @@ function genSnow() {
   resetKid();
 }
 
+/* ---------------- level 5: the tomb ---------------- */
 function genTomb() {
-  // placeholder until the tomb ships — the summit tunnel leads here next
-  genHouse();
+  map = [];
+  enemies.length = 0;
+  tables.length = 0;
+  rngState = 0x70B0;
+  for (let r = 0; r < MAP_H; r++) map.push(new Array(MAP_W).fill(0));
+
+  for (let c = 0; c < MAP_W; c++) map[0][c] = 1;      // the ceiling of ages
+
+  // corridors with pit traps
+  const segs = [];
+  let c = 0;
+  while (c < MAP_W) {
+    let run = rint(14, 24);
+    if (c < 20) run = 22;
+    if (c + run > MAP_W - 14) run = MAP_W - c;
+    for (let i = 0; i < run && c + i < MAP_W; i++) {
+      map[9][c + i] = 1; map[10][c + i] = 1;
+    }
+    segs.push({ s: c, e: Math.min(c + run, MAP_W) - 1 });
+    c += run;
+    if (c >= MAP_W - 14) break;
+    c += 2;                                            // a trap for the unwary
+  }
+
+  // fallen pillars to vault (solid, two tall — like the tables of the house)
+  for (let pc = 40; pc < MAP_W - 30; pc += rint(24, 38)) {
+    let cc = pc;
+    while (cc < MAP_W - 26 &&
+           !(map[9][cc] === 1 && map[9][cc + 1] === 1 && map[9][cc + 2] === 1))
+      cc++;
+    let clear = true;
+    for (let i = 0; i < 2; i++) if (map[8][cc + i] || map[7][cc + i]) clear = false;
+    if (!clear) continue;
+    for (let i = 0; i < 2; i++) { map[7][cc + i] = 3; map[8][cc + i] = 3; }
+    tables.push(cc * TILE);
+  }
+
+  // high ledges along the walls
+  for (let i = 0; i < 16; i++) {
+    const pc = rint(26, MAP_W - 24), pr = rint(4, 6), len = rint(3, 5);
+    let ok = true;
+    for (let j = 0; j < len; j++)
+      if (map[pr][pc + j] || map[pr + 1][pc + j] || map[pr - 1][pc + j]) ok = false;
+    if (!ok) continue;
+    for (let j = 0; j < len; j++) map[pr][pc + j] = 2;
+  }
+  for (let r = 2; r < MAP_H - 2; r++)                  // headroom, as everywhere
+    for (let cc = 0; cc < MAP_W; cc++)
+      if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
+
+  // three doorways into older games
+  doors.length = 0;
+  [34, 92, 150].forEach((target, i) => {
+    let cc = target;
+    while (cc < MAP_W - 24 &&
+           !(map[9][cc] === 1 && map[9][cc + 1] === 1 &&
+             !map[8][cc] && !map[8][cc + 1] && !map[7][cc] && !map[7][cc + 1]))
+      cc++;
+    doors.push({ x: cc * TILE + 1, y: 9 * TILE - 22, w: 14, h: 22,
+                 kind: ['glyphs', 'scarabs', 'spears'][i], used: false });
+  });
+  const nearTombDoor = x => doors.some(d => x > d.x - 64 && x < d.x + 176);
+
+  // the tomb's tenants — quiet at the threshold, thick near the heart
+  let shamble = 0;
+  for (const sg of segs) {
+    if (sg.s <= 14 || sg.e >= MAP_W - 24) continue;
+    const prog = sg.s / MAP_W;
+    if (prog < 0.15) continue;
+    const ax = (sg.s + 2) * TILE;
+    if (!nearTombDoor(ax))
+      for (let i = 0; i < 3; i++)                       // a line of scarabs
+        enemies.push(makeScarab(ax + i * 10));
+    const mx = (sg.s + 5) * TILE;
+    if (prog > 0.3 && !nearTombDoor(mx) && ++shamble % 2 === 0)
+      enemies.push(makeMummy(mx));
+    const cx2 = (sg.s + 8) * TILE;
+    if (prog > 0.2 && !nearTombDoor(cx2) && sg.e - sg.s > 8)
+      enemies.push(makeCobra(cx2, sg.e));
+  }
+
+  eyePickups.length = 0;
+
+  // a heart over the second trap
+  heartPickup.taken = false; heartPickup.t = 0;
+  heartPickup.x = -100; heartPickup.y = -100;
+  let gapCount = 0, inGap = false;
+  for (let cc = 0; cc < MAP_W; cc++) {
+    if (map[9][cc] === 0) {
+      if (!inGap) {
+        inGap = true; gapCount++;
+        if (gapCount === 2) {
+          let end = cc;
+          while (end < MAP_W && map[9][end] === 0) end++;
+          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
+          heartPickup.y = 6 * TILE - 4;
+          break;
+        }
+      }
+    } else inGap = false;
+  }
+
+  // torches mark the way
+  checkpoints.length = 0;
+  for (let target = 30; target < MAP_W - 22; target += 30) {
+    let cc = target;
+    while (cc < MAP_W - 18 &&
+           !(map[9][cc] === 1 && !map[8][cc] && !map[7][cc]))
+      cc++;
+    checkpoints.push({ x: cc * TILE + 4, reached: false, gy: 9 * TILE });
+  }
+  lastCP.x = 40; lastCP.y = 100;
+
+  houseX = (MAP_W - 6) * TILE;                         // the burial door
   FINALE_GY = 9 * TILE;
+  resetKid();
 }
 
 /* ---------------- level 3: the deep woods ---------------- */
@@ -1220,6 +1413,21 @@ function makeLion(x) {
            vy: 0, pounceCd: 0, minX: x - 5 * TILE, maxX: x + 5 * TILE,
            t: rng() * 100, dead: 0, lastHit: -1, placed: false, flashT: 0 };
 }
+function makeMummy(x) {
+  return { kind: 'mummy', x, y: 0, w: 10, h: 12, hp: 3, dir: -1,
+           minX: x - 4 * TILE, maxX: x + 4 * TILE, t: rng() * 100,
+           dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeScarab(x) {
+  return { kind: 'scarab', x, y: 0, w: 8, h: 4, hp: 1, dir: -1,
+           dashT: 0, dashCd: 0, t: rng() * 100,
+           dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeCobra(x, segEnd) {
+  return { kind: 'cobra', x, y: 0, w: 20, h: 8, hp: 2, dir: 1,
+           minX: x - TILE, maxX: (segEnd - 1) * TILE, t: rng() * 100,
+           dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
 function makeGoat(x) {
   return { kind: 'goat', x, y: 0, w: 16, h: 7, hp: 2, dir: 1,
            minX: x - 4 * TILE, maxX: x + 4 * TILE,
@@ -1311,6 +1519,15 @@ const WOODS = [
   52, -1, -1, 45, -1, -1, -1, -1,
 ];
 const WOODS_STEP = 0.32;
+
+// the tomb: stone intervals, patient as its tenants
+const TOMB = [
+  41, -1, 44, -1, 48, -1, 44, -1,
+  41, -1, 44, -1, 47, -1, -1, -1,
+  39, -1, 42, -1, 46, -1, 42, -1,
+  41, -1, 48, -1, 53, -1, -1, -1,
+];
+const TOMB_STEP = 0.34;
 
 // the mountain: high, thin, and slow — notes like breath in cold air
 const SNOW = [
@@ -1415,6 +1632,15 @@ function scheduleMusic() {
       }
       musicStep++;
       nextNoteTime += SNOW_STEP;
+    } else if (level === 5) {
+      // the tomb counts its own hours
+      const m = TOMB[musicStep % TOMB.length];
+      if (m > 0) {
+        musicBoxNote(m, nextNoteTime, 0.085, (Math.random() - 0.5) * 6, 'square', 0.4);
+        musicBoxNote(m - 12, nextNoteTime + 0.02, 0.04, 0, 'sine', 0.8);
+      }
+      musicStep++;
+      nextNoteTime += TOMB_STEP;
     } else if (level === 2) {
       // the house waltz — cozy, with a sour lean that grows with her
       const m = HOUSE[musicStep % HOUSE.length];
@@ -1528,9 +1754,25 @@ const SNOW_AMBIENTS = [
       sfx(1100, 0.08, 'square', 0.03, -700);
       setTimeout(() => sfx(70, 0.6, 'sine', 0.05, -20), 120); } },
 ];
+// and the tomb, remembering (level 5)
+const TOMB_AMBIENTS = [
+  { minStage: 0, name: 'drip', play: () => {                 // water finding its way down
+      sfx(900, 0.05, 'sine', 0.04, -300);
+      setTimeout(() => sfx(700, 0.06, 'sine', 0.03, -250), 400); } },
+  { minStage: 0, name: 'grind', play: () => {                // stone moving where no stone should
+      sfx(55, 1.4, 'sawtooth', 0.05, 12);
+      setTimeout(() => sfx(48, 1.0, 'sawtooth', 0.04, -6), 700); } },
+  { minStage: 0, name: 'skitter', play: () => {              // a thousand small opinions
+      [0, 80, 150, 260].forEach(d =>
+        setTimeout(() => sfx(1400 + Math.random() * 400, 0.03, 'square', 0.015, -400), d)); } },
+  { minStage: 2, name: 'chant', play: () => {                // the walls keep old habits
+      sfx(110, 1.2, 'triangle', 0.03, 4);
+      setTimeout(() => sfx(147, 1.0, 'triangle', 0.025, -4), 500); } },
+];
 let ambientCd = 600;
 function playAmbient(stage) {
-  const pool = (level === 4 ? SNOW_AMBIENTS :
+  const pool = (level === 5 ? TOMB_AMBIENTS :
+                level === 4 ? SNOW_AMBIENTS :
                 level === 3 ? WOODS_AMBIENTS :
                 level === 2 ? HOUSE_AMBIENTS : AMBIENTS)
     .filter(a => stage >= a.minStage);
@@ -1975,7 +2217,8 @@ function updateKid() {
         kid.x = c * TILE + 3; kid.y = (gr > 0 ? gr : 9) * TILE - kid.h - 1;
         kid.vx = 0; kid.vy = 0;
         kid.mode = 'peek'; kid.glimpseT = 0;
-        const lines = level === 4 ? SNOW_GLIMPSE_LINES :
+        const lines = level === 5 ? TOMB_GLIMPSE_LINES :
+                      level === 4 ? SNOW_GLIMPSE_LINES :
                       level === 3 ? WOODS_GLIMPSE_LINES :
                       level === 2 ? HOUSE_GLIMPSE_LINES : GLIMPSE_LINES;
         if (kid.glimpses < lines.length)
@@ -2073,7 +2316,8 @@ function updateKid() {
 function killEnemy(e) {
   e.dead = 1;
   score += { snake: 200, valkyrie: 300, rat: 150, roach: 100, ant: 50,
-             bear: 250, wolf: 200, lion: 250, goat: 200, owl: 200 }[e.kind] || 100;
+             bear: 250, wolf: 200, lion: 250, goat: 200, owl: 200,
+             mummy: 250, scarab: 100, cobra: 200 }[e.kind] || 100;
   sfx(90, 0.25, 'triangle', 0.07, -40);
   addShake(2, 8);
   // a bat's life feeds hers — one heart back, if she's hurt
@@ -2158,10 +2402,18 @@ function updateEnemies() {
       e.face = e.vx >= 0 ? 1 : -1;
     }
 
-    if (e.kind === 'snake') {
-      e.x += e.dir * 0.45;
+    if (e.kind === 'snake' || e.kind === 'cobra') {
+      e.x += e.dir * (e.kind === 'cobra' ? 0.55 : 0.45);
       const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
       if (e.x < e.minX || e.x > e.maxX || !solidAt(aheadX, e.y + e.h + 4))
+        e.dir *= -1;
+    }
+
+    if (e.kind === 'mummy') {   // it has been walking a long time
+      e.x += e.dir * 0.25;
+      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+      if (e.x < e.minX || e.x > e.maxX ||
+          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
         e.dir *= -1;
     }
 
@@ -2173,7 +2425,7 @@ function updateEnemies() {
         e.dir *= -1;
     }
 
-    if (e.kind === 'roach') {   // skitters, then bolts at her
+    if (e.kind === 'roach' || e.kind === 'scarab') {   // skitters, then bolts at her
       if (e.dashT > 0) { e.dashT--; e.x += e.dir * 1.7; }
       else {
         e.x += e.dir * 0.4;
@@ -2332,7 +2584,7 @@ function updateEnemies() {
     // touching the doll — the small things only take half a heart,
     // and the bite is the last thing they do
     if (!e.dead && rectsOverlap(e, player)) {
-      const small = e.kind === 'ant' || e.kind === 'roach';
+      const small = e.kind === 'ant' || e.kind === 'roach' || e.kind === 'scarab';
       hurtPlayer(e.x + e.w / 2, small ? 0.5 : 1);
       if (small && player.invuln === 80) {     // the bite landed; it is spent
         e.dead = 1;
@@ -2561,8 +2813,60 @@ function drawSnowBackground(st) {
   ctx.fillRect(0, 118, VIEW_W, 16);
 }
 
+/* ---------------- the tomb, drawn ---------------- */
+function drawTombBackground(st) {
+  ctx.fillStyle = '#2a2216'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  ctx.fillStyle = '#332a1c';
+  for (let i = 0; i < 12; i++) {
+    const wx = ((i * 34 - camX) % (VIEW_W + 34) + VIEW_W + 34) % (VIEW_W + 34) - 17;
+    ctx.fillRect(wx, 18, 17, 108);
+  }
+  // hieroglyph columns
+  ctx.fillStyle = '#4a3c22';
+  for (let gc = 18; gc < MAP_W; gc += 26) {
+    const gx = gc * TILE - camX;
+    if (gx < -20 || gx > VIEW_W + 20) continue;
+    ctx.fillRect(gx, 24, 12, 100);
+    ctx.fillStyle = '#6d5a30';
+    for (let r = 0; r < 8; r++) {
+      const g = (gc * 7 + r * 3) % 4;
+      const gy = 30 + r * 12;
+      if (g === 0) { ctx.fillRect(gx + 3, gy, 6, 2); ctx.fillRect(gx + 5, gy + 3, 2, 4); }
+      else if (g === 1) { ctx.fillRect(gx + 3, gy, 2, 7); ctx.fillRect(gx + 7, gy, 2, 7); }
+      else if (g === 2) { ctx.fillRect(gx + 4, gy + 1, 4, 4); }
+      else { ctx.fillRect(gx + 3, gy + 2, 6, 2); ctx.fillRect(gx + 3, gy + 5, 6, 2); }
+    }
+    ctx.fillStyle = '#4a3c22';
+  }
+  // standing sarcophagi between the columns
+  for (let sc = 30; sc < MAP_W; sc += 52) {
+    const sx = sc * TILE - camX;
+    if (sx < -30 || sx > VIEW_W + 30) continue;
+    ctx.fillStyle = '#54442c';
+    ctx.fillRect(sx, 70, 18, 56);
+    ctx.fillRect(sx + 3, 64, 12, 8);
+    ctx.fillStyle = '#6d5a30';
+    ctx.fillRect(sx + 5, 74, 8, 10);
+    ctx.fillStyle = '#2a2216';
+    ctx.fillRect(sx + 7, 78, 2, 2); ctx.fillRect(sx + 11, 78, 2, 2);
+  }
+  // wall torches with their long duty
+  for (let tc = 12; tc < MAP_W; tc += 20) {
+    const tx = tc * TILE - camX;
+    if (tx < -8 || tx > VIEW_W + 8) continue;
+    ctx.fillStyle = '#3e2c18'; ctx.fillRect(tx, 46, 4, 9);
+    ctx.fillStyle = (frame + tc) % 9 < 7 ? '#ffce6a' : '#e8a050';
+    ctx.fillRect(tx + 1, 41, 2, 5);
+    ctx.fillStyle = 'rgba(255,206,106,0.06)';
+    ctx.fillRect(tx - 9, 32, 22, 30);
+  }
+  ctx.fillStyle = 'rgba(20,14,6,' + (0.12 + st * 0.03) + ')';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+}
+
 function drawTiles() {
-  const indoor = level === 2, woods = level === 3, snow = level === 4;
+  const indoor = level === 2, woods = level === 3, snow = level === 4,
+        tomb = level === 5;
   const c0 = Math.max(0, Math.floor(camX / TILE));
   const c1 = Math.min(MAP_W - 1, Math.ceil((camX + VIEW_W) / TILE));
   for (let r = 0; r < MAP_H; r++) {
@@ -2572,12 +2876,15 @@ function drawTiles() {
       const x = cc * TILE - camX, y = r * TILE;
       if (t === 1) {
         const top = r === 0 || !map[r - 1][cc];
-        ctx.fillStyle = snow ? '#3c4660' : woods ? '#343a42' : indoor ? '#4a3626' : '#3a3244';
+        ctx.fillStyle = tomb ? '#54442c' : snow ? '#3c4660' : woods ? '#343a42' :
+                        indoor ? '#4a3626' : '#3a3244';
         ctx.fillRect(x, y, TILE, TILE);
         if (top && r > 0) {
-          ctx.fillStyle = snow ? '#dce4ee' : woods ? '#48505c' : indoor ? '#6d5138' : '#4b3f5c';
+          ctx.fillStyle = tomb ? '#6d5a30' : snow ? '#dce4ee' : woods ? '#48505c' :
+                          indoor ? '#6d5138' : '#4b3f5c';
           ctx.fillRect(x, y, TILE, 4);
-          ctx.fillStyle = snow ? '#b8c4d8' : woods ? '#59626e' : indoor ? '#7d5f42' : '#5d4f72';
+          ctx.fillStyle = tomb ? '#7d693a' : snow ? '#b8c4d8' : woods ? '#59626e' :
+                          indoor ? '#7d5f42' : '#5d4f72';
           for (let i = 0; i < 4; i++)
             if (tileNoise(cc * 4 + i, r) > 0.4) ctx.fillRect(x + i * 4 + 1, y, 2, 2);
         }
@@ -2723,6 +3030,19 @@ function drawCheckpoints() {
   for (const cp of checkpoints) {
     const x = Math.round(cp.x - camX);
     if (x < -12 || x > VIEW_W + 12) continue;
+    if (level === 5) {                            // a floor torch, patient as stone
+      const y = 9 * TILE - 16;
+      ctx.fillStyle = '#3e2c18'; ctx.fillRect(x + 3, y + 4, 3, 12);
+      ctx.fillStyle = '#54442c'; ctx.fillRect(x + 1, y + 14, 7, 2);
+      const lit = cp.reached && (frame >> 3) % 6 !== 5;
+      ctx.fillStyle = lit ? '#ffce6a' : '#241c30';
+      ctx.fillRect(x + 2, y - 1, 5, 6);
+      if (cp.reached) {
+        ctx.fillStyle = 'rgba(255,206,106,0.10)';
+        ctx.fillRect(x - 5, y - 7, 19, 22);
+      }
+      continue;
+    }
     if (level === 4) {                            // a frozen crystal on the shelf
       const gy = cp.gy || 9 * TILE;
       const y = gy - 14;
@@ -2782,6 +3102,7 @@ function drawCheckpoints() {
 }
 
 function drawHouse() {
+  if (level === 5) { drawBurialDoor(); return; }
   if (level === 4) { drawCaveMouth(); return; }
   if (level === 3) { drawChapel(); return; }
   if (level === 2) { drawBedroomDoor(); return; }
@@ -2798,6 +3119,26 @@ function drawHouse() {
   ctx.fillRect(x + 32, y + 22, 8, 8);
   ctx.fillStyle = '#120c14'; ctx.fillRect(x + 20, y + 28, 9, 18);
   ctx.fillStyle = '#e8c66a'; ctx.fillRect(x + 26, y + 37, 2, 2); // doorknob
+}
+
+function drawBurialDoor() {
+  const x = houseX - camX, y = 9 * TILE - 52;
+  if (x < -70 || x > VIEW_W) return;
+  // a stone door for someone important, and a mask above it
+  ctx.fillStyle = '#3e321c'; ctx.fillRect(x - 8, y - 2, 46, 54);
+  ctx.fillStyle = '#54442c'; ctx.fillRect(x - 4, y + 2, 38, 50);
+  ctx.fillStyle = '#6d5a30';
+  ctx.fillRect(x, y + 8, 30, 44);
+  ctx.fillStyle = '#4a3c22';
+  for (let r = 0; r < 4; r++) ctx.fillRect(x + 3, y + 12 + r * 10, 24, 2);
+  // the golden face over the lintel
+  ctx.fillStyle = '#d8b23a';
+  ctx.fillRect(x + 8, y - 12, 14, 12);
+  ctx.fillStyle = '#2a2216';
+  ctx.fillRect(x + 11, y - 8, 2, 3); ctx.fillRect(x + 17, y - 8, 2, 3);
+  ctx.fillRect(x + 13, y - 3, 4, 2);
+  ctx.fillStyle = (frame >> 4) % 6 ? '#8a742a' : '#ffce6a';   // it glints, sometimes
+  ctx.fillRect(x + 14, y - 12, 2, 2);
 }
 
 function drawCaveMouth() {
@@ -3006,8 +3347,8 @@ function drawEnemies() {
       ctx.fillStyle = flash ? '#ffffff' : '#8f95a8'; ctx.fillRect(12, 5, 9, 1);   // spear shaft
       ctx.fillStyle = flash ? '#ffffff' : '#e8e4f4'; ctx.fillRect(21, 4, 2, 3);   // spear tip
       ctx.restore();
-    } else if (e.kind === 'snake') {
-      let img = SNAKE_FRAMES[(e.t >> 4) % 2];
+    } else if (e.kind === 'snake' || e.kind === 'cobra') {
+      let img = (e.kind === 'cobra' ? COBRA_FRAMES : SNAKE_FRAMES)[(e.t >> 4) % 2];
       if (flash) img = whiten(img);
       ctx.save();
       if (e.dir < 0) ctx.drawImage(img, x - 2, y);
@@ -3015,14 +3356,17 @@ function drawEnemies() {
       ctx.restore();
     } else if (e.kind === 'ant' || e.kind === 'roach' || e.kind === 'rat' ||
                e.kind === 'bear' || e.kind === 'wolf' || e.kind === 'lion' ||
-               e.kind === 'goat' || e.kind === 'owl') {
+               e.kind === 'goat' || e.kind === 'owl' ||
+               e.kind === 'mummy' || e.kind === 'scarab') {
       const frames = e.kind === 'ant' ? ANT_FRAMES :
                      e.kind === 'roach' ? ROACH_FRAMES :
                      e.kind === 'rat' ? RAT_FRAMES :
                      e.kind === 'bear' ? BEAR_FRAMES :
                      e.kind === 'wolf' ? (level === 4 ? WHITEWOLF_FRAMES : WOLF_FRAMES) :
                      e.kind === 'lion' ? LION_FRAMES :
-                     e.kind === 'goat' ? GOAT_FRAMES : OWL_FRAMES;
+                     e.kind === 'goat' ? GOAT_FRAMES :
+                     e.kind === 'owl' ? OWL_FRAMES :
+                     e.kind === 'mummy' ? MUMMY_FRAMES : SCARAB_FRAMES;
       let img = frames[(e.t >> (e.kind === 'ant' ? 2 : e.kind === 'bear' ? 4 : 3)) % 2];
       if (flash) img = whiten(img);
       const mirror = (e.kind === 'owl' ? e.face : e.dir) < 0;
@@ -4389,6 +4733,24 @@ function drawDoors() {
   for (const d of doors) {
     const x = Math.round(d.x - camX);
     if (x < -22 || x > VIEW_W + 22) continue;
+    if (level === 5) {
+      // a doorway older than doors
+      ctx.fillStyle = d.used ? '#3a2f1c' : '#54442c';
+      ctx.fillRect(x - 3, d.y - 4, 20, 26);
+      ctx.fillStyle = d.used ? '#241c10' : '#2e2414';
+      ctx.fillRect(x, d.y, 14, 22);
+      if (d.used) continue;
+      const tpulse = (Math.sin(frame / 15) + 1) / 2;
+      ctx.fillStyle = 'rgba(255,206,106,' + (0.10 + tpulse * 0.18) + ')';
+      ctx.fillRect(x + 2, d.y + 2, 10, 20);
+      ctx.fillStyle = d.kind === 'glyphs' ? '#e8c66a' :
+                      d.kind === 'scarabs' ? '#5aa88a' : '#c9cede';
+      ctx.fillRect(x + 5, d.y + 8, 4, 4);
+      if (state === 'play' && player.onGround &&
+          player.x + player.w > d.x && player.x < d.x + d.w && (frame >> 5) % 2)
+        pixelText('UP', x + 2, d.y - 15, '#e8c66a');
+      continue;
+    }
     if (level === 3) {
       // a standing-stone arch with a rune that knows her name
       ctx.fillStyle = d.used ? '#242a32' : '#39424e';
@@ -4481,6 +4843,16 @@ function startMini(door) {
   if (door.kind === 'dig')
     Object.assign(mini, { locket: Math.floor(Math.random() * 3), sel: 1,
                           phase: 'pick', digP: 0, digT: 300, dug: false, spiderT: 0 });
+  if (door.kind === 'glyphs') {
+    const seq = [];
+    for (let i = 0; i < 4; i++) seq.push(Math.floor(Math.random() * 4));
+    Object.assign(mini, { seq, phase: 'show', showI: -1, showT: 0, sel: 0, inputI: 0 });
+  }
+  if (door.kind === 'scarabs')
+    Object.assign(mini, { phase: 'pick', sel: 1, winner: -1,
+                          racers: [{ x: 46 }, { x: 46 }, { x: 46 }] });
+  if (door.kind === 'spears')
+    Object.assign(mini, { dollX: 36, gate: 0, attempts: 5, dashT: 0, ow: 0 });
   if (door.kind === 'coffin') {
     const swaps = [];
     for (let i = 0; i < 8; i++) {
@@ -4529,7 +4901,175 @@ function updateMini() {
   else if (mini.kind === 'bell') updateBell();
   else if (mini.kind === 'crows') updateCrows();
   else if (mini.kind === 'dig') updateDig();
+  else if (mini.kind === 'glyphs') updateGlyphs();
+  else if (mini.kind === 'scarabs') updateScarabs();
+  else if (mini.kind === 'spears') updateSpears();
   else updateCoffin();
+}
+
+/* --- the glyph rite: the wall speaks four words; say them back --- */
+const GLYPH_TONES = [392, 494, 587, 660];
+
+function updateGlyphs() {
+  if (mini.phase === 'show') {
+    if (++mini.showT % 45 === 0) {
+      mini.showI++;
+      if (mini.showI >= 4) { mini.phase = 'input'; mini.showI = -1; }
+      else sfx(GLYPH_TONES[mini.seq[mini.showI]], 0.25, 'triangle', 0.06);
+    }
+  } else if (mini.phase === 'input') {
+    if (mEdge('l', kLeft()) && mini.sel > 0) mini.sel--;
+    if (mEdge('r', kRight()) && mini.sel < 3) mini.sel++;
+    if (mEdge('z', kPunch())) {
+      if (mini.sel === mini.seq[mini.inputI]) {
+        sfx(GLYPH_TONES[mini.sel], 0.2, 'triangle', 0.06);
+        mpBurst(70 + mini.sel * 50 + 15, 96, '#e8c66a', 5);
+        if (++mini.inputI >= 4) {
+          mini.over = true; mini.won = true;
+          score += 400;
+          if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+          mini.msg = 'THE WALL REMEMBERS HER   +400';
+        }
+      } else {
+        mini.over = true; mini.won = false;
+        sfx(120, 0.4, 'sawtooth', 0.06, -60);
+        mini.msg = 'THE WALL FORGETS YOU.';
+      }
+    }
+  }
+}
+
+function drawGlyphStone(x, y, g, lit) {
+  ctx.fillStyle = lit ? '#8a742a' : '#4a3c22';
+  ctx.fillRect(x, y, 34, 40);
+  ctx.fillStyle = lit ? '#ffce6a' : '#6d5a30';
+  const gx = x + 11, gy = y + 12;
+  if (g === 0) { ctx.fillRect(gx, gy, 12, 3); ctx.fillRect(gx + 4, gy + 5, 4, 10); }
+  else if (g === 1) { ctx.fillRect(gx, gy, 3, 16); ctx.fillRect(gx + 9, gy, 3, 16); }
+  else if (g === 2) { ctx.fillRect(gx + 2, gy + 2, 8, 8); ctx.fillRect(gx + 4, gy + 12, 4, 4); }
+  else { ctx.fillRect(gx, gy + 2, 12, 3); ctx.fillRect(gx, gy + 8, 12, 3); ctx.fillRect(gx, gy + 14, 12, 3); }
+}
+
+function drawGlyphs() {
+  miniBackdropTomb('THE GLYPH RITE');
+  for (let i = 0; i < 4; i++) {
+    const lit = (mini.phase === 'show' && mini.showI >= 0 && mini.seq[mini.showI] === i);
+    drawGlyphStone(70 + i * 50, 76, i, lit);
+    if (mini.phase === 'input' && i === mini.sel) {
+      ctx.fillStyle = '#e8c66a';
+      ctx.fillRect(70 + i * 50 + 14, 122, 6, 3);
+    }
+  }
+  pixelText(mini.phase === 'show' ? 'WATCH THE WALL SPEAK'
+                                  : 'REPEAT: LEFT RIGHT  Z SPEAKS', 84, 148, '#9a8fb0');
+  pixelText('WORDS ' + Math.max(0, mini.inputI) + '/4', 254, 46, '#e8c66a');
+}
+
+/* --- the scarab race: back the right beetle --- */
+function updateScarabs() {
+  if (mini.phase === 'pick') {
+    if (mEdge('l', kLeft()) && mini.sel > 0) mini.sel--;
+    if (mEdge('r', kRight()) && mini.sel < 2) mini.sel++;
+    if (mEdge('z', kPunch())) {
+      mini.phase = 'race';
+      sfx(520, 0.15, 'square', 0.05);
+    }
+  } else if (mini.phase === 'race') {
+    for (let i = 0; i < 3; i++) {
+      mini.racers[i].x += 0.4 + Math.random() * 0.7;
+      if (mini.racers[i].x >= 272 && mini.winner < 0) mini.winner = i;
+    }
+    if (mini.winner >= 0) {
+      mini.over = true; mini.won = mini.winner === mini.sel;
+      if (mini.won) score += 300;
+      mini.msg = mini.won ? 'HER BEETLE KNEW THE WAY   +300'
+                          : 'YOUR BEETLE DAWDLED.';
+      sfx(mini.won ? 660 : 140, 0.3, mini.won ? 'triangle' : 'sawtooth', 0.06);
+    }
+  }
+}
+
+function drawScarabs() {
+  miniBackdropTomb('THE SCARAB RACE');
+  for (let i = 0; i < 3; i++) {
+    const ly = 76 + i * 26;
+    ctx.fillStyle = '#3a2f1c'; ctx.fillRect(40, ly + 10, 240, 2);
+    ctx.fillStyle = '#6d5a30'; ctx.fillRect(272, ly - 2, 3, 16);   // the finish stone
+    const img = SCARAB_FRAMES[(frame >> 2) % 2];
+    ctx.drawImage(img, Math.round(mini.racers[i].x), ly + 3);
+    if (mini.phase === 'pick' && i === mini.sel) {
+      ctx.fillStyle = '#e8c66a';
+      ctx.fillRect(28, ly + 4, 6, 4);
+    }
+  }
+  pixelText(mini.phase === 'pick' ? 'BACK A BEETLE: LEFT RIGHT  Z BETS'
+                                  : 'RUN, LITTLE GODS, RUN', 68, 148, '#9a8fb0');
+}
+
+/* --- the spear gauntlet: three gates, and timing --- */
+const SPEAR_X = [120, 180, 240];
+function spearUp(t, i) { return ((t / 50 + i * 0.37) % 1) > 0.5; }
+
+function updateSpears() {
+  if (mini.dashT > 0) { mini.dashT--; return; }
+  if (mini.ow > 0) { mini.ow--; return; }
+  if (mEdge('z', kPunch()) && mini.gate < 3 && mini.attempts > 0) {
+    if (spearUp(mini.t, mini.gate)) {
+      mini.dollX = SPEAR_X[mini.gate] + 14;
+      mini.gate++;
+      mini.dashT = 10;
+      sfx(300, 0.1, 'square', 0.05, 180);
+      if (mini.gate === 3) {
+        mini.over = true; mini.won = true;
+        score += 400;
+        mini.msg = 'THREE GATES, UNTOUCHED   +400';
+      }
+    } else {
+      mini.attempts--;
+      mini.ow = 25;
+      sfx(900, 0.1, 'square', 0.06, -500);             // spear meets stone, barely misses doll
+      mpBurst(SPEAR_X[mini.gate], 120, '#c9cede', 6);
+      if (mini.attempts <= 0) {
+        mini.over = true; mini.won = false;
+        mini.msg = 'THE GATES KEEP HER OUT.';
+      }
+    }
+  }
+}
+
+function drawSpears() {
+  miniBackdropTomb('THE SPEAR GAUNTLET');
+  for (let i = 0; i < 3; i++) {
+    const up = spearUp(mini.t, i), sx = SPEAR_X[i];
+    ctx.fillStyle = '#4a3c22'; ctx.fillRect(sx - 4, 40, 14, 8);
+    const len = up ? 18 : 84;
+    ctx.fillStyle = '#8a8a94'; ctx.fillRect(sx + 1, 48, 4, len);
+    ctx.fillStyle = '#c9cede'; ctx.fillRect(sx, 48 + len, 6, 8);
+    if (i < mini.gate) {
+      ctx.fillStyle = 'rgba(232,198,106,0.25)';
+      ctx.fillRect(sx - 6, 48, 18, 96);
+    }
+  }
+  ctx.drawImage(DOLL[creepStage()].idle, Math.round(mini.dollX), 124);
+  for (let i = 0; i < mini.attempts; i++) {
+    ctx.fillStyle = '#c9304a'; ctx.fillRect(10 + i * 8, 46, 5, 5);
+  }
+  pixelText('Z DASHES WHEN THE SPEAR IS UP', 76, 156, '#9a8fb0');
+  pixelText('GATES ' + mini.gate + '/3', 258, 46, '#e8c66a');
+}
+
+function miniBackdropTomb(title) {
+  ctx.fillStyle = '#241c10'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  ctx.fillStyle = '#2e2414';
+  for (let i = 0; i < 10; i++) ctx.fillRect(i * 34, 14, 17, 120);
+  for (let i = 0; i < 4; i++) {                        // braziers
+    ctx.fillStyle = '#3e2c18'; ctx.fillRect(24 + i * 88, 26, 6, 6);
+    ctx.fillStyle = (frame + i * 7) % 8 < 6 ? '#ffce6a' : '#e8a050';
+    ctx.fillRect(25 + i * 88, 22, 4, 4);
+  }
+  ctx.fillStyle = '#1c1408'; ctx.fillRect(0, 150, VIEW_W, 26);
+  ctx.fillStyle = '#2e2414'; ctx.fillRect(0, 150, VIEW_W, 2);
+  pixelText(title, (VIEW_W - title.length * 6) / 2 + 8, 34, '#e8c66a');
 }
 
 /* --- the fortune teller: four pairs, face down, patient --- */
@@ -5183,6 +5723,9 @@ function drawMini() {
   else if (mini.kind === 'bell') drawBell();
   else if (mini.kind === 'crows') drawCrows();
   else if (mini.kind === 'dig') drawDig();
+  else if (mini.kind === 'glyphs') drawGlyphs();
+  else if (mini.kind === 'scarabs') drawScarabs();
+  else if (mini.kind === 'spears') drawSpears();
   else drawCoffin();
   for (const q of mini.parts) {
     ctx.fillStyle = q.color;
@@ -5359,7 +5902,8 @@ function tick() {
   const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
   ctx.save();
   ctx.translate(shX, shY);
-  if (level === 4) drawSnowBackground(st);
+  if (level === 5) drawTombBackground(st);
+  else if (level === 4) drawSnowBackground(st);
   else if (level === 3) drawWoodsBackground(st);
   else if (level === 2) drawHouseBackground(st);
   else drawBackground(st);

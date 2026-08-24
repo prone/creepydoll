@@ -1345,19 +1345,136 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.waitForFunction(() => state === 'interlude', null, { timeout: 30000 });
   check(true, 'the boy escapes into the tunnel — down toward the tomb');
 
-  /* ---------- level 5 (placeholder) ---------- */
+  /* ---------- level 5: the tomb ---------- */
   section('level 5');
   await page.keyboard.press('Enter');
   await frames(5);
-  check(await ev(() => level === 5 && state === 'play'),
-        'the tunnel opens into level 5');
+  check(await ev(() => level === 5 && state === 'play' && player.x === 40),
+        'the tunnel opens into the tomb');
+  check(await ev(() => map[0].every(t => t === 1)), 'a ceiling of old stone');
+  check(await ev(() => tables.length >= 3), 'fallen pillars to vault');
+  check(await ev(() => doors.length === 3 &&
+        doors.map(d => d.kind).join() === 'glyphs,scarabs,spears'),
+        'three doorways: the glyph rite, the scarab race, the spear gauntlet');
+  check(await ev(() => checkpoints.length >= 4), 'torches mark the way');
+
+  section('tomb enemies');
+  check(await ev(() => ['mummy', 'scarab', 'cobra'].every(k =>
+        enemies.some(e => e.kind === k))),
+        'mummies, scarabs, and cobras keep the halls');
+  check(await ev(() => enemies.every(e => e.x > LEVEL_W * 0.12 &&
+        e.x < (MAP_W - 22) * TILE)),
+        'the threshold and the burial door stay quiet');
+  const mummyFight = await page.evaluate(async () => {
+    const m = enemies.find(e => e.kind === 'mummy' && e.placed && !e.dead);
+    if (!m) return 'no-mummy';
+    player.invuln = 999999;
+    let hits = 0;
+    for (let h = 0; h < 3; h++) {
+      for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+      if (m.dead) break;
+      player.x = m.x - 12; player.y = m.y + m.h - player.h;
+      player.vy = 0; player.face = 1; player.attack = null;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (m.hp <= 2 - h || m.dead) { hits++; break; }
+      }
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+    }
+    return { hits, dead: m.dead > 0 || m.hp <= 0 };
+  });
+  check(mummyFight !== 'no-mummy' && mummyFight.hits === 3 && mummyFight.dead,
+        'three punches unwind a mummy');
+  const scarabBite = await page.evaluate(async () => {
+    const s = enemies.find(e => e.kind === 'scarab' && e.placed && !e.dead);
+    if (!s) return 'none';
+    player.invuln = 0; player.hp = 5;
+    player.x = s.x - 2; player.y = s.y + s.h - player.h; player.vy = 0;
+    for (let i = 0; i < 12; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (player.hp < 5) break;
+    }
+    await new Promise(r => requestAnimationFrame(r));
+    return { hp: player.hp, died: s.dead > 0 };
+  });
+  check(scarabBite !== 'none' && scarabBite.hp === 4.5 && scarabBite.died,
+        'a scarab takes half a heart and dies taking it');
+  await ev(() => { player.invuln = 999999; player.hp = 5; });
+
+  /* ---------- ancient minigames ---------- */
+  section('ancient minigames');
+  await ev(() => startMini(doors[0]));
+  await frames(3);
+  check(await ev(() => state === 'mini' && mini.kind === 'glyphs'), 'the wall clears its throat');
+  const glyphWin = await page.evaluate(async () => {
+    for (let i = 0; i < 400 && mini.phase === 'show'; i++)
+      await new Promise(r => requestAnimationFrame(r));
+    for (let w = 0; w < 4 && !mini.over; w++) {
+      mini.sel = mini.seq[mini.inputI];
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    return { won: mini.won, inputI: mini.inputI };
+  });
+  check(glyphWin.won && glyphWin.inputI === 4, 'four words said back win the rite');
+  await page.keyboard.press('Enter');
+  await frames(3);
+
+  await ev(() => startMini(doors[1]));
+  await frames(3);
+  const scarabRace = await page.evaluate(async () => {
+    mini.sel = 0;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    mini.racers[0].x = 300;                             // her beetle finds a shortcut
+    for (let i = 0; i < 60 && !mini.over; i++) await new Promise(r => requestAnimationFrame(r));
+    return { won: mini.won, winner: mini.winner };
+  });
+  check(scarabRace.won && scarabRace.winner === 0, 'her beetle knows the way');
+  await page.keyboard.press('Enter');
+  await frames(3);
+
+  await ev(() => startMini(doors[2]));
+  await frames(3);
+  const gauntlet = await page.evaluate(async () => {
+    for (let g = 0; g < 3 && !mini.over; g++) {
+      for (let i = 0; i < 200; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (mini.dashT > 0 || mini.ow > 0) continue;
+        const open = ((mini.t / 50 + mini.gate * 0.37) % 1) > 0.55;
+        if (open) {
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+          await new Promise(r => requestAnimationFrame(r));
+          window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+          await new Promise(r => requestAnimationFrame(r));
+          break;
+        }
+      }
+    }
+    for (let i = 0; i < 60 && !mini.over; i++) await new Promise(r => requestAnimationFrame(r));
+    return { won: mini.won, gates: mini.gate };
+  });
+  check(gauntlet.won && gauntlet.gates === 3, 'three gates dashed untouched');
+  await page.keyboard.press('Enter');
+  await frames(3);
+  check(await ev(() => state === 'play' && doors.every(d => d.used)),
+        'the three doorways are spent');
+
+  // the burial door (the god arrives next)
   await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
                    player.vy = 0; player.maxX = houseX - 250; });
   await frames(4);
+  check(await ev(() => kid.stage === 'final'), 'the boy waits at the burial door');
   await page.keyboard.down('ArrowRight');
   await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
   await page.keyboard.up('ArrowRight');
-  check(true, 'level 5 ends the story (until the god arrives)');
+  check(true, 'the tomb ends the story (until the god wakes)');
   await page.keyboard.press('Enter');
   await frames(4);
   check(await ev(() => level === 1 && state === 'play' && score === 0),
