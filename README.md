@@ -126,11 +126,15 @@ jump launches her about twice as high.
   obsidian-and-gold dagger — every hit cracks his mask and sends the dagger
   skidding. Four hits and the mask falls, and the boy slips into the dark
   behind the sarcophagus. And still he runs.
-- **Assist mode:** press **Esc** — the pause screen is also the assist menu
+- **Cheats:** press **Esc** — the pause screen asks for the cheat password
+  (someone who knows it will tell you; it's case-sensitive). Once unlocked
   (↑/↓ pick, ←/→ set): invincibility, game speed (100/80/60%), infinite
-  hearts, reduced flash (no screen shake or hit-strobe), and skip-minigames
-  (Enter walks straight out of one). Choices persist between sessions.
-  No shame in any of it.
+  hearts, reduced flash (no screen shake or hit-strobe), skip-minigames
+  (Enter walks straight out of one), and **warp to any level** (dial the
+  level, Enter jumps). The unlock and your choices persist between sessions.
+- **One-way platforms:** thin wooden platforms and branches never block her —
+  walk beneath them freely, jump up through them, and land on top. Only
+  ground, furniture, and tree trunks are truly solid.
 
 ![Mid-level](screenshots/midgame.png)
 ![The chase](screenshots/endgame.png)

@@ -1287,13 +1287,18 @@ function genHouse() {
   resetKid();
 }
 
-function solidAt(px, py) {
-  if (px < 0) return true;
+function tileAt(px, py) {
+  if (px < 0) return 1;
   const cc = Math.floor(px / TILE), rr = Math.floor(py / TILE);
-  if (cc >= MAP_W) return true;
-  if (rr < 0 || rr >= MAP_H) return false;
-  return map[rr][cc] > 0;
+  if (cc >= MAP_W) return 1;
+  if (rr < 0 || rr >= MAP_H) return 0;
+  return map[rr][cc];
 }
+// anything at all (platforms included) — footing, AI floor checks
+function solidAt(px, py) { return tileAt(px, py) > 0; }
+// what actually blocks a body: ground, furniture, trunks — never a thin
+// platform, which is one-way (land from above, pass freely otherwise)
+function hardAt(px, py) { const t = tileAt(px, py); return t > 0 && t !== 2; }
 
 /* ---------------- entities ---------------- */
 function makeBat(x, y) {
@@ -1750,19 +1755,26 @@ function addShake(mag, frames) {
   shakeT = Math.max(shakeT, frames);
 }
 
-// assist mode — options a player can tune without shame (Esc opens them)
+// cheats — assist options and level warps, locked behind a password
 const assist = { invuln: false, speed: 1, hearts: false, calm: false, skipMini: false };
 const SPEEDS = [1, 0.8, 0.6];
+const CHEAT_PASSWORD = 'Duncan';   // case-sensitive
+let cheatsOn = false, cheatBuf = '', cheatMsgT = 0, warpLevel = 1;
 let assistSel = 0;
 let speedAcc = 0;               // fractional update accumulator for game speed
 function saveAssist() {
-  try { localStorage.setItem('creepydoll-assist', JSON.stringify(assist)); } catch (e) {}
+  try {
+    localStorage.setItem('creepydoll-assist',
+      JSON.stringify({ ...assist, unlocked: cheatsOn }));
+  } catch (e) {}
 }
 // load stored settings field-by-field — never merge unvalidated data
-// (a corrupted speed would freeze the update loop; foreign keys stay out)
+// (a corrupted speed would freeze the update loop; foreign keys stay out).
+// stored cheat settings only apply if the password was entered before.
 try {
   const s = JSON.parse(localStorage.getItem('creepydoll-assist') || '{}');
-  if (s && typeof s === 'object') {
+  if (s && typeof s === 'object' && s.unlocked === true) {
+    cheatsOn = true;
     assist.invuln = s.invuln === true;
     assist.hearts = s.hearts === true;
     assist.calm = s.calm === true;
@@ -1772,9 +1784,35 @@ try {
 } catch (e) {}
 
 function handleAssistKeys(key) {
-  const ROWS = 5;
+  if (!cheatsOn) {                          // the password gate
+    if (key === 'Enter') {
+      if (cheatBuf === CHEAT_PASSWORD) {
+        cheatsOn = true;
+        saveAssist();
+        sfx(660, 0.15, 'triangle', 0.06);
+        sfx(990, 0.25, 'sine', 0.04);
+      } else {
+        cheatMsgT = 90;
+        sfx(120, 0.3, 'sawtooth', 0.06, -60);
+      }
+      cheatBuf = '';
+    } else if (key === 'Backspace') cheatBuf = cheatBuf.slice(0, -1);
+    else if (key.length === 1 && cheatBuf.length < 24) cheatBuf += key;
+    return;
+  }
+  const ROWS = 6;
   if (key === 'ArrowUp')        { assistSel = (assistSel + ROWS - 1) % ROWS; sfx(300, 0.04, 'square', 0.03); }
   else if (key === 'ArrowDown') { assistSel = (assistSel + 1) % ROWS; sfx(300, 0.04, 'square', 0.03); }
+  else if (key === 'Enter' && assistSel === 5) {
+    // warp: a fresh run of the chosen level
+    level = warpLevel;
+    resetGame();
+    state = 'play';
+    paused = false;
+    if (AC) AC.resume();
+    flashText = { msg: 'level ' + warpLevel + '. as you wish.', t: 120, hold: true };
+    sfx(520, 0.3, 'sine', 0.06, -380);
+  }
   else if (key === 'ArrowLeft' || key === 'ArrowRight') {
     const on = key === 'ArrowRight';        // right turns it on / slows further
     if (assistSel === 0) assist.invuln = on;
@@ -1785,7 +1823,8 @@ function handleAssistKeys(key) {
     }
     else if (assistSel === 2) assist.hearts = on;
     else if (assistSel === 3) assist.calm = on;
-    else assist.skipMini = on;
+    else if (assistSel === 4) assist.skipMini = on;
+    else { warpLevel = Math.max(1, Math.min(5, warpLevel + (on ? 1 : -1))); }
     saveAssist();
     sfx(500, 0.05, 'square', 0.03);
   }
@@ -1844,22 +1883,35 @@ function drawPauseOverlay() {
   ctx.fillStyle = 'rgba(6,3,10,0.72)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   bigText('PAUSED', 116, 34, '#cfc3e8', 20);
-  pixelText('ASSIST — no shame in any of it', 74, 66, '#9a8fb0');
+  if (!cheatsOn) {
+    pixelText('ENABLE CHEATS', 121, 70, '#e8c66a');
+    pixelText('TYPE THE PASSWORD, THEN ENTER:', 72, 92, '#9a8fb0');
+    const shown = cheatBuf.length ? cheatBuf : ((frame >> 4) % 2 ? '_' : '');
+    pixelText(shown, (VIEW_W - shown.length * 6) / 2, 110, '#e8d8f0');
+    if (cheatMsgT > 0) {
+      cheatMsgT--;
+      pixelText('WRONG.', 142, 128, '#d02838');
+    }
+    if ((frame >> 5) % 2) pixelText('ESC TO RESUME', 122, 162, '#9a8fb0');
+    return;
+  }
+  pixelText('CHEATS — no shame in any of it', 74, 62, '#9a8fb0');
   const rows = [
     ['invincible',        assist.invuln ? 'ON' : 'OFF'],
     ['game speed',        Math.round(assist.speed * 100) + '%'],
     ['infinite hearts',   assist.hearts ? 'ON' : 'OFF'],
     ['reduced flash',     assist.calm ? 'ON' : 'OFF'],
     ['skip minigames',    assist.skipMini ? 'ON' : 'OFF'],
+    ['warp to level',     '< ' + warpLevel + ' >'],
   ];
   rows.forEach((r, i) => {
-    const y = 82 + i * 12, sel = i === assistSel;
+    const y = 78 + i * 12, sel = i === assistSel;
     if (sel) pixelText('>', 82, y, '#e8c66a');
     pixelText(r[0], 94, y, sel ? '#e8d8f0' : '#8a7f9e');
     pixelText(r[1], 208, y, sel ? '#e8c66a' : '#8a7f9e');
   });
-  pixelText('UP DOWN PICK   LEFT RIGHT SET', 78, 148, '#6a5f80');
-  if ((frame >> 5) % 2) pixelText('ESC TO RESUME', 122, 162, '#9a8fb0');
+  pixelText('UP DOWN PICK  LEFT RIGHT SET  ENTER WARPS', 46, 152, '#6a5f80');
+  if ((frame >> 5) % 2) pixelText('ESC TO RESUME', 122, 164, '#9a8fb0');
 }
 
 function handleMenuKeys(key) {
@@ -1882,29 +1934,34 @@ function handleMenuKeys(key) {
 
 /* ---------------- physics ---------------- */
 function moveAndCollide(p) {
-  // horizontal
+  // horizontal — one-way platforms never block sideways movement
   p.x += p.vx;
   if (p.vx > 0) {
-    if (solidAt(p.x + p.w, p.y + 1) || solidAt(p.x + p.w, p.y + p.h - 1)) {
+    if (hardAt(p.x + p.w, p.y + 1) || hardAt(p.x + p.w, p.y + p.h - 1)) {
       p.x = Math.floor((p.x + p.w) / TILE) * TILE - p.w - 0.01;
       p.vx = 0;
     }
   } else if (p.vx < 0) {
-    if (solidAt(p.x, p.y + 1) || solidAt(p.x, p.y + p.h - 1)) {
+    if (hardAt(p.x, p.y + 1) || hardAt(p.x, p.y + p.h - 1)) {
       p.x = (Math.floor(p.x / TILE) + 1) * TILE + 0.01;
       p.vx = 0;
     }
   }
-  // vertical
+  // vertical — land on a platform only when crossing its top from above
+  const prevBottom = p.y + p.h;
   p.y += p.vy;
   p.onGround = false;
   if (p.vy > 0) {
-    if (solidAt(p.x + 1, p.y + p.h) || solidAt(p.x + p.w - 1, p.y + p.h)) {
-      p.y = Math.floor((p.y + p.h) / TILE) * TILE - p.h - 0.01;
+    const bottom = p.y + p.h;
+    const t1 = tileAt(p.x + 1, bottom), t2 = tileAt(p.x + p.w - 1, bottom);
+    const rowTop = Math.floor(bottom / TILE) * TILE;
+    if ((t1 > 0 && t1 !== 2) || (t2 > 0 && t2 !== 2) ||
+        ((t1 === 2 || t2 === 2) && prevBottom <= rowTop + 0.01)) {
+      p.y = rowTop - p.h - 0.01;
       p.vy = 0; p.onGround = true;
     }
   } else if (p.vy < 0) {
-    if (solidAt(p.x + 1, p.y) || solidAt(p.x + p.w - 1, p.y)) {
+    if (hardAt(p.x + 1, p.y) || hardAt(p.x + p.w - 1, p.y)) {
       p.y = (Math.floor(p.y / TILE) + 1) * TILE + 0.01;
       p.vy = 0;
     }
@@ -1985,8 +2042,8 @@ function updatePlayer() {
     if (!player.crouch) {
       player.crouch = true; player.h = 14; player.y += 4;
       sfx(160, 0.06, 'square', 0.04, -60);
-    } else if (!solidAt(player.x + 1, player.y - 4) &&
-               !solidAt(player.x + player.w - 1, player.y - 4)) {
+    } else if (!hardAt(player.x + 1, player.y - 4) &&
+               !hardAt(player.x + player.w - 1, player.y - 4)) {
       player.crouch = false; player.h = 18; player.y -= 4;
       sfx(200, 0.06, 'square', 0.04, 80);
     }
@@ -2185,7 +2242,7 @@ function updateKid() {
       kid.vx = 1.95; kid.face = 1;
       const aheadX = kid.x + kid.w + 6;
       if (kid.onGround &&
-          (solidAt(aheadX, kid.y + kid.h - 4) || !solidAt(aheadX, kid.y + kid.h + 6)))
+          (hardAt(aheadX, kid.y + kid.h - 4) || !solidAt(aheadX, kid.y + kid.h + 6)))
         kid.vy = -6;
       kid.vy = Math.min(kid.vy + 0.38, 7);
       moveAndCollide(kid);
@@ -2224,7 +2281,7 @@ function updateKid() {
     // hop over small obstacles / gaps
     const aheadX = kid.face > 0 ? kid.x + kid.w + 6 : kid.x - 6;
     if (kid.onGround &&
-        (solidAt(aheadX, kid.y + kid.h - 4) || !solidAt(aheadX, kid.y + kid.h + 6)))
+        (hardAt(aheadX, kid.y + kid.h - 4) || !solidAt(aheadX, kid.y + kid.h + 6)))
       kid.vy = -6;
   }
 
@@ -4741,7 +4798,7 @@ function updateDog() {
       dog.face = away;
       const aheadX = away > 0 ? dog.x + dog.w + 4 : dog.x - 4;
       if (dog.onGround &&
-          (solidAt(aheadX, dog.y + dog.h - 4) || !solidAt(aheadX, dog.y + dog.h + 6)))
+          (hardAt(aheadX, dog.y + dog.h - 4) || !solidAt(aheadX, dog.y + dog.h + 6)))
         dog.vy = -5.6;
       dog.vy = Math.min(dog.vy + 0.3, 6.5);
       moveAndCollide(dog);
@@ -4779,7 +4836,7 @@ function updateDog() {
     // hop tables and stairwells like it has a thousand times
     const aheadX = dog.face > 0 ? dog.x + dog.w + 4 : dog.x - 4;
     if (dog.onGround &&
-        (solidAt(aheadX, dog.y + dog.h - 4) || !solidAt(aheadX, dog.y + dog.h + 6)))
+        (hardAt(aheadX, dog.y + dog.h - 4) || !solidAt(aheadX, dog.y + dog.h + 6)))
       dog.vy = -5.6;
     // it knows the house — it is never truly left behind
     if (player.x - dog.x > 460) dog.x = player.x - 420;

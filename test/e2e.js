@@ -270,15 +270,31 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(10);
   check(await ev(() => !paused && playTime > 0), 'Esc again resumes');
 
-  /* ---------- assist mode ---------- */
-  section('assist mode');
-  await ev(() => { assistSel = 0; Object.assign(assist,
+  /* ---------- the cheat gate ---------- */
+  section('cheat gate');
+  await ev(() => { cheatsOn = false; cheatBuf = ''; assistSel = 0; Object.assign(assist,
     { invuln: false, speed: 1, hearts: false, calm: false, skipMini: false }); });
   await page.keyboard.press('Escape');
   await frames(3);
+  check(await ev(() => paused && !cheatsOn), 'Esc shows the locked cheats screen');
+  await page.keyboard.press('ArrowRight');
+  await frames(2);
+  check(await ev(() => !assist.invuln), 'locked: the options cannot be touched');
+  await page.keyboard.type('duncan');
+  await page.keyboard.press('Enter');
+  await frames(3);
+  check(await ev(() => !cheatsOn && cheatMsgT > 0),
+        'the password is case-sensitive — "duncan" is WRONG.');
+  await page.keyboard.type('Duncan');
+  await page.keyboard.press('Enter');
+  await frames(3);
+  check(await ev(() => cheatsOn), '"Duncan" unlocks the cheats');
+
+  /* ---------- assist mode ---------- */
+  section('assist mode');
   await page.keyboard.press('ArrowRight');          // invincible ON
   await frames(2);
-  check(await ev(() => assist.invuln), 'pause menu: invincibility switches on');
+  check(await ev(() => assist.invuln), 'cheat menu: invincibility switches on');
   await page.keyboard.press('ArrowDown');           // down to game speed
   await page.keyboard.press('ArrowRight');          // 80%
   await page.keyboard.press('ArrowRight');          // 60%
@@ -297,11 +313,34 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => player.hp === 5), 'infinite hearts refuse to empty');
   await ev(() => { assist.calm = true; shakeT = 0; shakeMag = 0; addShake(4, 20); });
   check(await ev(() => shakeT === 0), 'reduced flash: no screen shake');
-  check(await ev(() => JSON.parse(localStorage.getItem('creepydoll-assist')).invuln === true),
-        'assist choices persist in localStorage');
+  check(await ev(() => {
+    const s = JSON.parse(localStorage.getItem('creepydoll-assist'));
+    return s.invuln === true && s.unlocked === true;
+  }), 'cheat choices and the unlock persist in localStorage');
   await ev(() => { Object.assign(assist,
     { invuln: false, speed: 1, hearts: false, calm: false, skipMini: false });
     player.hp = 5; player.invuln = 0; });
+
+  /* ---------- level warp ---------- */
+  section('level warp');
+  await page.keyboard.press('Escape');
+  await frames(3);
+  await ev(() => { assistSel = 5; warpLevel = 1; });
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await frames(2);
+  check(await ev(() => warpLevel === 3), 'the warp row dials to level 3');
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => level === 3 && state === 'play' && !paused && player.x === 40),
+        'Enter warps to a fresh level 3');
+  await page.keyboard.press('Escape');
+  await frames(3);
+  await ev(() => { assistSel = 5; warpLevel = 1; });
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => level === 1 && state === 'play' && !paused && score === 0),
+        'and back to the road, fresh, for the rest of the run');
 
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
@@ -309,8 +348,46 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'lanterns dot the level (' + (await ev(() => checkpoints.length)) + ')');
   check(await ev(() => checkpoints.every(cp => map[9][Math.floor(cp.x / TILE)] === 1)),
         'every lantern stands on solid ground');
+  await ev(() => { player.invuln = 999999;
+                   player.x = checkpoints[0].x + 10; player.y = 126; player.vy = 0; });
+  await frames(4);
   check(await ev(() => checkpoints.some(cp => cp.reached)),
         'lanterns she passed are lit');
+
+  /* ---------- one-way platforms ---------- */
+  section('one-way platforms');
+  const passUnder = await page.evaluate(async () => {
+    // a floating platform with clear ground beneath it
+    let col = -1, prow = -1;
+    for (let c = 20; c < MAP_W - 20 && col < 0; c++)
+      for (let r = 6; r <= 7; r++)
+        if (map[r][c] === 2 && !map[r + 1][c] && !map[r + 2][c] &&
+            groundTopRowAt(c) === 9) { col = c; prow = r; break; }
+    if (col < 0) return 'no-spot';
+    // walk under it: platforms must not block sideways
+    player.x = (col - 3) * TILE; player.y = 126; player.vy = 0; player.vx = 0;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    for (let i = 0; i < 80; i++) await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight' }));
+    const walked = player.x > (col + 1) * TILE;
+    // jump up through it from below and land on top
+    player.x = col * TILE + 2; player.y = 126; player.vy = 0; player.vx = 0;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+    let landed = false;
+    for (let i = 0; i < 100; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 30) window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }));
+      player.x = col * TILE + 2;
+      if (player.onGround && Math.abs((player.y + player.h) - prow * TILE) < 2) {
+        landed = true; break;
+      }
+    }
+    return { walked, landed, prow };
+  });
+  check(passUnder !== 'no-spot' && passUnder.walked,
+        'she walks freely beneath a platform');
+  check(passUnder !== 'no-spot' && passUnder.landed,
+        'and jumps up through it to land on top');
 
   section('pit');
   await ev(() => { player.invuln = 0; player.hp = 3; player.x = 670; player.y = 126; player.vy = 0; });
@@ -616,9 +693,9 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   /* ---------- the dog ---------- */
   section('the dog');
   check(await ev(() => dog.active), 'clearing the first table wakes the dog');
-  const dgap0 = await ev(() => player.x - dog.x);
+  const dgap0 = await ev(() => Math.abs(player.x - dog.x));
   await frames(50);
-  const dgap1 = await ev(() => player.x - dog.x);
+  const dgap1 = await ev(() => Math.abs(player.x - dog.x));
   check(dgap1 < dgap0, 'it closes the distance (' +
         Math.round(dgap0) + 'px to ' + Math.round(dgap1) + 'px)');
   await ev(() => { player.invuln = 0; player.hp = 5; dog.retreatT = 0;
