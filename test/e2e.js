@@ -348,7 +348,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
                    player.x = ep.x - 2; player.y = ep.y - 4; player.vy = 0; });
   await frames(8);
   check(await ev(() => eyePickups[0].taken && eyesFound === 1),
-        'touching a lost eye collects it (1/5)');
+        'touching a lost eye collects it (1/4)');
 
   /* ---------- carnival doors & minigames ---------- */
   section('carnival doors');
@@ -425,7 +425,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.waitForFunction(() => mini.eyeTaken, null, { timeout: 10000 });
   await page.keyboard.up('ArrowRight');
   check(await ev(() => eyesFound === 2 && player.hp === 4),
-        'she takes the hollow\'s eye and it heals her (2/5)');
+        'she takes the hollow\'s eye and it heals her (2/4)');
   await page.waitForFunction(() => mini.over, null, { timeout: 10000 });
   await page.keyboard.press('Enter');
   await frames(3);
@@ -544,7 +544,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   // scoop up the remaining eyes so the 100% reward can show itself
   await ev(() => { eyePickups.forEach(ep => {
     if (!ep.taken) { ep.taken = true; eyesFound++; } }); });
-  check(await ev(() => eyesFound === EYES_TOTAL), 'all five eyes accounted for');
+  check(await ev(() => eyesFound >= EYES_TOTAL), 'enough eyes accounted for (4 needed)');
   const preWin = await ev(() => score);
   await page.keyboard.down('ArrowRight');
   await page.waitForFunction(() => state === 'interlude', null, { timeout: 30000 });

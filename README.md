@@ -54,8 +54,8 @@ jump launches her about twice as high.
   lights it and saves her spot for the next fall.
 - **Lost button eyes:** five are hidden along the road — on platform tops, over
   ravines, one impossibly high, one behind the dollhouse, and one somewhere the
-  wall is cracked. Entirely optional: 200 points each, and finding all five is
-  worth an extra +1000 at the end... and she gets to see again.
+  wall is cracked. Entirely optional: 200 points each, and finding any four of
+  the five is worth an extra +1000 at the end... and she gets to see again.
 - **Creep meter:** advancing through the level raises her creepiness through four
   stages. Each stage cracks the porcelain a little more, stains the dress, reddens
   the moon — and sours the lullaby.

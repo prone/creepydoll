@@ -478,10 +478,11 @@ const tables = [];      // level 2: world-x of each table she must jump
 // a lone heart floating over the second ravine — heals one heart, once
 const heartPickup = { x: 0, y: 0, taken: false, t: 0 };
 
-// five lost button eyes — four hidden in the overworld, one in the hollow
+// five lost button eyes — four hidden in the overworld, one in the hollow.
+// finding any four of them is enough; the fifth is for the thorough.
 const eyePickups = [];
 let eyesFound = 0;
-const EYES_TOTAL = 5;
+const EYES_TOTAL = 4;
 
 // carnival doorways into minigame worlds (press Up to enter, once each)
 const doors = [];
@@ -2300,7 +2301,7 @@ function drawHUD() {
   // lost eyes found (an outdoor hunt)
   if (level === 1) {
     drawButtonEye(6, 17, false);
-    pixelText(eyesFound + '/' + EYES_TOTAL, 16, 17, '#8a7a5c');
+    pixelText(Math.min(eyesFound, EYES_TOTAL) + '/' + EYES_TOTAL, 16, 17, '#8a7a5c');
   }
   pixelText('SCORE ' + score, VIEW_W - 6 - (7 + String(score).length) * 6, 6, '#cfc3e8');
   const st = creepStage();
