@@ -1170,6 +1170,7 @@ const STAGE_MSGS = [
 ];
 
 function creepStage() {
+  if (level === 2) return 3;    // she arrives as she left level 1: something is very wrong
   return Math.min(3, Math.floor(player.maxX / (LEVEL_W / 4.2)));
 }
 

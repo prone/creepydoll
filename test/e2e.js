@@ -570,6 +570,8 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'she follows him home — level 2 begins');
   check((await ev(() => score)) >= preWin + 2000, 'the score follows her inside');
   check(await ev(() => map[0].every(t => t === 1)), 'the house has a ceiling');
+  check(await ev(() => creepStage() === 3),
+        'she arrives already far gone — something is very wrong');
   check(await ev(() => tables.length >= 3 && tables[0] <= 26 * TILE),
         'tables to jump, the first just past the start');
   check(await ev(() => doors.length === 0 && eyePickups.length === 0),
