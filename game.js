@@ -2051,6 +2051,15 @@ let cheatsOn = false, cheatBuf = '', cheatMsgT = 0, warpLevel = 1,
     rideChoice = 'dragon';         // the summon-a-ride cheat: 'dragon' | 'saucer'
 let assistSel = 0;
 let speedAcc = 0;               // fractional update accumulator for game speed
+let lastTickT = 0;              // rAF timestamp of the previous tick
+// game speed must not follow the display: when the browser hands us long
+// frames (low-power mode, energy saver, 30Hz panels) run catch-up steps so
+// the night never plays in slow motion. Capped so a backgrounded tab
+// returning after minutes doesn't fast-forward.
+function catchupSteps(dt) {
+  if (dt <= 24) return 1;                    // ~60Hz or faster: one step
+  return Math.min(3, Math.round(dt / (1000 / 60)));
+}
 function saveAssist() {
   try {
     localStorage.setItem('creepydoll-assist',
@@ -2240,9 +2249,14 @@ function handleMenuKeys(key) {
       state === 'interlude') {
     const carry = state === 'interlude' ? score : 0;   // the score follows her in
     const retry = state === 'gameover';
+    const wasTitle = state === 'title';
     if (state === 'interlude') level = Math.min(5, level + 1);
     else if (!retry) level = 1;                        // game over retries the level
     resetGame();
+    // a slow-speed cheat saved last session shouldn't masquerade as lag
+    if (wasTitle && assist.speed < 1)
+      flashText = { msg: 'game speed ' + Math.round(assist.speed * 100) +
+                         '% cheat is on — esc to change', t: 240, hold: true };
     // losing every heart wipes the creep: she retries porcelain-clean
     // and has to earn the cracks (and the ink) all over again
     if (retry) { creepClean = true; inkMelt = false; }
@@ -6400,8 +6414,10 @@ function drawWin() {
 }
 
 /* ---------------- main loop ---------------- */
-function tick() {
+function tick(now) {
   frame++;
+  const steps = lastTickT > 0 && now > 0 ? catchupSteps(now - lastTickT) : 1;
+  if (now > 0) lastTickT = now;
 
   if (state === 'title') {
     drawTitle();
@@ -6410,7 +6426,7 @@ function tick() {
   }
 
   if (state === 'mini') {
-    if (!paused) {
+    if (!paused) for (let s = 0; s < steps && state === 'mini'; s++) {
       speedAcc += assist.speed;
       if (speedAcc >= 1) { speedAcc -= 1; updateMini(); }
     }
@@ -6422,8 +6438,10 @@ function tick() {
 
   if (state === 'boss' || (boss.active && (state === 'gameover' || state === 'win'))) {
     if (state === 'boss' && !paused) {
-      speedAcc += assist.speed;
-      if (speedAcc >= 1) { speedAcc -= 1; updateBoss(); }
+      for (let s = 0; s < steps && state === 'boss'; s++) {
+        speedAcc += assist.speed;
+        if (speedAcc >= 1) { speedAcc -= 1; updateBoss(); }
+      }
       if (shakeT > 0 && --shakeT === 0) shakeMag = 0;
     }
     drawBoss();
@@ -6434,12 +6452,11 @@ function tick() {
     return;
   }
 
-  let runUpdate = false;
-  if (state === 'play' && !paused) {
+  if (state === 'play' && !paused)
+  for (let s = 0; s < steps && state === 'play'; s++) {
     speedAcc += assist.speed;
-    if (speedAcc >= 1) { speedAcc -= 1; runUpdate = true; }
-  }
-  if (runUpdate) {
+    if (speedAcc < 1) continue;
+    speedAcc -= 1;
     playTime++;
     // the night murmurs now and then
     if (AC && --ambientCd <= 0) {

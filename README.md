@@ -170,7 +170,9 @@ npm test
 ## Tech
 
 Single `game.js`, plain canvas 2D at 320×176 internal resolution, integer-scaled with
-`image-rendering: pixelated`. All sprites are authored as pixel strings and rendered to
+`image-rendering: pixelated`. Updates run on a fixed 60 Hz timestep with capped
+catch-up steps, so a throttled browser (low-power mode, 30 Hz panels) slows the
+frame rate but never the game. All sprites are authored as pixel strings and rendered to
 offscreen canvases at load; the doll's four decay stages are overlay layers composited
 onto the same base sprite. Music and sound effects are generated with the Web Audio
 API (a triangle-wave "music box" lullaby over a low detuned drone — the melody gains

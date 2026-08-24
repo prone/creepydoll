@@ -407,6 +407,21 @@ function section(name) { console.log('\n== ' + name + ' =='); }
                    player.invuln = 999999; });
   await frames(3);
 
+  /* ---------- frame pacing & the speed cheat ---------- */
+  section('frame pacing');
+  check(await ev(() => catchupSteps(8) === 1 && catchupSteps(17) === 1 &&
+                       catchupSteps(33) === 2 && catchupSteps(50) === 3 &&
+                       catchupSteps(5000) === 3),
+        'throttled browser frames get capped catch-up steps, never slow-motion');
+  await ev(() => { assist.speed = 0.8; state = 'title'; });
+  await page.keyboard.press('Enter');
+  await frames(3);
+  check(await ev(() => state === 'play' && flashText &&
+                       /game speed 80/.test(flashText.msg)),
+        'a stored slow-speed cheat announces itself on the way in');
+  await ev(() => { assist.speed = 1; flashText = null;
+                   player.invuln = 999999; });
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
