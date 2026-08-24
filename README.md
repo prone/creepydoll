@@ -78,6 +78,18 @@ jump launches her about twice as high.
   night after her — up to three at a time, spear-first, tougher than bats
   (300 points each). Dismount and they withdraw into the dark above.
 
+- **The alien invasion:** every so often a silver door that should not be there
+  appears on the road ahead, full of stars, counting down. Reach it within
+  three seconds and a **flying saucer** takes her: +5 borrowed hearts (shown
+  green), free flight on the arrows, **Z** fires laser beams, **C** bails out.
+  The military notices — two to five jet fighters scramble and lob missiles
+  that mostly miss. Lasering a jet is worth 300. Near the end of the level the
+  saucer starts smoking: eject in time, or the explosion costs a heart. Either
+  way the borrowed hearts go home. Aboard, the music box gives way to a
+  thumping little eurodance number.
+- **Porcelain shards:** once she reaches full creep, every kick also flings a
+  spinning shard of her own porcelain — a short-range thrown weapon that
+  hurts whatever it lands on, dog included.
 - **Level 2 — his house:** tag the kid and he slips away, runs home, and slams
   the door. She knows the way. Inside: a properly lit house — chandelier over
   the landing, sconces, windows onto the night — with oak tables to jump,
@@ -130,8 +142,10 @@ jump launches her about twice as high.
   (someone who knows it will tell you; it's case-sensitive). Once unlocked
   (↑/↓ pick, ←/→ set): invincibility, game speed (100/80/60%), infinite
   hearts, reduced flash (no screen shake or hit-strobe), skip-minigames
-  (Enter walks straight out of one), and **warp to any level** (dial the
-  level, Enter jumps). The unlock and your choices persist between sessions.
+  (Enter walks straight out of one), **warp to any level** (dial the
+  level, Enter jumps), and **summon a ride** — pick the dragon or the
+  flying saucer and Enter drops her straight into the saddle, any level,
+  mid-run. The unlock and your choices persist between sessions.
 - **One-way platforms:** thin wooden platforms and branches never block her —
   walk beneath them freely, jump up through them, and land on top. Only
   ground, furniture, and tree trunks are truly solid.

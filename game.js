@@ -786,6 +786,273 @@ const dragon = { spawned: false, active: false, ridden: false,
                  x: 0, y: 0, w: 30, h: 13, vx: 0, vy: 0, face: 1, t: 0,
                  gustCd: 0, ballCd: 0, valkT: 0, valkSeen: false, mountCd: 0 };
 
+// the alien invasion — every thirty seconds, a door that should not be there.
+// reach it in three and she flies a borrowed saucer with borrowed hearts.
+const saucer = { active: false, x: 0, y: 0, vx: 0, vy: 0, face: 1, t: 0,
+                 doorX: -1, doorGy: 0, doorT: 0, doorCd: 1800,
+                 laserCd: 0, smokeT: -1, jetCount: 0 };
+const jets = [];      // {x, y, vx, t, fireCd, dead}
+const missiles = [];  // {x, y, vx, vy, t}
+const lasers = [];    // {x, y, vx}
+const shards = [];    // porcelain, thrown at full creep: {x, y, vx, vy, t}
+
+function enterSaucer() {
+  saucer.active = true;
+  saucer.x = player.x - 10;
+  saucer.y = Math.max(24, player.y - 30);
+  saucer.vx = 0; saucer.vy = 0; saucer.face = 1; saucer.t = 0;
+  saucer.doorX = -1; saucer.doorT = 0;
+  saucer.smokeT = -1; saucer.laserCd = 0;
+  saucer.jetCount = 2 + Math.floor(Math.random() * 4);   // two to five
+  jets.length = 0; missiles.length = 0; lasers.length = 0;
+  player.hp = Math.min(10, player.hp + 5);               // five extra, alien courtesy
+  player.invuln = 60;
+  musicStep = 0;
+  flashText = { msg: 'the saucer takes her. +5 hearts.', t: 120, hold: true };
+  sfx(220, 0.6, 'sine', 0.07, 500);
+}
+
+function exitSaucer(bang) {
+  saucer.active = false;
+  saucer.smokeT = -1;
+  saucer.doorCd = 1800;
+  jets.length = 0; missiles.length = 0; lasers.length = 0;
+  player.hp = Math.min(5, player.hp);                    // the loaner hearts go home
+  player.vy = -1.5;
+  musicStep = 0;
+  if (!bang) sfx(300, 0.2, 'sine', 0.05, -150);
+}
+
+function explodeSaucer(aboard) {
+  addShake(4, 18);
+  for (let i = 0; i < 4; i++)
+    burst(saucer.x + 8 + i * 7, saucer.y + 4,
+          i % 2 ? '#ffa030' : '#ffce6a', 10, i - 1.5);
+  sfx(90, 0.8, 'sawtooth', 0.1, -60);
+  exitSaucer(true);
+  if (aboard) {
+    player.hp -= 1;                                      // one breath too long
+    flashText = { msg: 'she stayed one breath too long.', t: 110, hold: true };
+    sndHurt();
+    if (player.hp <= 0) { state = 'gameover'; sfx(120, 1.2, 'sawtooth', 0.09, -90); }
+  }
+}
+
+// the thirty-second door clock (runs whenever she is on foot)
+function updateSaucerDoor() {
+  if (saucer.active) return;
+  if (saucer.doorT > 0) {
+    saucer.doorT--;
+    if (rectsOverlap({ x: saucer.doorX, y: saucer.doorGy - 24, w: 16, h: 24 }, player)) {
+      enterSaucer();
+      return;
+    }
+    if (saucer.doorT === 0) saucer.doorX = -1;           // it thought better of it
+  } else if (!dragon.ridden && --saucer.doorCd <= 0) {
+    saucer.doorCd = 1800;
+    let cc = Math.floor((player.x + 130) / TILE), gr = -1;
+    while (cc < MAP_W - 16 && (gr = groundTopRowAt(cc)) < 0) cc++;
+    if (gr > 0 && cc * TILE < houseX - 280) {
+      saucer.doorX = cc * TILE + 2;
+      saucer.doorGy = gr * TILE;
+      saucer.doorT = 180;                                // three seconds, not one more
+      flashText = { msg: 'a door that should not be there. RUN.', t: 120, hold: true };
+      sfx(880, 0.3, 'sine', 0.05, 240);
+      sfx(1320, 0.4, 'sine', 0.03, -200);
+    }
+  }
+}
+
+// borrowed flight (replaces her physics while aboard)
+function updateSaucerFlight() {
+  saucer.t++;
+  if (saucer.laserCd > 0) saucer.laserCd--;
+  // the end of the line is bad news for stolen machinery
+  if (saucer.smokeT < 0 && saucer.x > houseX - 260) {
+    saucer.smokeT = 120;
+    flashText = { msg: 'smoke. EJECT (C). NOW.', t: 110, hold: true };
+    sfx(140, 0.8, 'sawtooth', 0.05, -60);
+  }
+  if (saucer.smokeT >= 0) {
+    saucer.smokeT--;
+    if (saucer.smokeT % 4 === 0)
+      particles.push({ x: saucer.x + 8 + Math.random() * 18, y: saucer.y - 2,
+                       vx: (Math.random() - 0.5) * 0.4, vy: -0.7,
+                       t: 40, float: true, color: '#3a3a44' });
+    if (saucer.smokeT <= 0) { explodeSaucer(true); return; }
+  }
+  const spd = 2;
+  if (kLeft())       { saucer.vx = -spd; saucer.face = -1; }
+  else if (kRight()) { saucer.vx = spd;  saucer.face = 1; }
+  else saucer.vx *= 0.9;
+  if (keys['arrowup'] || keys['w']) saucer.vy = -1.6;
+  else if (kDown())                 saucer.vy = 1.6;
+  else                              saucer.vy = Math.sin(saucer.t / 16) * 0.3;
+  saucer.x += saucer.vx; saucer.y += saucer.vy;
+  saucer.x = Math.max(2, Math.min(LEVEL_W - 36, saucer.x));
+  saucer.y = Math.max(level === 2 || level === 5 ? 26 : 12, Math.min(saucer.y, 118));
+
+  // she rides in the dome
+  player.face = saucer.face;
+  player.x = saucer.x + 12; player.y = saucer.y - 6;
+  player.vx = saucer.vx; player.vy = 0;
+  player.onGround = false; player.crouch = false; player.h = 18;
+  player.chargeT = 0; player.attack = null;
+
+  // Z: laser beams
+  if (kPunch() && !punchHeld && saucer.laserCd <= 0) {
+    saucer.laserCd = 9;
+    lasers.push({ x: saucer.face > 0 ? saucer.x + 34 : saucer.x - 10,
+                  y: saucer.y + 7, vx: saucer.face * 4.5 });
+    sfx(1200, 0.08, 'square', 0.05, -700);
+  }
+  punchHeld = kPunch(); kickHeld = kKick(); jumpHeld = kJump();
+
+  // C: bail out
+  if (kCrouch() && !crouchHeld) {
+    crouchHeld = true;
+    exitSaucer(false);
+    return;
+  }
+  crouchHeld = kCrouch();
+
+  updateJets();
+}
+
+function updateJets() {
+  // keep the squadron at strength for the duration
+  while (jets.filter(j => !j.dead).length < saucer.jetCount) {
+    const fromLeft = Math.random() < 0.5;
+    jets.push({ x: camX + (fromLeft ? -40 : VIEW_W + 40),
+                y: 14 + Math.random() * 90,
+                vx: (fromLeft ? 1 : -1) * (1.3 + Math.random() * 0.6),
+                t: 0, fireCd: 40 + Math.random() * 60, dead: 0 });
+  }
+  for (let i = jets.length - 1; i >= 0; i--) {
+    const j = jets[i];
+    if (j.dead) { if (++j.dead > 20) jets.splice(i, 1); continue; }
+    j.t++;
+    j.x += j.vx;
+    j.y += Math.sin(j.t / 18) * 0.4;
+    j.y = Math.max(8, Math.min(j.y, 120));
+    if (--j.fireCd <= 0) {
+      j.fireCd = 90 + Math.random() * 80;
+      // aimed at the saucer, generously wrong
+      const dx = saucer.x + 17 - j.x, dy = saucer.y + 8 - j.y;
+      const d = Math.hypot(dx, dy) || 1;
+      missiles.push({ x: j.x + 9, y: j.y + 3,
+                      vx: dx / d * 2 + (Math.random() - 0.5) * 1.4,
+                      vy: dy / d * 2 + (Math.random() - 0.5) * 1.4, t: 0 });
+      sfx(500, 0.1, 'sawtooth', 0.04, -200);
+    }
+    if (j.x < camX - 90 || j.x > camX + VIEW_W + 90) j.vx = -j.vx;
+    if (rectsOverlap({ x: j.x, y: j.y, w: 18, h: 7 },
+                     { x: saucer.x, y: saucer.y, w: 34, h: 14 }))
+      hurtPlayer(j.x + 9, 1);
+  }
+  for (let i = missiles.length - 1; i >= 0; i--) {
+    const m = missiles[i];
+    m.x += m.vx; m.y += m.vy; m.t++;
+    if (m.t % 3 === 0)
+      particles.push({ x: m.x - m.vx, y: m.y, vx: 0, vy: -0.1,
+                       t: 8, float: true, color: '#6a6f80' });
+    if (rectsOverlap({ x: m.x, y: m.y, w: 6, h: 3 },
+                     { x: saucer.x, y: saucer.y, w: 34, h: 14 })) {
+      hurtPlayer(m.x, 1);
+      burst(m.x + 2, m.y + 1, '#ffa030', 8);
+      missiles.splice(i, 1);
+      continue;
+    }
+    if (m.t > 260 || m.y > 200 || m.y < -30) missiles.splice(i, 1);
+  }
+  for (let i = lasers.length - 1; i >= 0; i--) {
+    const L = lasers[i];
+    L.x += L.vx;
+    let done = L.x < camX - 40 || L.x > camX + VIEW_W + 40;
+    for (const j of jets) {
+      if (!j.dead && rectsOverlap({ x: L.x, y: L.y - 1, w: 10, h: 3 },
+                                  { x: j.x, y: j.y, w: 18, h: 7 })) {
+        j.dead = 1;
+        score += 300;
+        addShake(1.5, 5);
+        burst(j.x + 9, j.y + 3, '#ffa030', 10, Math.sign(L.vx));
+        sfx(300, 0.2, 'sawtooth', 0.07, -180);
+        done = true;
+        break;
+      }
+    }
+    if (done) lasers.splice(i, 1);
+  }
+}
+
+function drawSaucerDoor() {
+  if (saucer.doorT <= 0 || saucer.doorX < 0) return;
+  const x = Math.round(saucer.doorX - camX), gy = saucer.doorGy;
+  if (x < -24 || x > VIEW_W + 24) return;
+  const pulse = (Math.sin(frame / 6) + 1) / 2;
+  ctx.fillStyle = '#b8c4d8';                             // a silver frame
+  ctx.fillRect(x - 2, gy - 26, 20, 28);
+  ctx.fillStyle = '#0a1420';
+  ctx.fillRect(x, gy - 24, 16, 24);
+  ctx.fillStyle = 'rgba(106,222,138,' + (0.25 + pulse * 0.4) + ')';
+  ctx.fillRect(x + 2, gy - 22, 12, 22);
+  for (let i = 0; i < 4; i++) {                          // stars inside it
+    ctx.fillStyle = '#e8f4ff';
+    ctx.fillRect(x + 3 + (i * 5 + (frame >> 2)) % 11, gy - 20 + (i * 7) % 18, 1, 1);
+  }
+  // the countdown, in seconds she does not have
+  pixelText(String(Math.ceil(saucer.doorT / 60)), x + 5, gy - 38, '#6ade8a');
+}
+
+function drawSaucer() {
+  if (!saucer.active) return;
+  const x = Math.round(saucer.x - camX), y = Math.round(saucer.y);
+  // dome (she is drawn inside it by drawPlayer)
+  ctx.fillStyle = 'rgba(159,232,255,0.35)';
+  ctx.beginPath(); ctx.arc(x + 17, y + 4, 10, Math.PI, 0); ctx.fill();
+  // disc
+  ctx.fillStyle = '#8a92a4';
+  ctx.fillRect(x, y + 4, 34, 7);
+  ctx.fillRect(x + 4, y + 11, 26, 3);
+  ctx.fillStyle = '#b8c4d8'; ctx.fillRect(x + 2, y + 4, 30, 2);
+  // running lights
+  for (let i = 0; i < 5; i++) {
+    ctx.fillStyle = ['#6ade8a', '#e8c66a', '#d04a4a'][(i + (frame >> 3)) % 3];
+    ctx.fillRect(x + 4 + i * 7, y + 8, 2, 2);
+  }
+  // a soft beam below
+  ctx.fillStyle = 'rgba(106,222,138,0.07)';
+  ctx.fillRect(x + 8, y + 14, 18, 30);
+}
+
+function drawJets() {
+  for (const j of jets) {
+    const x = Math.round(j.x - camX), y = Math.round(j.y);
+    if (x < -30 || x > VIEW_W + 30) continue;
+    if (j.dead) {
+      ctx.fillStyle = 'rgba(255,160,48,' + (1 - j.dead / 20) + ')';
+      ctx.fillRect(x + 6, y, j.dead, j.dead / 2);
+      continue;
+    }
+    ctx.save();
+    if (j.vx < 0) { ctx.translate(x + 18, y); ctx.scale(-1, 1); }
+    else ctx.translate(x, y);
+    ctx.fillStyle = '#5a6272';
+    ctx.fillRect(0, 3, 16, 3);                           // fuselage
+    ctx.fillRect(12, 1, 6, 2);                           // nose up? cockpit
+    ctx.fillRect(4, 0, 3, 3);                            // tail fin
+    ctx.fillStyle = '#8a92a4'; ctx.fillRect(6, 2, 6, 1); // wing
+    ctx.fillStyle = '#ffa030'; ctx.fillRect(-2, 4, 2, 1);// afterburner
+    ctx.restore();
+  }
+  ctx.fillStyle = '#c9cede';
+  for (const m of missiles)
+    ctx.fillRect(Math.round(m.x - camX), Math.round(m.y), 5, 2);
+  ctx.fillStyle = '#6ade8a';
+  for (const L of lasers)
+    ctx.fillRect(Math.round(L.x - camX), Math.round(L.y), 10, 2);
+}
+
 // the house dog — woken by the first table, never far behind after that.
 // three good hits and it barks, thinks better of it, and runs — but this is
 // its house: ten seconds later it comes back.
@@ -1451,6 +1718,14 @@ const WOODS = [
 ];
 const WOODS_STEP = 0.32;
 
+// the saucer: an ORIGINAL late-90s eurodance hook (in the style of the era's
+// trance anthems — deliberately not a transcription of any existing song)
+const SAUCER_LEAD = [
+  69, 69, -1, 69,  72, -1, 69, -1,  74, 74, -1, 72,  69, -1, 67, -1,
+  65, 65, -1, 65,  69, -1, 65, -1,  64, 64, -1, 67,  71, -1, 64, -1,
+];
+const SAUCER_STEP = 0.107;   // ~140 BPM sixteenths
+
 // the tomb: stone intervals, patient as its tenants
 const TOMB = [
   41, -1, 44, -1, 48, -1, 44, -1,
@@ -1543,6 +1818,18 @@ function scheduleMusic() {
       }
       musicStep++;
       nextNoteTime += BOSS_STEP;
+    } else if (saucer.active) {
+      // four-on-the-floor, off-beat bass, gated square lead
+      const st16 = musicStep % 32;
+      if (st16 % 4 === 0) musicBoxNote(38, nextNoteTime, 0.10, 0, 'sine', 0.12);
+      if (st16 % 4 === 2) musicBoxNote(45, nextNoteTime, 0.055, 0, 'square', 0.09);
+      const m = SAUCER_LEAD[st16];
+      if (m > 0) {
+        musicBoxNote(m, nextNoteTime, 0.05, 4, 'square', 0.1);
+        musicBoxNote(m + 12, nextNoteTime + 0.005, 0.018, -4, 'square', 0.08);
+      }
+      musicStep++;
+      nextNoteTime += SAUCER_STEP;
     } else if (level === 3) {
       // the woods keep their own time
       const m = WOODS[musicStep % WOODS.length];
@@ -1759,7 +2046,8 @@ function addShake(mag, frames) {
 const assist = { invuln: false, speed: 1, hearts: false, calm: false, skipMini: false };
 const SPEEDS = [1, 0.8, 0.6];
 const CHEAT_PASSWORD = 'Duncan';   // case-sensitive
-let cheatsOn = false, cheatBuf = '', cheatMsgT = 0, warpLevel = 1;
+let cheatsOn = false, cheatBuf = '', cheatMsgT = 0, warpLevel = 1,
+    rideChoice = 'dragon';         // the summon-a-ride cheat: 'dragon' | 'saucer'
 let assistSel = 0;
 let speedAcc = 0;               // fractional update accumulator for game speed
 function saveAssist() {
@@ -1800,7 +2088,7 @@ function handleAssistKeys(key) {
     else if (key.length === 1 && cheatBuf.length < 24) cheatBuf += key;
     return;
   }
-  const ROWS = 6;
+  const ROWS = 7;
   if (key === 'ArrowUp')        { assistSel = (assistSel + ROWS - 1) % ROWS; sfx(300, 0.04, 'square', 0.03); }
   else if (key === 'ArrowDown') { assistSel = (assistSel + 1) % ROWS; sfx(300, 0.04, 'square', 0.03); }
   else if (key === 'Enter' && assistSel === 5) {
@@ -1813,6 +2101,23 @@ function handleAssistKeys(key) {
     flashText = { msg: 'level ' + warpLevel + '. as you wish.', t: 120, hold: true };
     sfx(520, 0.3, 'sine', 0.06, -380);
   }
+  else if (key === 'Enter' && assistSel === 6) {
+    // summon a ride, right where she stands (mid-run only)
+    if (state !== 'play' || saucer.active || dragon.ridden) {
+      sfx(140, 0.12, 'square', 0.04, -40);
+      return;
+    }
+    paused = false;
+    if (AC) AC.resume();
+    if (rideChoice === 'saucer') enterSaucer();
+    else {
+      dragon.spawned = dragon.active = dragon.ridden = true;
+      dragon.x = player.x - 6; dragon.y = Math.max(20, player.y - 20);
+      dragon.vx = dragon.vy = 0; dragon.t = 0; dragon.mountCd = 0;
+      flashText = { msg: 'she rides.', t: 100, hold: true };
+      sfx(320, 0.35, 'triangle', 0.08, 260);
+    }
+  }
   else if (key === 'ArrowLeft' || key === 'ArrowRight') {
     const on = key === 'ArrowRight';        // right turns it on / slows further
     if (assistSel === 0) assist.invuln = on;
@@ -1824,7 +2129,8 @@ function handleAssistKeys(key) {
     else if (assistSel === 2) assist.hearts = on;
     else if (assistSel === 3) assist.calm = on;
     else if (assistSel === 4) assist.skipMini = on;
-    else { warpLevel = Math.max(1, Math.min(5, warpLevel + (on ? 1 : -1))); }
+    else if (assistSel === 5) { warpLevel = Math.max(1, Math.min(5, warpLevel + (on ? 1 : -1))); }
+    else { rideChoice = rideChoice === 'dragon' ? 'saucer' : 'dragon'; }
     saveAssist();
     sfx(500, 0.05, 'square', 0.03);
   }
@@ -1867,6 +2173,10 @@ function resetGame() {
   dog.active = false; dog.vx = dog.vy = 0; dog.t = 0;
   dog.retreatT = 0; dog.barkCd = 0; dog.lastHit = -1;
   dog.hp = 3; dog.deadT = 0; dog.fleeT = 0; dog.flashT = 0;
+  saucer.active = false; saucer.doorX = -1; saucer.doorT = 0;
+  saucer.doorCd = 1800; saucer.smokeT = -1;
+  jets.length = 0; missiles.length = 0; lasers.length = 0;
+  shards.length = 0;
   boss.active = false;
   bossBats.length = 0; bossRoaches.length = 0; thrown.length = 0;
   carrying = null;
@@ -1903,14 +2213,15 @@ function drawPauseOverlay() {
     ['reduced flash',     assist.calm ? 'ON' : 'OFF'],
     ['skip minigames',    assist.skipMini ? 'ON' : 'OFF'],
     ['warp to level',     '< ' + warpLevel + ' >'],
+    ['summon a ride',     '< ' + rideChoice.toUpperCase() + ' >'],
   ];
   rows.forEach((r, i) => {
-    const y = 78 + i * 12, sel = i === assistSel;
+    const y = 74 + i * 11, sel = i === assistSel;
     if (sel) pixelText('>', 82, y, '#e8c66a');
     pixelText(r[0], 94, y, sel ? '#e8d8f0' : '#8a7f9e');
     pixelText(r[1], 208, y, sel ? '#e8c66a' : '#8a7f9e');
   });
-  pixelText('UP DOWN PICK  LEFT RIGHT SET  ENTER WARPS', 46, 152, '#6a5f80');
+  pixelText('UP DOWN PICK  LEFT RIGHT SET  ENTER GOES', 48, 152, '#6a5f80');
   if ((frame >> 5) % 2) pixelText('ESC TO RESUME', 122, 164, '#9a8fb0');
 }
 
@@ -2029,6 +2340,12 @@ function updatePlayer() {
     return;
   }
 
+  if (saucer.active) {
+    updateSaucerFlight();
+    afterMove(prevStage);
+    return;
+  }
+
   // step through a carnival doorway with Up
   if ((keys['arrowup'] || keys['w']) && !upHeld && player.onGround) {
     const d = doors.find(d => !d.used &&
@@ -2108,6 +2425,11 @@ function updatePlayer() {
     } else if (kKick() && !kickHeld) {
       player.attack = { type: 'kick', t: 0, id: ++player.attackId };
       sndKick();
+      if (creepStage() >= 3) {                 // at full creep she sheds porcelain
+        shards.push({ x: player.x + (player.face > 0 ? 10 : -4),
+                      y: player.y + 10, vx: player.face * 3, vy: -0.4, t: 0 });
+        sfx(1500, 0.06, 'triangle', 0.04, -600);
+      }
     }
   }
   punchHeld = kPunch(); kickHeld = kKick();
@@ -3400,15 +3722,17 @@ function drawHeart(x, y, color) {
 }
 
 function drawHUD() {
-  // hearts (the small things chew them half at a time)
-  for (let i = 0; i < 5; i++) {
+  // hearts (the small things chew them half at a time; the saucer lends five)
+  const slots = player.hp > 5 || saucer.active ? 10 : 5;
+  for (let i = 0; i < slots; i++) {
     const x = 6 + i * 12;
+    const full = i >= 5 ? '#6ade8a' : '#c9304a';      // borrowed hearts run green
     drawHeart(x, 6, '#3a2530');                       // empty socket
-    if (player.hp >= i + 1) drawHeart(x, 6, '#c9304a');
+    if (player.hp >= i + 1) drawHeart(x, 6, full);
     else if (player.hp >= i + 0.5) {
       ctx.save();
       ctx.beginPath(); ctx.rect(x, 6, 4, 8); ctx.clip();
-      drawHeart(x, 6, '#c9304a');                     // the left half survives
+      drawHeart(x, 6, full);                          // the left half survives
       ctx.restore();
     }
   }
@@ -3462,7 +3786,17 @@ function bigText(msg, x, y, color, size) {
 
 /* ---------------- the eyeless dragon ---------------- */
 function updateDragon() {
-  if (level !== 1) return;                           // the dragon keeps to the road
+  if (level !== 1) {                 // the dragon keeps to the road...
+    if (dragon.ridden) {             // ...unless the cheat menu called it
+      dragon.t++;
+      if (dragon.gustCd > 0) dragon.gustCd--;
+      if (dragon.ballCd > 0) dragon.ballCd--;
+    } else if (dragon.active) {      // dismissed elsewhere, it slips away
+      dragon.spawned = dragon.active = false;
+      burst(dragon.x + dragon.w / 2, dragon.y + 6, '#7a4fd0', 10);
+    }
+    return;
+  }
   if (!dragon.spawned && playTime > 3600) {          // one minute in
     dragon.spawned = dragon.active = true;
     dragon.x = Math.max(0, player.x - 160);
@@ -4871,23 +5205,67 @@ function updateDog() {
   const hb = attackHitbox();
   if (hb && dog.lastHit !== hb.id && rectsOverlap(hb, dog)) {
     dog.lastHit = hb.id;
-    dog.hp--;
-    dog.flashT = 6;
-    dog.retreatT = 70;
-    dog.vx = player.face * 3;
-    dog.vy = -1.5;
-    sfx(300, 0.15, 'sawtooth', 0.05, 200);   // a yelp
-    burst(dog.x + 8, dog.y + 4, '#c9a06a', 5, player.face * 1.5);
-    if (dog.hp <= 0) {
-      dog.deadT = 600;                       // ten seconds before it dares again
-      dog.fleeT = 1;                         // visible until it clears the screen
-      dog.retreatT = 0;
-      dog.barkCd = 0;
-      score += 250;
-      sfx(210, 0.07, 'sawtooth', 0.055, 170);            // two sharp barks
-      setTimeout(() => sfx(230, 0.07, 'sawtooth', 0.05, 160), 120);
-      flashText = { msg: 'it barks, and thinks better of it.', t: 110 };
+    dogStruck(player.face);
+  }
+}
+
+// anything of hers that lands on the dog goes through here
+function dogStruck(dir) {
+  dog.hp--;
+  dog.flashT = 6;
+  dog.retreatT = 70;
+  dog.vx = dir * 3;
+  dog.vy = -1.5;
+  sfx(300, 0.15, 'sawtooth', 0.05, 200);     // a yelp
+  burst(dog.x + 8, dog.y + 4, '#c9a06a', 5, dir * 1.5);
+  if (dog.hp <= 0) {
+    dog.deadT = 600;                         // ten seconds before it dares again
+    dog.fleeT = 1;                           // visible until it clears the screen
+    dog.retreatT = 0;
+    dog.barkCd = 0;
+    score += 250;
+    sfx(210, 0.07, 'sawtooth', 0.055, 170);              // two sharp barks
+    setTimeout(() => sfx(230, 0.07, 'sawtooth', 0.05, 160), 120);
+    flashText = { msg: 'it barks, and thinks better of it.', t: 110 };
+  }
+}
+
+// at full creep her kicks shed porcelain — and she throws it
+function updateShards() {
+  for (let i = shards.length - 1; i >= 0; i--) {
+    const s = shards[i];
+    s.x += s.vx; s.y += s.vy; s.vy += 0.04; s.t++;
+    let gone = s.t > 90 || hardAt(s.x + 2, s.y + 2);
+    if (!gone) {
+      for (const e of enemies) {
+        if (!e.dead && rectsOverlap({ x: s.x, y: s.y, w: 4, h: 4 }, e)) {
+          e.hp -= 1;
+          e.flashT = 6;
+          sndHitE();
+          if (e.hp <= 0) killEnemy(e);
+          gone = true;
+          break;
+        }
+      }
     }
+    if (!gone && dog.active && dog.deadT <= 0 &&
+        rectsOverlap({ x: s.x, y: s.y, w: 4, h: 4 }, dog)) {
+      dogStruck(Math.sign(s.vx) || 1);
+      gone = true;
+    }
+    if (gone) {
+      burst(s.x + 2, s.y + 2, '#efe2cf', 5, Math.sign(s.vx) * 0.8);
+      shards.splice(i, 1);
+    }
+  }
+}
+
+function drawShards() {
+  ctx.fillStyle = '#efe2cf';
+  for (const s of shards) {
+    const x = Math.round(s.x - camX), y = Math.round(s.y);
+    if ((s.t >> 2) % 2) ctx.fillRect(x, y + 1, 4, 2);
+    else ctx.fillRect(x + 1, y, 2, 4);
   }
 }
 
@@ -6076,10 +6454,12 @@ function tick() {
     if (state === 'play') {
       updateDragon();
       updateDog();
+      updateSaucerDoor();
       updateKid();
     }
     updateEnemies();
     updateFireballs();
+    updateShards();
     updateHeartPickup();
     updateEyePickups();
     updateParticles();
@@ -6106,8 +6486,12 @@ function tick() {
   drawEnemies();
   drawDragon();
   drawDog();
+  drawSaucerDoor();
+  drawSaucer();
   drawPlayer();
+  drawJets();
   drawFireballs();
+  drawShards();
   drawParticles();
   ctx.restore();
   drawHUD();

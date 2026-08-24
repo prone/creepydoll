@@ -342,6 +342,42 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => level === 1 && state === 'play' && !paused && score === 0),
         'and back to the road, fresh, for the rest of the run');
 
+  /* ---------- summon-a-ride cheat ---------- */
+  section('ride cheat');
+  await page.keyboard.press('Escape');
+  await frames(3);
+  await ev(() => { assistSel = 6; rideChoice = 'dragon'; });
+  await page.keyboard.press('ArrowRight');
+  await frames(2);
+  check(await ev(() => rideChoice === 'saucer'), 'the ride row flips dragon to saucer');
+  await page.keyboard.press('ArrowRight');
+  await frames(2);
+  check(await ev(() => rideChoice === 'dragon'), 'and back again');
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => !paused && dragon.active && dragon.ridden),
+        'Enter drops her straight onto dragonback');
+  await ev(() => { const c = { key: 'c' };
+                   window.dispatchEvent(new KeyboardEvent('keydown', c)); });
+  await frames(3);
+  await ev(() => window.dispatchEvent(new KeyboardEvent('keyup', { key: 'c' })));
+  await frames(3);
+  check(await ev(() => !dragon.ridden), 'C hops off the summoned dragon');
+  await page.keyboard.press('Escape');
+  await frames(3);
+  await ev(() => { assistSel = 6; rideChoice = 'saucer'; player.hp = 5; });
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => !paused && saucer.active && player.hp === 10),
+        'summoning the saucer beams her aboard, hearts and all');
+  await tap('c');
+  await frames(5);
+  check(await ev(() => !saucer.active && player.hp <= 5),
+        'and C bails her back out');
+  await ev(() => { dragon.spawned = dragon.active = dragon.ridden = false;
+                   saucer.doorCd = 1800; player.invuln = 999999;
+                   flashText = null; });
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
@@ -388,6 +424,113 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'she walks freely beneath a platform');
   check(passUnder !== 'no-spot' && passUnder.landed,
         'and jumps up through it to land on top');
+
+  /* ---------- alien invasion ---------- */
+  section('alien invasion');
+  await ev(() => { player.invuln = 999999; player.hp = 5;
+                   player.x = 300; player.y = 100; player.vy = 0;
+                   saucer.doorCd = 1; });
+  await frames(6);
+  check(await ev(() => saucer.doorT > 0 && saucer.doorX > 0),
+        'a door that should not be there appears');
+  await ev(() => { saucer.doorT = 2; });
+  await frames(6);
+  check(await ev(() => saucer.doorT === 0 && saucer.doorX < 0 && !saucer.active),
+        'three seconds pass, and it is gone');
+  await ev(() => { saucer.doorCd = 1; });
+  await frames(6);
+  await ev(() => { player.x = saucer.doorX + 2; player.y = saucer.doorGy - 20;
+                   player.vy = 0; });
+  await frames(6);
+  check(await ev(() => saucer.active && player.hp === 10),
+        'the saucer takes her — five borrowed hearts');
+  check(await ev(() => saucer.jetCount >= 2 && saucer.jetCount <= 5),
+        'a squadron of two to five jets scrambles');
+  await frames(20);
+  check(await ev(() => jets.filter(j => !j.dead).length === saucer.jetCount),
+        'and they arrive');
+  const missileSeen = await page.evaluate(async () => {
+    jets.forEach(j => { j.fireCd = 2; });
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (missiles.length) return true;
+    }
+    return false;
+  });
+  check(missileSeen, 'they fire, inaccurately');
+  const jetKill = await page.evaluate(async () => {
+    const j = jets.find(j => !j.dead);
+    if (!j) return 'no-jet';
+    const s0 = score;
+    saucer.face = 1;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    for (let i = 0; i < 40; i++) {
+      j.x = saucer.x + 60; j.y = saucer.y + 6; j.vx = 0; j.fireCd = 999;
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 4) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      if (j.dead) break;
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    return score - s0;
+  });
+  check(jetKill === 300, 'a laser beam downs a jet (+300)');
+  await ev(() => { player.invuln = 0;
+                   missiles.push({ x: saucer.x + 4, y: saucer.y + 4,
+                                   vx: 0, vy: 0, t: 0 }); });
+  await frames(4);
+  check(await ev(() => player.hp === 9), 'a missile that finds her costs a heart');
+  await ev(() => { player.invuln = 999999; });
+  // the end of the line
+  await ev(() => { saucer.x = houseX - 250; });
+  await frames(4);
+  check(await ev(() => saucer.smokeT > 0), 'the saucer smokes at the end of the level');
+  await tap('c');
+  await frames(6);
+  check(await ev(() => !saucer.active && player.hp <= 5),
+        'she ejects in time; the borrowed hearts go home');
+  await ev(() => { player.hp = 5; enterSaucer(); saucer.x = houseX - 250;
+                   saucer.smokeT = 8; player.invuln = 0; });
+  await frames(30);
+  check(await ev(() => !saucer.active && player.hp === 4),
+        'staying aboard the explosion costs one heart');
+  await ev(() => { player.hp = 5; player.invuln = 999999;
+                   saucer.doorCd = 1800; flashText = null; });
+
+  /* ---------- porcelain shards ---------- */
+  section('porcelain shards');
+  await ev(() => { player.x = 300; player.y = 126; player.vy = 0;
+                   player.maxX = 200; player.attack = null; shards.length = 0; });
+  await tap('x');
+  await frames(4);
+  check(await ev(() => shards.length === 0),
+        'no shards before full creep — kicks are just kicks');
+  const shardKill = await page.evaluate(async () => {
+    player.maxX = LEVEL_W;                       // full creep
+    const b = enemies.find(e => e.kind === 'bat' && !e.dead);
+    if (!b) return 'no-bat';
+    player.x = b.x - 60; player.y = b.y - 4; player.vy = 0; player.face = 1;
+    player.attack = null; shards.length = 0;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
+    let threw = false, hp0 = b.hp;
+    for (let i = 0; i < 60; i++) {
+      // keep the bat in the shard's flight line (she may be falling)
+      if (shards.length) { b.x = shards[0].x - 4; b.y = shards[0].y - 2; }
+      else { b.x = player.x + 60; b.y = player.y + 8; }
+      b.vx = 0; b.vy = 0;
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 3) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+      if (shards.length) threw = true;
+      if (b.dead || b.hp < hp0) {
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+        return { threw, hit: true };
+      }
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+    return { threw, hit: false };
+  });
+  check(shardKill !== 'no-bat' && shardKill.threw && shardKill.hit,
+        'at full creep a kick throws porcelain, and it lands');
+  await ev(() => { player.maxX = 200; shards.length = 0; player.invuln = 999999; });
 
   section('pit');
   await ev(() => { player.invuln = 0; player.hp = 3; player.x = 670; player.y = 126; player.vy = 0; });
