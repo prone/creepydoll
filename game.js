@@ -14,12 +14,16 @@ const MAP_H = 11;               // rows
 const MAP_W = 220;              // columns
 const LEVEL_W = MAP_W * TILE;
 
-// Integer-scale the canvas to fit the window.
+// Scale the canvas to fit the window: crisp integer steps when there's
+// room, fluid fill on small (phone) screens where floor(scale) would
+// leave the game postage-stamp sized.
+const touchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 function fitCanvas() {
-  const s = Math.max(1, Math.floor(Math.min(
-    window.innerWidth / VIEW_W, (window.innerHeight - 40) / VIEW_H)));
-  canvas.style.width = (VIEW_W * s) + 'px';
-  canvas.style.height = (VIEW_H * s) + 'px';
+  const availH = window.innerHeight - (touchDevice ? 8 : 40);
+  let s = Math.min(window.innerWidth / VIEW_W, availH / VIEW_H);
+  s = s >= 2 ? Math.floor(s) : Math.max(0.5, s);
+  canvas.style.width = Math.round(VIEW_W * s) + 'px';
+  canvas.style.height = Math.round(VIEW_H * s) + 'px';
 }
 window.addEventListener('resize', fitCanvas);
 fitCanvas();
@@ -2013,6 +2017,84 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 canvas.addEventListener('pointerdown', () => { startAudio(); if (AC && AC.state === 'suspended') AC.resume(); });
+
+/* ---------------- gamepad: an Xbox pad speaks the same keys ----------------
+   Polled each frame; button/stick edges are re-dispatched as the keyboard
+   events the whole game (and its menus) already understand. */
+const padHeld = {};
+function pollGamepad() {
+  if (!navigator.getGamepads) return;
+  const pads = navigator.getGamepads();
+  let p = null;
+  for (let i = 0; i < pads.length && !p; i++)
+    if (pads[i] && pads[i].connected) p = pads[i];
+  if (!p) return;
+  const b = i => !!(p.buttons[i] && p.buttons[i].pressed);
+  const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
+  const want = {
+    'ArrowLeft':  b(14) || ax < -0.4,
+    'ArrowRight': b(15) || ax > 0.4,
+    'ArrowUp':    b(12) || ay < -0.6,       // doors (A is the jump)
+    'ArrowDown':  b(13) || ay > 0.6,        // held: power jump
+    ' ':      b(0),                         // A — jump
+    'x':      b(1),                         // B — kick
+    'z':      b(2),                         // X — punch
+    'c':      b(3),                         // Y — crouch
+    'Enter':  b(9),                         // menu — start / confirm
+    'Escape': b(8),                         // view — pause
+  };
+  for (const k in want) {
+    if (want[k] === !!padHeld[k]) continue;
+    padHeld[k] = want[k];
+    window.dispatchEvent(new KeyboardEvent(want[k] ? 'keydown' : 'keyup', { key: k }));
+  }
+}
+
+/* ---------------- touch: on-screen controls, same key events ----------------
+   Built by the game itself on touch devices (no markup changes, CSP-safe),
+   so the Capacitor/UWP wrappers get controls for free. */
+function buildTouchControls(force) {
+  if (!force && !touchDevice) return;
+  if (document.getElementById('touch-l')) return;
+  const style = document.createElement('style');
+  style.textContent =
+    '#touch-l,#touch-r{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));' +
+    'display:flex;gap:10px;z-index:9;user-select:none;-webkit-user-select:none;touch-action:none}' +
+    '#touch-l{left:max(12px,env(safe-area-inset-left))}' +
+    '#touch-r{right:max(12px,env(safe-area-inset-right))}' +
+    '.tbtn{width:52px;height:52px;border-radius:14px;border:2px solid #4a3f66;' +
+    'background:rgba(20,12,34,0.55);color:#cfc3e8;font:700 16px monospace;' +
+    'touch-action:none;padding:0}' +
+    '.tbtn:active{background:rgba(90,60,140,0.6)}' +
+    '#touch-sys{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:9}' +
+    '#touch-sys .tbtn{width:40px;height:40px;font-size:13px}' +
+    (touchDevice ? '.hint{display:none}' : '');
+  document.head.appendChild(style);
+  const mk = (parent, label, key) => {
+    const el = document.createElement('button');
+    el.className = 'tbtn';
+    el.textContent = label;
+    const send = (type, e) => {
+      e.preventDefault();
+      window.dispatchEvent(new KeyboardEvent(type, { key }));
+    };
+    el.addEventListener('pointerdown', e => send('keydown', e));
+    el.addEventListener('pointerup', e => send('keyup', e));
+    el.addEventListener('pointercancel', e => send('keyup', e));
+    el.addEventListener('pointerleave', e => send('keyup', e));
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    parent.appendChild(el);
+  };
+  const L = document.createElement('div'); L.id = 'touch-l';
+  const R = document.createElement('div'); R.id = 'touch-r';
+  const S = document.createElement('div'); S.id = 'touch-sys';
+  document.body.appendChild(L); document.body.appendChild(R); document.body.appendChild(S);
+  mk(L, '◀', 'ArrowLeft'); mk(L, '▶', 'ArrowRight');
+  mk(L, '▲', 'ArrowUp');   mk(L, '▼', 'ArrowDown');
+  mk(R, 'C', 'c'); mk(R, 'Z', 'z'); mk(R, 'X', 'x'); mk(R, 'A', ' ');
+  mk(S, '⏎', 'Enter'); mk(S, '⏸', 'Escape');
+}
+buildTouchControls();
 
 const kLeft  = () => keys['arrowleft'] || keys['a'];
 const kRight = () => keys['arrowright'] || keys['d'];
@@ -6416,6 +6498,7 @@ function drawWin() {
 /* ---------------- main loop ---------------- */
 function tick(now) {
   frame++;
+  pollGamepad();
   const steps = lastTickT > 0 && now > 0 ? catchupSteps(now - lastTickT) : 1;
   if (now > 0) lastTickT = now;
 

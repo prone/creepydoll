@@ -422,6 +422,51 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await ev(() => { assist.speed = 1; flashText = null;
                    player.invuln = 999999; });
 
+  /* ---------- gamepad & touch input ---------- */
+  section('gamepad & touch');
+  const padProbe = await page.evaluate(async () => {
+    const pad = { connected: true, axes: [0, 0],
+                  buttons: Array.from({ length: 17 }, () => ({ pressed: false })) };
+    Object.defineProperty(navigator, 'getGamepads',
+                          { configurable: true, value: () => [pad] });
+    player.x = 300; player.y = 126; player.vx = 0; player.vy = 0;
+    pad.buttons[15].pressed = true;                 // dpad right
+    for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+    const walked = keys['arrowright'] === true && player.vx > 0;
+    pad.buttons[15].pressed = false;
+    pad.buttons[0].pressed = true;                  // A: jump
+    for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+    const released = keys['arrowright'] === false;
+    const jumped = player.vy < 0 || !player.onGround;
+    pad.buttons[0].pressed = false;
+    for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+    delete navigator.getGamepads;                   // restore the real one
+    return { walked, released, jumped };
+  });
+  check(padProbe.walked, 'an Xbox pad dpad walks her (same key path)');
+  check(padProbe.released, 'releasing the dpad releases the key');
+  check(padProbe.jumped, 'the A button jumps');
+  const touchProbe = await page.evaluate(async () => {
+    buildTouchControls(true);
+    const btns = [...document.querySelectorAll('.tbtn')];
+    const right = btns.find(b => b.textContent === '▶');
+    if (!right) return 'no-buttons';
+    player.x = 300; player.y = 126; player.vx = 0; player.vy = 0;
+    right.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+    const walked = keys['arrowright'] === true && player.vx > 0;
+    right.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+    return { walked, released: keys['arrowright'] === false,
+             count: btns.length };
+  });
+  check(touchProbe !== 'no-buttons' && touchProbe.walked,
+        'an on-screen touch button walks her');
+  check(touchProbe !== 'no-buttons' && touchProbe.released &&
+        touchProbe.count === 10,
+        'lifting the finger stops her; all ten controls exist');
+  await ev(() => { player.invuln = 999999; player.vx = 0; });
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
