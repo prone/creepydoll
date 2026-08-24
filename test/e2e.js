@@ -378,6 +378,35 @@ function section(name) { console.log('\n== ' + name + ' =='); }
                    saucer.doorCd = 1800; player.invuln = 999999;
                    flashText = null; });
 
+  /* ---------- creep resets when every heart is lost ---------- */
+  section('creep reset');
+  await ev(() => { level = 2; resetGame(); state = 'play'; });
+  await frames(3);
+  check(await ev(() => creepStage() === 3),
+        'entering the house the story way, she is still very wrong');
+  await ev(() => { assist.invuln = false; assist.hearts = false;
+                   player.invuln = 0; player.hp = 1;
+                   hurtPlayer(player.x - 10); });
+  await frames(3);
+  check(await ev(() => state === 'gameover'), 'her last heart goes to the dog\'s house');
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => state === 'play' && level === 2 && player.hp === 5 &&
+                       creepStage() === 0 && !inkMelt),
+        'the retry starts her porcelain-clean — creep and ink wiped');
+  await ev(() => { player.maxX = LEVEL_W; });
+  await frames(2);
+  check(await ev(() => creepStage() === 3),
+        'and she earns the cracks all over again as she advances');
+  // a plain (non-retry) entry into a later level still locks stage 3
+  await ev(() => { level = 3; resetGame(); state = 'play'; });
+  await frames(3);
+  check(await ev(() => creepStage() === 3 && inkMelt),
+        'a fresh story entry into the woods keeps her very wrong and melted');
+  await ev(() => { level = 1; resetGame(); state = 'play';
+                   player.invuln = 999999; });
+  await frames(3);
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
@@ -1321,8 +1350,9 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.waitForFunction(() => state === 'gameover', null, { timeout: 5000 });
   await page.keyboard.press('Enter');
   await frames(4);
-  check(await ev(() => level === 3 && state === 'play' && inkMelt),
-        'game over retries the woods, still half ink');
+  check(await ev(() => level === 3 && state === 'play' &&
+                       creepStage() === 0 && !inkMelt),
+        'game over retries the woods — scrubbed porcelain-clean');
   // corner him at the chapel (the werewolf will land here next)
   await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
                    player.vy = 0; player.maxX = houseX - 250; });

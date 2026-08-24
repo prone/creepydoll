@@ -2035,6 +2035,7 @@ function shakeOffset() {
     : [0, 0];
 }
 let inkMelt = false;            // past the second lantern, half of her runs to ink
+let creepClean = false;         // a lost-all-hearts retry starts the creep meter over
 let shakeT = 0, shakeMag = 0;   // screen shake: frames left, pixel magnitude
 function addShake(mag, frames) {
   if (assist.calm) return;      // reduced-flash mode keeps the camera still
@@ -2147,7 +2148,9 @@ const STAGE_MSGS = [
 ];
 
 function creepStage() {
-  if (level >= 2) return 3;     // past the road she stays as she left it: very wrong
+  // past the road she stays as she left it: very wrong — unless she lost
+  // every heart, in which case the retry starts porcelain-clean
+  if (level >= 2 && !creepClean) return 3;
   return Math.min(3, Math.floor(player.maxX / (LEVEL_W / 4.2)));
 }
 
@@ -2161,6 +2164,7 @@ function resetGame() {
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
   inkMelt = level >= 3;         // the house's candle already took half of her
+  creepClean = false;           // a gameover retry flips this back on after the reset
   shakeT = 0; shakeMag = 0;
   particles.length = 0;
   fireballs.length = 0;
@@ -2235,9 +2239,13 @@ function handleMenuKeys(key) {
   if (state === 'title' || state === 'gameover' || state === 'win' ||
       state === 'interlude') {
     const carry = state === 'interlude' ? score : 0;   // the score follows her in
+    const retry = state === 'gameover';
     if (state === 'interlude') level = Math.min(5, level + 1);
-    else if (state !== 'gameover') level = 1;          // game over retries the level
+    else if (!retry) level = 1;                        // game over retries the level
     resetGame();
+    // losing every heart wipes the creep: she retries porcelain-clean
+    // and has to earn the cracks (and the ink) all over again
+    if (retry) { creepClean = true; inkMelt = false; }
     score = carry;
     state = 'play';
   }
