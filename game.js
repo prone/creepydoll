@@ -546,7 +546,7 @@ function genOutside() {
     // gap
     const gap = rint(2, 3);
     if (rng() < 0.4) {  // platform bridging the gap
-      const pr = rint(6, 7);
+      const pr = rint(6, 7);          // ends over ground are culled by the headroom pass
       for (let i = -1; i <= gap; i++)
         if (c + i >= 0 && c + i < MAP_W) map[pr][c + i] = 2;
     }
@@ -554,8 +554,9 @@ function genOutside() {
   }
 
   // floating platforms with occasional spiders beneath
+  // (never lower than row 6 — she must be able to walk under them standing)
   for (let i = 0; i < 26; i++) {
-    const pc = rint(14, MAP_W - 20), pr = rint(5, 7), len = rint(3, 5);
+    const pc = rint(14, MAP_W - 20), pr = Math.min(6, rint(5, 7)), len = rint(3, 5);
     let clear = true;
     for (let j = 0; j < len; j++)
       if (map[pr][pc + j] || map[pr + 1] && map[pr + 1][pc + j] === 2) clear = false;
@@ -564,6 +565,12 @@ function genOutside() {
     if (rng() < 0.35)
       enemies.push(makeSpider((pc + (len >> 1)) * TILE, (pr + 1) * TILE));
   }
+
+  // headroom pass: no platform may leave less than two tiles of standing
+  // air over solid ground — she (and the boy) must fit underneath upright
+  for (let r = 2; r < MAP_H - 2; r++)
+    for (let cc = 0; cc < MAP_W; cc++)
+      if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
 
   // hand-tweak: the spider platform at the first snake encounter sat one
   // tile too high (row 5, cols 56-58) — drop it to row 6 so it lines up
@@ -766,6 +773,11 @@ function genHouse() {
   // spiders on long silk, down from the ceiling
   for (let cc = 40; cc < MAP_W - 30; cc += rint(18, 30))
     if (rng() < 0.5) enemies.push(makeSpider(cc * TILE, TILE));
+
+  // same headroom rule as outside: standing room under every shelf
+  for (let r = 2; r < MAP_H - 2; r++)
+    for (let cc = 0; cc < MAP_W; cc++)
+      if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
 
   doors.length = 0;                                    // no carnival in here
   eyePickups.length = 0;                               // her eyes were outside
@@ -1484,18 +1496,18 @@ function updateKid() {
         kid.seen = true;
       }
     } else if (kid.mode === 'peek') {
+      // one heartbeat to be seen, then he RUNS — he is always running
       kid.glimpseT++;
       kid.vx = 0;
       kid.face = player.x < kid.x ? -1 : 1;
-      // the moment she closes in, he bolts — the chase is the point
-      if (Math.abs(player.x - kid.x) < 150 || kid.glimpseT > 180) {
+      if (Math.abs(player.x - kid.x) < 200 || kid.glimpseT > 10) {
         kid.mode = 'sprint'; kid.alarmT = 30;
         sfx(700, 0.2, 'square', 0.05, 250);
       }
     } else if (kid.mode === 'sprint') {
-      // faster than the doll — she cannot catch them yet
+      // faster than the doll — she cannot catch him until the end
       kid.vx = 1.95; kid.face = 1;
-      const aheadX = kid.x + kid.w + 4;
+      const aheadX = kid.x + kid.w + 6;
       if (kid.onGround &&
           (solidAt(aheadX, kid.y + kid.h - 4) || !solidAt(aheadX, kid.y + kid.h + 6)))
         kid.vy = -6;
@@ -1534,7 +1546,7 @@ function updateKid() {
       kid.face = dx < 0 ? -1 : 1;       // trembling, watching her come
     }
     // hop over small obstacles / gaps
-    const aheadX = kid.face > 0 ? kid.x + kid.w + 4 : kid.x - 4;
+    const aheadX = kid.face > 0 ? kid.x + kid.w + 6 : kid.x - 6;
     if (kid.onGround &&
         (solidAt(aheadX, kid.y + kid.h - 4) || !solidAt(aheadX, kid.y + kid.h + 6)))
       kid.vy = -6;

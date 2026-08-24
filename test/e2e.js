@@ -60,6 +60,12 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'the back half crowds harder than the front');
   check(await ev(() => enemies.every(e => e.x < (MAP_W - 26) * TILE)),
         'a quiet breath before the dollhouse');
+  check(await ev(() => {
+    for (let r = 2; r < MAP_H - 2; r++)
+      for (let c = 0; c < MAP_W; c++)
+        if (map[r][c] === 2 && map[r + 2][c]) return false;
+    return true;
+  }), 'every platform leaves standing room beneath it');
 
   /* ---------- movement ---------- */
   section('movement');
@@ -520,14 +526,11 @@ function section(name) { console.log('\n== ' + name + ' =='); }
     kid.stage = 'roam'; kid.mode = 'hidden'; kid.hideT = 1; kid.x = -1000;
   });
   await frames(5);
-  check(await ev(() => kid.mode === 'peek' && kid.x > player.x),
-        'the kid is glimpsed running ahead during the level');
-  check(await ev(() => kid.x - player.x < 200),
-        'he appears close enough to give chase');
-  await ev(() => { player.x = kid.x - 100; player.y = kid.y; player.vy = 0; });
+  check(await ev(() => kid.mode !== 'hidden' && kid.x > player.x),
+        'the kid appears ahead during the level');
   await frames(10);
   check(await ev(() => kid.mode === 'sprint' && kid.vx > 1.7),
-        'closing in makes him bolt, faster than she can run');
+        'and he is always running — faster than she can');
   await ev(() => { player.x = kid.x; player.y = kid.y; });
   await frames(3);
   check(await ev(() => state === 'play'), 'the kid cannot be tagged while roaming');
@@ -563,6 +566,12 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => doors.length === 0 && eyePickups.length === 0),
         'no carnival doors and no eye hunt indoors');
   check(await ev(() => checkpoints.length >= 4), 'candles mark the way');
+  check(await ev(() => {
+    for (let r = 2; r < MAP_H - 2; r++)
+      for (let c = 0; c < MAP_W; c++)
+        if (map[r][c] === 2 && map[r + 2][c]) return false;
+    return true;
+  }), 'every shelf leaves standing room beneath it');
   await ev(() => { playTime = 4000; });
   await frames(4);
   check(await ev(() => !dragon.active), 'a minute passes; no wings in the house');
