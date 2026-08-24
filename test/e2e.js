@@ -349,6 +349,15 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(8);
   check(await ev(() => eyePickups[0].taken && eyesFound === 1),
         'touching a lost eye collects it (1/4)');
+  // the fourth eye's message holds steady for two seconds
+  await ev(() => { eyesFound = 3; const ep = eyePickups[1];
+                   player.x = ep.x - 2; player.y = ep.y - 4; player.vy = 0; });
+  await frames(8);
+  check(await ev(() => eyePickups[1].taken && flashText &&
+        flashText.msg === 'all her eyes... she sees.' &&
+        flashText.hold === true && flashText.t > 100),
+        'the all-eyes message holds steady for two seconds');
+  await ev(() => { eyesFound = 1; eyePickups[1].taken = false; flashText = null; });
 
   /* ---------- carnival doors & minigames ---------- */
   section('carnival doors');

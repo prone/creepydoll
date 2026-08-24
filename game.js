@@ -1793,7 +1793,7 @@ function updateEyePickups() {
       sfx(1568, 0.25, 'sine', 0.04);
       burst(ep.x + 3, ey + 3, '#e8c66a', 10);
       flashText = eyesFound >= EYES_TOTAL
-        ? { msg: 'all her eyes... she sees.', t: 150 }
+        ? { msg: 'all her eyes... she sees.', t: 120, hold: true }  // two steady seconds
         : { msg: 'a lost button eye (' + eyesFound + '/' + EYES_TOTAL + ')', t: 120 };
     }
   }
@@ -2314,7 +2314,7 @@ function drawHUD() {
   if (flashText) {
     flashText.t--;
     if (flashText.t < 0) flashText = null;
-    else if ((flashText.t >> 3) % 4 !== 0) {
+    else if (flashText.hold || (flashText.t >> 3) % 4 !== 0) {
       const w = flashText.msg.length * 6;
       pixelText(flashText.msg, (VIEW_W - w) / 2, 60, '#e8d8f0');
     }
