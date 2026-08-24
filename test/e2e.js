@@ -1189,8 +1189,53 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   // crumple, revert, and THROUGH the wall
   await page.waitForFunction(() => boss.wallHole === true, null, { timeout: 30000 });
   check(true, 'the boy breaks through the chapel wall');
+  await page.waitForFunction(() => state === 'interlude', null, { timeout: 30000 });
+  check(await ev(() => boss.phase === 'gone'), 'and he is gone — uphill, into the snow');
+
+  /* ---------- level 4: the snowy mountain ---------- */
+  section('level 4');
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => level === 4 && state === 'play' && player.x === 40),
+        'she follows him up the mountain');
+  check(await ev(() => groundTopRowAt(8) === 9 && groundTopRowAt(MAP_W - 8) === 5),
+        'the ground climbs from valley floor to summit plateau');
+  check(await ev(() => checkpoints.length >= 4 &&
+        checkpoints.some(cp => cp.gy < 9 * TILE)),
+        'frozen crystals mark the way, some on high shelves');
+  check(await ev(() => doors.length === 0 && enemies.length === 0),
+        'no doors this high (and the slopes are empty, for now)');
+  check(await ev(() => creepStage() === 3 && inkMelt), 'still far gone, still half ink');
+  // a raised checkpoint catches her fall at its own height
+  const raisedRespawn = await page.evaluate(async () => {
+    const cp = checkpoints.find(c => c.gy < 9 * TILE);
+    if (!cp) return 'no-raised-crystal';
+    player.invuln = 999999; player.hp = 5;
+    player.x = cp.x + 10; player.y = cp.gy - 30; player.vy = 0;
+    for (let i = 0; i < 10; i++) await new Promise(r => requestAnimationFrame(r));
+    if (!cp.reached) return 'not-lit';
+    player.invuln = 0; player.y = 400; player.vy = 3;
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (player.respawnT > 0) break;
+    }
+    for (let i = 0; i < 90 && player.respawnT > 0; i++)
+      await new Promise(r => requestAnimationFrame(r));
+    return { y: player.y, want: lastCP.y, hp: player.hp };
+  });
+  check(raisedRespawn.hp === 4 && Math.abs(raisedRespawn.y - raisedRespawn.want) < 3,
+        'the crystal pulls her back at its own height');
+  // the summit
+  await ev(() => { player.invuln = 999999; player.x = houseX - 250;
+                   player.y = FINALE_GY - 40; player.vy = 0; player.maxX = houseX - 250; });
+  await frames(4);
+  check(await ev(() => kid.stage === 'final' &&
+        Math.abs(kid.y - (FINALE_GY - kid.h)) < 4),
+        'the boy waits at the ice-cave mouth');
+  await page.keyboard.down('ArrowRight');
   await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
-  check(await ev(() => boss.phase === 'gone'), 'and he is gone — the true ending');
+  await page.keyboard.up('ArrowRight');
+  check(true, 'reaching him at the summit ends the story (for now)');
   await page.keyboard.press('Enter');
   await frames(4);
   check(await ev(() => level === 1 && state === 'play' && score === 0),

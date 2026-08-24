@@ -543,13 +543,29 @@ const WOODS_GLIMPSE_LINES = [
   'nearly out of woods to hide in.',
   'the chapel. of course. the chapel.',
 ];
+// and on the climb
+const SNOW_GLIMPSE_LINES = [
+  'his footprints. fresh ones.',
+  'cold means nothing to porcelain.',
+  'he climbs. she climbs.',
+  'the mountain is on nobody\'s side.',
+  'a cave above. nowhere past it.',
+];
 
 /* ---------------- level ---------------- */
 // map[r][c]: 0 empty, 1 ground, 2 platform, 3 furniture (solid wood)
 let map = [];
 const enemies = [];
-let houseX = 0;         // level 1: the dollhouse. 2: the bedroom door. 3: the old chapel.
-let level = 1;          // 1: the road outside. 2: the boy's house. 3: the deep woods.
+let houseX = 0;         // the finale landmark: dollhouse / bedroom / chapel / cave / burial door
+let level = 1;          // 1 road, 2 house, 3 deep woods, 4 snowy mountain, 5 tomb
+let FINALE_GY = 9 * TILE;  // ground y at the finale landmark (the mountain raises it)
+
+// first standable ground row at a column (solid ground with air above)
+function groundTopRowAt(c) {
+  for (let r = 2; r < MAP_H; r++)
+    if (map[r][c] === 1 && !map[r - 1][c]) return r;
+  return -1;
+}
 const tables = [];      // level 2: world-x of each table she must jump
 
 // a lone heart floating over the second ravine — heals one heart, once
@@ -584,9 +600,79 @@ const fireballs = [];
 let playTime = 0;
 
 function genLevel() {
-  if (level === 3) genWoods();
+  FINALE_GY = 9 * TILE;
+  if (level === 5) genTomb();
+  else if (level === 4) genSnow();
+  else if (level === 3) genWoods();
   else if (level === 2) genHouse();
   else genOutside();
+}
+
+/* ---------------- level 4: the snowy mountain ---------------- */
+function genSnow() {
+  map = [];
+  enemies.length = 0;
+  tables.length = 0;
+  rngState = 0x5C04F;
+  for (let r = 0; r < MAP_H; r++) map.push(new Array(MAP_W).fill(0));
+
+  // the climb: the ground steps upward, valley floor to summit plateau
+  const SUMMIT = 5;
+  let c = 0, row = 9;
+  while (c < MAP_W) {
+    let run = rint(8, 14);
+    if (c < 14) { run = 16; row = 9; }
+    if (c + run > MAP_W - 18) { run = MAP_W - c; row = SUMMIT; }
+    for (let i = 0; i < run && c + i < MAP_W; i++)
+      for (let r = row; r < MAP_H; r++) map[r][c + i] = 1;
+    c += run;
+    if (c >= MAP_W - 18) break;
+    c += rint(2, 3);                                  // a crevasse
+    if (row > SUMMIT && rng() < 0.75) row--;          // and the next shelf is higher
+  }
+
+  doors.length = 0;                                   // no games this high up
+  eyePickups.length = 0;
+
+  // a heart over the second crevasse, hung at local height
+  heartPickup.taken = false; heartPickup.t = 0;
+  heartPickup.x = -100; heartPickup.y = -100;
+  let gapCount = 0, inGap = false;
+  for (let cc = 0; cc < MAP_W; cc++) {
+    const gr = groundTopRowAt(cc);
+    if (gr < 0) {
+      if (!inGap) {
+        inGap = true; gapCount++;
+        if (gapCount === 2) {
+          let end = cc;
+          while (end < MAP_W && groundTopRowAt(end) < 0) end++;
+          const nearRow = groundTopRowAt(Math.max(0, cc - 1));
+          heartPickup.x = Math.round((cc + end) / 2 * TILE) - 4;
+          heartPickup.y = ((nearRow > 3 ? nearRow : 9) - 3) * TILE - 4;
+          break;
+        }
+      }
+    } else inGap = false;
+  }
+
+  // frozen crystals mark the way
+  checkpoints.length = 0;
+  for (let target = 30; target < MAP_W - 22; target += 30) {
+    let cc = target, gr = -1;
+    while (cc < MAP_W - 18 && (gr = groundTopRowAt(cc)) < 0) cc++;
+    checkpoints.push({ x: cc * TILE + 4, reached: false, gy: gr * TILE });
+  }
+  lastCP.x = 40; lastCP.y = 100;
+
+  houseX = (MAP_W - 6) * TILE;                        // the ice-cave mouth
+  FINALE_GY = SUMMIT * TILE;
+  resetKid();
+}
+
+function genTomb() {
+  // placeholder until the tomb ships — the summit tunnel leads here next
+  genHouse();
+  FINALE_GY = 9 * TILE;
 }
 
 /* ---------------- level 3: the deep woods ---------------- */
@@ -690,7 +776,7 @@ function genWoods() {
     while (cc < MAP_W - 18 &&
            !(map[9][cc] === 1 && !map[8][cc] && !map[7][cc]))
       cc++;
-    checkpoints.push({ x: cc * TILE + 4, reached: false });
+    checkpoints.push({ x: cc * TILE + 4, reached: false, gy: 9 * TILE });
   }
   lastCP.x = 40; lastCP.y = 100;
 
@@ -815,7 +901,7 @@ function genOutside() {
            !(map[9][c] === 1 && !map[8][c] &&
              doors.every(d => Math.abs(d.x - c * TILE) > 40)))
       c++;
-    checkpoints.push({ x: c * TILE + 4, reached: false });
+    checkpoints.push({ x: c * TILE + 4, reached: false, gy: 9 * TILE });
   }
   lastCP.x = 40; lastCP.y = 100;
 
@@ -996,7 +1082,7 @@ function genHouse() {
     while (cc < MAP_W - 18 &&
            !(map[9][cc] === 1 && !map[8][cc] && !map[7][cc]))
       cc++;
-    checkpoints.push({ x: cc * TILE + 4, reached: false });
+    checkpoints.push({ x: cc * TILE + 4, reached: false, gy: 9 * TILE });
   }
   lastCP.x = 40; lastCP.y = 100;
 
@@ -1138,6 +1224,15 @@ const WOODS = [
 ];
 const WOODS_STEP = 0.32;
 
+// the mountain: high, thin, and slow — notes like breath in cold air
+const SNOW = [
+  57, -1, 64, -1, 62, -1, 57, -1,
+  55, -1, 62, -1, 60, -1, 55, -1,
+  57, -1, 64, -1, 67, -1, 66, -1,
+  62, -1, 60, -1, 57, -1, -1, -1,
+];
+const SNOW_STEP = 0.30;
+
 // the boss fight: fast, low, and wrong — a tritone gnawing at the floor
 const BOSS_THEME = [
   38, -1, 50, 44, 38, -1, 49, 44,
@@ -1222,6 +1317,16 @@ function scheduleMusic() {
       }
       musicStep++;
       nextNoteTime += WOODS_STEP;
+    } else if (level === 4) {
+      // the mountain barely hums
+      const m = SNOW[musicStep % SNOW.length];
+      if (m > 0) {
+        musicBoxNote(m, nextNoteTime, 0.07, (Math.random() - 0.5) * 5, 'triangle', 0.7);
+        if (Math.random() < 0.25)
+          musicBoxNote(m + 12, nextNoteTime + 0.03, 0.02, 5, 'sine', 0.5);
+      }
+      musicStep++;
+      nextNoteTime += SNOW_STEP;
     } else if (level === 2) {
       // the house waltz — cozy, with a sour lean that grows with her
       const m = HOUSE[musicStep % HOUSE.length];
@@ -1320,9 +1425,25 @@ const WOODS_AMBIENTS = [
       sfx(140, 2.0, 'triangle', 0.02, 50);
       setTimeout(() => sfx(180, 1.5, 'triangle', 0.014, -60), 700); } },
 ];
+// and the mountain, saying very little (level 4)
+const SNOW_AMBIENTS = [
+  { minStage: 0, name: 'gust', play: () => {                 // wind with teeth
+      sfx(180, 1.6, 'triangle', 0.03, 90);
+      setTimeout(() => sfx(240, 1.2, 'triangle', 0.02, -80), 600); } },
+  { minStage: 0, name: 'rumble', play: () => {               // something lets go, far off
+      sfx(45, 1.8, 'sine', 0.06, -8);
+      setTimeout(() => sfx(38, 1.4, 'sine', 0.04, -5), 800); } },
+  { minStage: 0, name: 'raven', play: () => {                // one black speck complains
+      sfx(560, 0.09, 'sawtooth', 0.025, -220);
+      setTimeout(() => sfx(520, 0.1, 'sawtooth', 0.02, -200), 200); } },
+  { minStage: 2, name: 'iceCrack', play: () => {             // the glacier shifts its grip
+      sfx(1100, 0.08, 'square', 0.03, -700);
+      setTimeout(() => sfx(70, 0.6, 'sine', 0.05, -20), 120); } },
+];
 let ambientCd = 600;
 function playAmbient(stage) {
-  const pool = (level === 3 ? WOODS_AMBIENTS :
+  const pool = (level === 4 ? SNOW_AMBIENTS :
+                level === 3 ? WOODS_AMBIENTS :
                 level === 2 ? HOUSE_AMBIENTS : AMBIENTS)
     .filter(a => stage >= a.minStage);
   pool[Math.floor(Math.random() * pool.length)].play();
@@ -1478,7 +1599,7 @@ function handleMenuKeys(key) {
   if (state === 'title' || state === 'gameover' || state === 'win' ||
       state === 'interlude') {
     const carry = state === 'interlude' ? score : 0;   // the score follows her in
-    if (state === 'interlude') level = level === 1 ? 2 : 3;
+    if (state === 'interlude') level = Math.min(5, level + 1);
     else if (state !== 'gameover') level = 1;          // game over retries the level
     resetGame();
     score = carry;
@@ -1711,7 +1832,7 @@ function afterMove(prevStage) {
   for (const cp of checkpoints) {
     if (!cp.reached && player.x + player.w > cp.x) {
       cp.reached = true;
-      lastCP.x = cp.x - 2; lastCP.y = 9 * TILE - 19;
+      lastCP.x = cp.x - 2; lastCP.y = (cp.gy || 9 * TILE) - 19;
       sfx(660, 0.12, 'triangle', 0.05);
       sfx(990, 0.2, 'sine', 0.03);
       burst(cp.x + 4, 9 * TILE - 20, '#e8c66a', 8);
@@ -1752,21 +1873,22 @@ function updateKid() {
   // roaming phase: glimpses ahead of the doll, always out of reach
   if (kid.stage === 'roam') {
     if (player.maxX >= houseX - 280) {
-      // the finale — the kid takes their place outside the dollhouse
+      // the finale — the kid takes their place at the landmark
       kid.stage = 'final'; kid.mode = 'idle';
-      kid.x = houseX - 70; kid.y = 9 * TILE - kid.h - 1;
+      kid.x = houseX - 70; kid.y = FINALE_GY - kid.h - 1;
       kid.vx = 0; kid.vy = 0; kid.face = -1;
       return;
     }
     if (kid.mode === 'hidden') {
       if (--kid.hideT <= 0) {
         // step out onto solid ground ahead of her — close enough to chase
-        let c = Math.floor((player.x + 120) / TILE);
-        while (c < MAP_W - 16 && map[9][c] !== 1) c++;
-        kid.x = c * TILE + 3; kid.y = 9 * TILE - kid.h - 1;
+        let c = Math.floor((player.x + 120) / TILE), gr = -1;
+        while (c < MAP_W - 16 && (gr = groundTopRowAt(c)) < 0) c++;
+        kid.x = c * TILE + 3; kid.y = (gr > 0 ? gr : 9) * TILE - kid.h - 1;
         kid.vx = 0; kid.vy = 0;
         kid.mode = 'peek'; kid.glimpseT = 0;
-        const lines = level === 3 ? WOODS_GLIMPSE_LINES :
+        const lines = level === 4 ? SNOW_GLIMPSE_LINES :
+                      level === 3 ? WOODS_GLIMPSE_LINES :
                       level === 2 ? HOUSE_GLIMPSE_LINES : GLIMPSE_LINES;
         if (kid.glimpses < lines.length)
           flashText = { msg: lines[kid.glimpses], t: 120 };
@@ -1833,7 +1955,7 @@ function updateKid() {
   kid.vy = Math.min(kid.vy + 0.38, 7);
   moveAndCollide(kid);
   if (kid.y > MAP_H * TILE + 30) {      // never lose the kid down a pit
-    kid.x = houseX - 40; kid.y = 9 * TILE - kid.h - 1; kid.vy = 0;
+    kid.x = houseX - 40; kid.y = FINALE_GY - kid.h - 1; kid.vy = 0;
   }
   if (kid.alarmT > 0) kid.alarmT--;
   kid.animT += Math.abs(kid.vx) > 0.2 ? 1 : 0;
@@ -1848,8 +1970,14 @@ function updateKid() {
       burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
     } else if (level === 2) {
       startBoss();                                 // the boy is not a boy
-    } else {
+    } else if (level === 3) {
       startBoss();                                 // under a full moon, at the chapel
+    } else {
+      // levels 4/5: the yeti and the god land here next; for now, the summit ends it
+      score += 1000;
+      state = 'win';
+      sndWin();
+      burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
     }
   }
 }
@@ -2254,8 +2382,52 @@ function drawWoodsBackground(st) {
   ctx.fillRect(0, 116, VIEW_W, 18);
 }
 
+/* ---------------- the mountain, drawn ---------------- */
+function drawSnowBackground(st) {
+  // a twilight blizzard sky
+  ctx.fillStyle = '#232c40'; ctx.fillRect(0, 0, VIEW_W, 60);
+  ctx.fillStyle = '#2b3550'; ctx.fillRect(0, 60, VIEW_W, 60);
+  ctx.fillStyle = '#333e5c'; ctx.fillRect(0, 120, VIEW_W, VIEW_H - 120);
+  // the moon behind cloud
+  const mx = 240 - camX * 0.04;
+  ctx.fillStyle = 'rgba(220,224,238,0.5)';
+  ctx.beginPath(); ctx.arc(mx, 30, 12, 0, 7); ctx.fill();
+  // far peaks, white-capped
+  ctx.fillStyle = '#1a2236';
+  for (let i = 0; i < 8; i++) {
+    const px = ((i * 190 + 40 - camX * 0.2) % (VIEW_W + 190) + VIEW_W + 190) % (VIEW_W + 190) - 95;
+    const h = 60 + (i * 29) % 34;
+    ctx.beginPath();
+    ctx.moveTo(px - 44, 132); ctx.lineTo(px, 132 - h); ctx.lineTo(px + 44, 132);
+    ctx.fill();
+    ctx.fillStyle = '#c9d2e4';
+    ctx.beginPath();
+    ctx.moveTo(px - 10, 132 - h + 14); ctx.lineTo(px, 132 - h); ctx.lineTo(px + 10, 132 - h + 14);
+    ctx.fill();
+    ctx.fillStyle = '#1a2236';
+  }
+  // nearer ridges
+  ctx.fillStyle = '#242e48';
+  for (let i = 0; i < 9; i++) {
+    const rx = ((i * 160 + 70 - camX * 0.5) % (VIEW_W + 160) + VIEW_W + 160) % (VIEW_W + 160) - 80;
+    const h = 20 + (i * 17) % 18;
+    ctx.beginPath();
+    ctx.moveTo(rx - 40, 146); ctx.lineTo(rx, 146 - h); ctx.lineTo(rx + 40, 146);
+    ctx.fill();
+  }
+  // blowing snow streaks
+  ctx.strokeStyle = 'rgba(220,228,240,0.25)';
+  for (let i = 0; i < 14; i++) {
+    const sx = ((i * 67 + frame * 3.2 - camX * 0.8) % (VIEW_W + 30) + VIEW_W + 30) % (VIEW_W + 30) - 15;
+    const sy = (i * 41 + (frame >> 1)) % 150 + 6;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 7, sy + 2); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(90,104,140,0.28)';
+  ctx.fillRect(0, 118, VIEW_W, 16);
+}
+
 function drawTiles() {
-  const indoor = level === 2, woods = level === 3;
+  const indoor = level === 2, woods = level === 3, snow = level === 4;
   const c0 = Math.max(0, Math.floor(camX / TILE));
   const c1 = Math.min(MAP_W - 1, Math.ceil((camX + VIEW_W) / TILE));
   for (let r = 0; r < MAP_H; r++) {
@@ -2265,12 +2437,12 @@ function drawTiles() {
       const x = cc * TILE - camX, y = r * TILE;
       if (t === 1) {
         const top = r === 0 || !map[r - 1][cc];
-        ctx.fillStyle = woods ? '#343a42' : indoor ? '#4a3626' : '#3a3244';
+        ctx.fillStyle = snow ? '#3c4660' : woods ? '#343a42' : indoor ? '#4a3626' : '#3a3244';
         ctx.fillRect(x, y, TILE, TILE);
         if (top && r > 0) {
-          ctx.fillStyle = woods ? '#48505c' : indoor ? '#6d5138' : '#4b3f5c';
+          ctx.fillStyle = snow ? '#dce4ee' : woods ? '#48505c' : indoor ? '#6d5138' : '#4b3f5c';
           ctx.fillRect(x, y, TILE, 4);
-          ctx.fillStyle = woods ? '#59626e' : indoor ? '#7d5f42' : '#5d4f72';
+          ctx.fillStyle = snow ? '#b8c4d8' : woods ? '#59626e' : indoor ? '#7d5f42' : '#5d4f72';
           for (let i = 0; i < 4; i++)
             if (tileNoise(cc * 4 + i, r) > 0.4) ctx.fillRect(x + i * 4 + 1, y, 2, 2);
         }
@@ -2416,6 +2588,21 @@ function drawCheckpoints() {
   for (const cp of checkpoints) {
     const x = Math.round(cp.x - camX);
     if (x < -12 || x > VIEW_W + 12) continue;
+    if (level === 4) {                            // a frozen crystal on the shelf
+      const gy = cp.gy || 9 * TILE;
+      const y = gy - 14;
+      const lit = cp.reached && (frame >> 3) % 6 !== 5;
+      ctx.fillStyle = lit ? '#9fe8ff' : '#3a4a5e';
+      ctx.fillRect(x + 3, y, 3, 10);
+      ctx.fillRect(x + 1, y + 3, 7, 4);
+      if (cp.reached) {
+        ctx.fillStyle = 'rgba(160,230,255,0.12)';
+        ctx.fillRect(x - 4, y - 5, 17, 20);
+        ctx.fillStyle = '#e0f4ff';
+        ctx.fillRect(x + 4, y + 1, 1, 3);
+      }
+      continue;
+    }
     if (level === 3) {                            // a will-o-wisp, waiting
       const y = 9 * TILE - 22 + Math.sin((frame + cp.x) / 30) * 2;
       const lit = cp.reached && (frame >> 3) % 6 !== 5;
@@ -2460,6 +2647,7 @@ function drawCheckpoints() {
 }
 
 function drawHouse() {
+  if (level === 4) { drawCaveMouth(); return; }
   if (level === 3) { drawChapel(); return; }
   if (level === 2) { drawBedroomDoor(); return; }
   const x = houseX - camX, y = 9 * TILE - 46;
@@ -2475,6 +2663,26 @@ function drawHouse() {
   ctx.fillRect(x + 32, y + 22, 8, 8);
   ctx.fillStyle = '#120c14'; ctx.fillRect(x + 20, y + 28, 9, 18);
   ctx.fillStyle = '#e8c66a'; ctx.fillRect(x + 26, y + 37, 2, 2); // doorknob
+}
+
+function drawCaveMouth() {
+  const x = houseX - camX, y = FINALE_GY - 44;
+  if (x < -80 || x > VIEW_W) return;
+  // a rise of blue ice with a dark mouth in it
+  ctx.fillStyle = '#4a5a78';
+  ctx.beginPath();
+  ctx.moveTo(x - 16, y + 44); ctx.lineTo(x + 20, y - 12); ctx.lineTo(x + 58, y + 44);
+  ctx.fill();
+  ctx.fillStyle = '#dce4ee';
+  ctx.beginPath();
+  ctx.moveTo(x + 10, y + 4); ctx.lineTo(x + 20, y - 12); ctx.lineTo(x + 30, y + 4);
+  ctx.fill();
+  ctx.fillStyle = '#0c1018';                          // the mouth itself
+  ctx.fillRect(x + 12, y + 20, 18, 24);
+  ctx.beginPath(); ctx.arc(x + 21, y + 20, 9, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#9fe8ff';                          // icicle teeth
+  for (let i = 0; i < 4; i++)
+    ctx.fillRect(x + 13 + i * 4, y + 12 + (i % 2) * 2, 2, 5 + (i % 2) * 2);
 }
 
 function drawChapel() {
@@ -2787,7 +2995,7 @@ function bigText(msg, x, y, color, size) {
 
 /* ---------------- the eyeless dragon ---------------- */
 function updateDragon() {
-  if (level === 2) return;                           // no wings indoors
+  if (level !== 1) return;                           // the dragon keeps to the road
   if (!dragon.spawned && playTime > 3600) {          // one minute in
     dragon.spawned = dragon.active = true;
     dragon.x = Math.max(0, player.x - 160);
@@ -3286,7 +3494,7 @@ function updateBossOutro() {
       boss.x += 2.4;                                   // through, not around
       if (boss.phaseT > 80) { boss.phase = 'gone'; boss.phaseT = 0; }
     } else if (boss.phase === 'gone' && boss.phaseT > 90) {
-      state = 'win';
+      state = 'interlude';       // his tracks run uphill, into the snow
       score += 1500;
       sndWin();
     }
@@ -4641,12 +4849,24 @@ function drawInterlude() {
     pixelText('and slams the door behind him.', 78, 86, '#cfc3e8');
     pixelText('she knows the way. she follows.', 74, 102, '#e8d8f0');
     if ((frame >> 5) % 2) pixelText('press ENTER — into the house', 90, 140, '#9a8fb0');
-  } else {
+  } else if (level === 2) {
     bigText('THE HOUSE IS HERS.', 34, 42, '#e8c66a', 20);
     pixelText('but the boy ran laughing for the deep woods,', 40, 74, '#cfc3e8');
     pixelText('where the trees are tall and the dark is old.', 40, 86, '#cfc3e8');
     pixelText('she follows. she always follows.', 70, 102, '#e8d8f0');
     if ((frame >> 5) % 2) pixelText('press ENTER — into the trees', 92, 140, '#9a8fb0');
+  } else if (level === 3) {
+    bigText('THROUGH THE WALL.', 40, 42, '#e8c66a', 20);
+    pixelText('his tracks run uphill, into the snow,', 56, 74, '#cfc3e8');
+    pixelText('up where the air goes thin and quiet.', 54, 86, '#cfc3e8');
+    pixelText('porcelain does not feel the cold.', 66, 102, '#e8d8f0');
+    if ((frame >> 5) % 2) pixelText('press ENTER — up the mountain', 88, 140, '#9a8fb0');
+  } else {
+    bigText('THE MOUNTAIN IS QUIET.', 16, 42, '#e8c66a', 20);
+    pixelText('the tunnel winds down and down and down,', 46, 74, '#cfc3e8');
+    pixelText('into halls older than any of this.', 64, 86, '#cfc3e8');
+    pixelText('she follows. she always follows.', 70, 102, '#e8d8f0');
+    if ((frame >> 5) % 2) pixelText('press ENTER — into the tomb', 94, 140, '#9a8fb0');
   }
   pixelText('score ' + score, 136, 120, '#cfc3e8');
 }
@@ -4712,6 +4932,11 @@ function tick() {
       ambientCd = 480 + Math.random() * 600;
       playAmbient(creepStage());
     }
+    // the mountain snows, always
+    if (level === 4 && frame % 4 === 0)
+      particles.push({ x: camX + Math.random() * VIEW_W, y: -4,
+                       vx: -0.3 - Math.random() * 0.4, vy: 0.5 + Math.random() * 0.3,
+                       t: 320, float: true, color: '#e8eef6' });
     // once the decay starts, ash sifts out of the sky — redder as she goes
     const ast = creepStage();
     if (level === 1 && ast >= 1 && frame % 9 === 0)
@@ -4739,7 +4964,8 @@ function tick() {
   const shY = shakeT > 0 ? Math.round((Math.random() - 0.5) * shakeMag) : 0;
   ctx.save();
   ctx.translate(shX, shY);
-  if (level === 3) drawWoodsBackground(st);
+  if (level === 4) drawSnowBackground(st);
+  else if (level === 3) drawWoodsBackground(st);
   else if (level === 2) drawHouseBackground(st);
   else drawBackground(st);
   drawTiles();
