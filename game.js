@@ -624,21 +624,36 @@ function genWoods() {
     for (let cc = 0; cc < MAP_W; cc++)
       if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
 
-  // the woods are hungry — but the treeline is quiet, and so is the chapel
+  // four standing-stone doors, humming with carnival left out in the rain
+  doors.length = 0;
+  [30, 80, 130, 172].forEach((target, i) => {
+    let cc = target;
+    while (cc < MAP_W - 24 &&
+           !(map[9][cc] === 1 && map[9][cc + 1] === 1 &&
+             !map[8][cc] && !map[8][cc + 1] &&
+             !map[6][cc] && !map[6][cc + 1] && !map[7][cc] && !map[7][cc + 1]))
+      cc++;
+    doors.push({ x: cc * TILE + 1, y: 9 * TILE - 22, w: 14, h: 22,
+                 kind: ['tarot', 'bell', 'crows', 'dig'][i], used: false });
+  });
+  const nearStone = x => doors.some(d => x > d.x - 64 && x < d.x + 176);
+
+  // the woods are hungry — but the treeline, the stones, and the chapel stay quiet
+  let packCount = 0;
   for (let cc = 30; cc < MAP_W - 26; cc += rint(10, 16)) {
-    if (map[9][cc] !== 1 || map[8][cc]) continue;
+    if (map[9][cc] !== 1 || map[8][cc] || nearStone(cc * TILE)) continue;
     const prog = cc / MAP_W;
-    if (prog < 0.18) continue;
-    const roll = rng();
-    if (roll < 0.4) enemies.push(makeWolf(cc * TILE));
-    else if (roll < 0.6 && prog > 0.35) enemies.push(makeBear(cc * TILE));
+    if (prog < 0.18 || rng() < 0.35) continue;
+    packCount++;
+    if (prog > 0.35 && packCount % 3 === 0) enemies.push(makeBear(cc * TILE));
+    else enemies.push(makeWolf(cc * TILE));
   }
   // mountain lions wait on the branches
   for (let cc = 40; cc < MAP_W - 30; cc++)
-    if ((map[4][cc] === 2 || map[6][cc] === 2) && tileNoise(cc, 13) < 0.12)
+    if ((map[4][cc] === 2 || map[6][cc] === 2) &&
+        !nearStone(cc * TILE) && tileNoise(cc, 13) < 0.12)
       enemies.push(makeLion(cc * TILE));
 
-  doors.length = 0;                                     // minigames come later
   eyePickups.length = 0;
 
   // a heart over the second ravine
@@ -3478,6 +3493,25 @@ function drawDoors() {
   for (const d of doors) {
     const x = Math.round(d.x - camX);
     if (x < -22 || x > VIEW_W + 22) continue;
+    if (level === 3) {
+      // a standing-stone arch with a rune that knows her name
+      ctx.fillStyle = d.used ? '#242a32' : '#39424e';
+      ctx.fillRect(x - 3, d.y - 2, 5, 24);
+      ctx.fillRect(x + 12, d.y - 2, 5, 24);
+      ctx.fillRect(x - 4, d.y - 6, 22, 5);
+      if (d.used) { ctx.fillStyle = '#10141a'; ctx.fillRect(x + 2, d.y + 2, 10, 20); continue; }
+      const pulse = (Math.sin(frame / 15) + 1) / 2;
+      ctx.fillStyle = 'rgba(140,200,255,' + (0.12 + pulse * 0.22) + ')';
+      ctx.fillRect(x + 2, d.y + 2, 10, 20);
+      ctx.fillStyle = d.kind === 'tarot' ? '#c98fe8' :
+                      d.kind === 'bell' ? '#e8c66a' :
+                      d.kind === 'crows' ? '#8a8a94' : '#9fe88f';
+      ctx.fillRect(x + 5, d.y + 8, 4, 4);
+      if (state === 'play' && player.onGround &&
+          player.x + player.w > d.x && player.x < d.x + d.w && (frame >> 5) % 2)
+        pixelText('UP', x + 2, d.y - 15, '#bfe8ff');
+      continue;
+    }
     if (d.kind === 'hollow') {
       // a hairline crack in the world — no marquee, no prompt, no promises
       ctx.fillStyle = d.used ? '#1a1424' : '#231a33';
@@ -3530,6 +3564,27 @@ function startMini(door) {
                  { x: 232, y0: 120, ph: 1, c: '#9fe88f', alive: true }] });
   if (door.kind === 'hollow')
     Object.assign(mini, { dollX: 30, eyeTaken: false });
+  if (door.kind === 'tarot') {
+    const vals = [0, 0, 1, 1, 2, 2, 3, 3];
+    for (let i = vals.length - 1; i > 0; i--) {          // shuffle the deck
+      const j = Math.floor(Math.random() * (i + 1));
+      [vals[i], vals[j]] = [vals[j], vals[i]];
+    }
+    Object.assign(mini, { cards: vals, face: vals.map(() => 0),  // 0 down, 1 up, 2 matched
+                          sel: 0, first: -1, flips: 0, matched: 0, revealT: 0 });
+  }
+  if (door.kind === 'bell')
+    Object.assign(mini, { swings: 3, rung: 0, best: 0, p: 0, bellT: 0 });
+  if (door.kind === 'crows')
+    Object.assign(mini, {
+      darts: 5, hits: 0, dart: null, aimY: 90, hopT: 0,
+      perches: [{ x: 190, y: 58 }, { x: 232, y: 84 }, { x: 274, y: 56 },
+                { x: 210, y: 116 }, { x: 258, y: 122 }],
+      crows: [0, 2, 4],                                  // perch indexes
+    });
+  if (door.kind === 'dig')
+    Object.assign(mini, { locket: Math.floor(Math.random() * 3), sel: 1,
+                          phase: 'pick', digP: 0, digT: 300, dug: false, spiderT: 0 });
   if (door.kind === 'coffin') {
     const swaps = [];
     for (let i = 0; i < 8; i++) {
@@ -3574,7 +3629,316 @@ function updateMini() {
   if (mini.kind === 'toss') updateToss();
   else if (mini.kind === 'balloon') updateBalloon();
   else if (mini.kind === 'hollow') updateHollow();
+  else if (mini.kind === 'tarot') updateTarot();
+  else if (mini.kind === 'bell') updateBell();
+  else if (mini.kind === 'crows') updateCrows();
+  else if (mini.kind === 'dig') updateDig();
   else updateCoffin();
+}
+
+/* --- the fortune teller: four pairs, face down, patient --- */
+function updateTarot() {
+  if (mini.revealT > 0) {
+    if (--mini.revealT === 0)
+      mini.face = mini.face.map(f => (f === 1 ? 0 : f));  // the mismatch turns back
+    return;
+  }
+  if (mEdge('l', kLeft()) && mini.sel > 0) mini.sel--;
+  if (mEdge('r', kRight()) && mini.sel < 7) mini.sel++;
+  if (mEdge('z', kPunch()) && mini.face[mini.sel] === 0) {
+    mini.face[mini.sel] = 1;
+    sfx(500 + mini.cards[mini.sel] * 60, 0.08, 'triangle', 0.05);
+    if (mini.first < 0) mini.first = mini.sel;
+    else {
+      mini.flips++;
+      if (mini.cards[mini.first] === mini.cards[mini.sel]) {
+        mini.face[mini.first] = mini.face[mini.sel] = 2;
+        mini.matched++;
+        sfx(780, 0.2, 'triangle', 0.06);
+        mpBurst(60 + mini.sel * 26, 100, '#c98fe8', 6);
+        if (mini.matched === 4) {
+          mini.over = true; mini.won = true;
+          const bonus = Math.max(100, 800 - mini.flips * 100);
+          score += bonus;
+          if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+          mini.msg = 'THE CARDS REMEMBER HER   +' + bonus;
+        }
+      } else {
+        mini.revealT = 40;
+        sfx(180, 0.15, 'sawtooth', 0.04, -60);
+      }
+      mini.first = -1;
+    }
+  }
+}
+
+function drawTarot() {
+  miniBackdropWoods('THE FORTUNE TELLER');
+  const GLYPH = ['#e8c66a', '#c9304a', '#8a8a94', '#9fe88f'];   // moon, heart, skull, spider
+  for (let i = 0; i < 8; i++) {
+    const x = 48 + i * 30, y = 84;
+    const up = mini.face[i] > 0;
+    ctx.fillStyle = mini.face[i] === 2 ? '#3a3050' : up ? '#d9c8b2' : '#2a2440';
+    ctx.fillRect(x, y, 22, 34);
+    ctx.fillStyle = mini.face[i] === 2 ? '#584a78' : up ? '#bfae98' : '#3a3458';
+    ctx.fillRect(x + 1, y + 1, 20, 2);
+    if (up) {
+      ctx.fillStyle = GLYPH[mini.cards[i]];
+      const cx2 = x + 8, cy2 = y + 13;
+      if (mini.cards[i] === 0) {                       // moon
+        ctx.beginPath(); ctx.arc(cx2 + 3, cy2 + 3, 5, 0, 7); ctx.fill();
+        ctx.fillStyle = mini.face[i] === 2 ? '#3a3050' : '#d9c8b2';
+        ctx.beginPath(); ctx.arc(cx2 + 1, cy2 + 2, 4, 0, 7); ctx.fill();
+      } else if (mini.cards[i] === 1) drawHeart(cx2 - 1, cy2, GLYPH[1]);
+      else if (mini.cards[i] === 2) {                  // skull
+        ctx.fillRect(cx2 - 1, cy2, 8, 6);
+        ctx.fillStyle = '#1a1626';
+        ctx.fillRect(cx2, cy2 + 2, 2, 2); ctx.fillRect(cx2 + 4, cy2 + 2, 2, 2);
+        ctx.fillStyle = GLYPH[2]; ctx.fillRect(cx2, cy2 + 6, 6, 2);
+      } else {                                         // spider
+        ctx.fillRect(cx2, cy2 + 1, 6, 4);
+        for (let s = 0; s < 3; s++) {
+          ctx.fillRect(cx2 - 2, cy2 + s * 2, 2, 1);
+          ctx.fillRect(cx2 + 6, cy2 + s * 2, 2, 1);
+        }
+      }
+    } else {
+      ctx.fillStyle = '#584a78';                       // card back filigree
+      ctx.fillRect(x + 4, y + 6, 14, 1); ctx.fillRect(x + 4, y + 27, 14, 1);
+      ctx.fillRect(x + 10, y + 12, 2, 10);
+    }
+    if (i === mini.sel && !mini.over) {
+      ctx.fillStyle = '#e8c66a';
+      ctx.fillRect(x + 8, y + 38, 6, 3);
+    }
+  }
+  pixelText('MATCH THE PAIRS   LEFT RIGHT  Z FLIPS', 52, 148, '#9a8fb0');
+  pixelText('PAIRS ' + mini.matched + '/4', 254, 46, '#c98fe8');
+}
+
+/* --- the bell toll: strike true, three times --- */
+function updateBell() {
+  mini.p = (Math.sin(mini.t / 18) + 1) / 2;
+  if (mini.bellT > 0) mini.bellT--;
+  if (mini.swings > 0 && mEdge('z', kPunch())) {
+    const q = 1 - Math.abs(mini.p - 0.5) * 2;
+    mini.swings--;
+    mini.bellT = 24;
+    if (q > 0.8) {
+      mini.rung++; mini.best = Math.max(mini.best, q);
+      score += 200;
+      sfx(220, 1.2, 'triangle', 0.09, -8); sfx(440, 0.9, 'sine', 0.05, -12);
+      mpBurst(240, 66, '#e8c66a', 12);
+      mini.msg2 = 'A TRUE TOLL.'; mini.msg2T = 80;
+    } else if (q > 0.4) {
+      score += 50;
+      sfx(200, 0.5, 'triangle', 0.05, -30);
+    } else {
+      sfx(110, 0.2, 'square', 0.05, -60);              // a clunk the crows enjoy
+    }
+  }
+  if (mini.swings === 0 && mini.bellT === 0) {
+    mini.over = true; mini.won = mini.rung > 0;
+    mini.msg = mini.rung + ' TRUE TOLL' + (mini.rung === 1 ? '' : 'S');
+  }
+}
+
+function drawBell() {
+  miniBackdropWoods('THE BELL TOLL');
+  // the bell, hung from nothing anyone remembers
+  ctx.fillStyle = '#2a2e36'; ctx.fillRect(238, 44, 4, 10);
+  const rock = mini.bellT > 0 ? Math.sin(frame) * 2 : 0;
+  ctx.save();
+  ctx.translate(240 + rock, 62);
+  ctx.fillStyle = '#8a7a4a';
+  ctx.fillRect(-12, -8, 24, 14);
+  ctx.fillRect(-15, 4, 30, 4);
+  ctx.fillStyle = '#6d5f38'; ctx.fillRect(-3, 8, 6, 4);
+  ctx.restore();
+  // the meter
+  ctx.fillStyle = '#241c30'; ctx.fillRect(60, 96, 200, 10);
+  ctx.fillStyle = '#3a5a3a'; ctx.fillRect(60 + 80, 96, 40, 10);
+  ctx.fillStyle = '#e8c66a'; ctx.fillRect(60 + 92, 96, 16, 10);
+  ctx.fillStyle = '#f0f0d0';
+  ctx.fillRect(Math.round(58 + mini.p * 200), 92, 4, 18);
+  for (let i = 0; i < mini.swings; i++) {
+    ctx.fillStyle = '#8a7a4a'; ctx.fillRect(62 + i * 10, 46, 6, 8);
+  }
+  pixelText('Z STRIKES WHEN THE MARK RINGS GOLD', 60, 148, '#9a8fb0');
+  pixelText('TOLLS ' + mini.rung, 262, 46, '#e8c66a');
+}
+
+/* --- the crow gallery: they hop, she throws --- */
+function updateCrows() {
+  if (keys['arrowup'] || keys['w']) mini.aimY -= 1.3;
+  if (kDown()) mini.aimY += 1.3;
+  mini.aimY = Math.max(44, Math.min(140, mini.aimY));
+  if (++mini.hopT > 85) {                              // the crows change their minds
+    mini.hopT = 0;
+    const free = [0, 1, 2, 3, 4].filter(p => !mini.crows.includes(p));
+    if (free.length && mini.crows.length) {
+      const ci = Math.floor(Math.random() * mini.crows.length);
+      mini.crows[ci] = free[Math.floor(Math.random() * free.length)];
+      sfx(700, 0.05, 'square', 0.02, -200);
+    }
+  }
+  const zEdge = mEdge('z', kPunch());   // read every frame so the edge never goes stale
+  if (!mini.dart && mini.darts > 0 && zEdge) {
+    mini.darts--;
+    mini.dart = { x: 34, y: mini.aimY };
+    sfx(440, 0.07, 'square', 0.05, -140);
+  }
+  if (mini.dart) {
+    mini.dart.x += 3.4;
+    for (let i = 0; i < mini.crows.length; i++) {
+      const p = mini.perches[mini.crows[i]];
+      if (Math.abs(mini.dart.x + 8 - p.x) < 8 && Math.abs(mini.dart.y - p.y) < 8) {
+        mini.crows.splice(i, 1);
+        mini.hits++; mini.dart = null;
+        score += 150;
+        sfx(600, 0.1, 'square', 0.06, -350);
+        mpBurst(p.x, p.y, '#3a3a44', 10);
+        break;
+      }
+    }
+    if (mini.dart && mini.dart.x > 330) mini.dart = null;
+  }
+  if (!mini.dart && (mini.darts === 0 || mini.crows.length === 0)) {
+    if (!mini.doneT) mini.doneT = mini.t;
+    else if (mini.t - mini.doneT > 50) {
+      mini.over = true; mini.won = mini.hits >= 3;
+      mini.msg = mini.hits + '/3 CROWS   +' + mini.hits * 150;
+    }
+  }
+}
+
+function drawCrows() {
+  miniBackdropWoods('THE CROW GALLERY');
+  // perches
+  ctx.fillStyle = '#3a2c20';
+  for (const p of mini.perches) ctx.fillRect(p.x - 12, p.y + 8, 24, 3);
+  // crows
+  for (const ci of mini.crows) {
+    const p = mini.perches[ci];
+    ctx.fillStyle = '#22222c';
+    ctx.fillRect(p.x - 4, p.y, 9, 6);
+    ctx.fillRect(p.x + 4, p.y - 3, 5, 4);
+    ctx.fillStyle = '#e8a050'; ctx.fillRect(p.x + 9, p.y - 2, 2, 1);
+    ctx.fillStyle = '#ff3040'; ctx.fillRect(p.x + 6, p.y - 2, 1, 1);
+    if ((frame + ci * 13) % 70 < 4) {                  // an unimpressed hop
+      ctx.fillStyle = '#22222c'; ctx.fillRect(p.x - 2, p.y - 5, 5, 2);
+    }
+  }
+  ctx.drawImage(DOLL[creepStage()].idle, 6, Math.round(mini.aimY) - 16);
+  if (!mini.dart) {
+    ctx.fillStyle = '#c9cede'; ctx.fillRect(24, Math.round(mini.aimY), 6, 2);
+  } else {
+    ctx.fillStyle = '#c9cede';
+    ctx.fillRect(Math.round(mini.dart.x), Math.round(mini.dart.y), 7, 2);
+  }
+  for (let i = 0; i < mini.darts; i++) {
+    ctx.fillStyle = '#c9cede'; ctx.fillRect(10 + i * 7, 46, 5, 2);
+  }
+  pixelText('UP DOWN AIM   Z THROWS', 92, 160, '#9a8fb0');
+  pixelText('CROWS ' + mini.hits, 262, 46, '#8a8a94');
+}
+
+/* --- the grave dig: choose a mound, then earn it --- */
+function updateDig() {
+  if (mini.phase === 'pick') {
+    if (mEdge('l', kLeft()) && mini.sel > 0) mini.sel--;
+    if (mEdge('r', kRight()) && mini.sel < 2) mini.sel++;
+    if (mEdge('z', kPunch())) {
+      mini.phase = 'digging';
+      sfx(160, 0.1, 'square', 0.05);
+    }
+  } else if (mini.phase === 'digging') {
+    if (--mini.digT <= 0) {
+      mini.over = true; mini.won = false;
+      mini.msg = 'TOO SLOW. THE GROUND KEEPS IT.';
+      return;
+    }
+    if (mEdge('z', kPunch())) {
+      mini.digP += 9;
+      sfx(140 + Math.random() * 40, 0.05, 'square', 0.04, -40);
+      mpBurst(80 + mini.sel * 80 + 8, 128, '#3a3f46', 3);
+      if (mini.digP >= 100) {
+        mini.phase = 'reveal';
+        mini.dug = true;
+        if (mini.sel === mini.locket) {
+          score += 300;
+          if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+          sfx(660, 0.3, 'triangle', 0.07); sfx(990, 0.4, 'sine', 0.04);
+        } else {
+          mini.spiderT = 1;
+          score += 50;
+          sfx(220, 0.3, 'sawtooth', 0.05, -120);
+        }
+      }
+    }
+  } else {
+    if (mini.spiderT > 0) mini.spiderT++;
+    if (++mini.digP > 190) {
+      mini.over = true; mini.won = mini.sel === mini.locket;
+      mini.msg = mini.won ? 'A SILVER LOCKET   +300' : 'ONLY SPIDERS   +50';
+    }
+  }
+}
+
+function drawDig() {
+  miniBackdropWoods('THE GRAVE DIG');
+  for (let i = 0; i < 3; i++) {
+    const x = 80 + i * 80;
+    // headstone
+    ctx.fillStyle = '#39424e'; ctx.fillRect(x - 6, 96, 20, 24);
+    ctx.fillStyle = '#48505c'; ctx.fillRect(x - 4, 92, 16, 6);
+    ctx.fillStyle = '#242a32'; ctx.fillRect(x - 1, 102, 10, 1);
+    ctx.fillRect(x + 1, 106, 6, 1);
+    // mound (dug down if chosen)
+    const depth = (mini.phase !== 'pick' && i === mini.sel)
+      ? Math.min(8, Math.round(mini.digP / 14)) : 0;
+    ctx.fillStyle = '#2c2318';
+    ctx.fillRect(x - 8, 126 + depth, 26, 12 - depth);
+    if (mini.phase === 'reveal' && i === mini.sel) {
+      if (mini.sel === mini.locket) {
+        ctx.fillStyle = '#d9d0e8'; ctx.fillRect(x + 1, 122, 6, 6);
+        ctx.fillStyle = '#8a80a0'; ctx.fillRect(x + 3, 120, 2, 2);
+      } else if (mini.spiderT > 0) {
+        ctx.drawImage(SPIDER_FRAMES[(mini.spiderT >> 3) % 2],
+                      x - 2 + Math.min(70, mini.spiderT * 1.4), 122);
+      }
+    }
+  }
+  if (mini.phase === 'pick') {
+    const ax = 80 + mini.sel * 80;
+    ctx.fillStyle = '#e8c66a';
+    ctx.fillRect(ax + 3, 82, 3, 5); ctx.fillRect(ax + 1, 80, 7, 3);
+    pixelText('PICK A GRAVE: LEFT RIGHT  Z DIGS', 68, 148, '#9a8fb0');
+  } else if (mini.phase === 'digging') {
+    ctx.fillStyle = '#241c30'; ctx.fillRect(90, 56, 140, 8);
+    ctx.fillStyle = '#9fe88f'; ctx.fillRect(91, 57, Math.round(mini.digP * 1.38), 6);
+    ctx.fillStyle = '#3a3458';
+    ctx.fillRect(90 + Math.round((mini.digT / 300) * 140), 52, 2, 16);
+    pixelText('MASH Z BEFORE THE MARK RUNS OUT', 68, 148, '#9a8fb0');
+  }
+  ctx.drawImage(DOLL[creepStage()].idle, 40 + (mini.sel * 80), 128);
+}
+
+function miniBackdropWoods(title) {
+  ctx.fillStyle = '#0c0a12'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  // moss hangs from the dark
+  for (let i = 0; i < 12; i++) {
+    ctx.fillStyle = i % 2 ? '#16201a' : '#121a16';
+    ctx.fillRect(i * 28 + 6, 0, 4, 18 + (i * 13) % 14);
+  }
+  // a lantern someone left
+  ctx.fillStyle = '#3e2c22'; ctx.fillRect(300, 40, 8, 10);
+  ctx.fillStyle = (frame >> 3) % 7 ? '#ffce6a' : '#e8a050';
+  ctx.fillRect(302, 43, 4, 5);
+  ctx.fillStyle = 'rgba(255,206,106,0.06)'; ctx.fillRect(284, 28, 40, 40);
+  ctx.fillStyle = '#141820'; ctx.fillRect(0, 150, VIEW_W, 26);
+  ctx.fillStyle = '#1c222c'; ctx.fillRect(0, 150, VIEW_W, 2);
+  pixelText(title, (VIEW_W - title.length * 6) / 2 + 8, 34, '#bfe8ff');
 }
 
 /* --- the hollow: a bare little room behind the wall, and one lost eye --- */
@@ -3919,6 +4283,10 @@ function drawMini() {
   if (mini.kind === 'toss') drawToss();
   else if (mini.kind === 'balloon') drawBalloon();
   else if (mini.kind === 'hollow') drawHollow();
+  else if (mini.kind === 'tarot') drawTarot();
+  else if (mini.kind === 'bell') drawBell();
+  else if (mini.kind === 'crows') drawCrows();
+  else if (mini.kind === 'dig') drawDig();
   else drawCoffin();
   for (const q of mini.parts) {
     ctx.fillStyle = q.color;

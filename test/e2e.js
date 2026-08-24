@@ -921,8 +921,11 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         if (map[r][c] === 2 && map[r + 2][c]) return false;
     return true;
   }), 'every branch leaves standing room beneath it');
-  check(await ev(() => checkpoints.length >= 4 && doors.length === 0 &&
-        eyePickups.length === 0), 'wisps mark the way; no doors or eyes out here');
+  check(await ev(() => checkpoints.length >= 4 && eyePickups.length === 0),
+        'wisps mark the way; the eye hunt stayed on the road');
+  check(await ev(() => doors.length === 4 &&
+        doors.map(d => d.kind).join() === 'tarot,bell,crows,dig'),
+        'four standing stones: fortune teller, bell toll, crow gallery, grave dig');
   check(await ev(() => map[8].some((t, c) => t === 1 && map[9][c] === 1)),
         'stone outcrops break the ground');
 
@@ -982,6 +985,99 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   });
   check(lionPounce === 'air' || lionPounce === 'ground',
         'a mountain lion pounces from its branch');
+
+  /* ---------- gothic minigames ---------- */
+  section('gothic minigames');
+  await ev(() => { player.invuln = 999999; startMini(doors[0]); });
+  await frames(3);
+  check(await ev(() => state === 'mini' && mini.kind === 'tarot'), 'the fortune teller deals');
+  const tarotWin = await page.evaluate(async () => {
+    for (let round = 0; round < 4 && !mini.over; round++) {
+      const want = [0, 1, 2, 3].find(v =>
+        mini.cards.some((c, i) => c === v && mini.face[i] !== 2));
+      const a = mini.cards.findIndex((c, i) => c === want && mini.face[i] !== 2);
+      const b = mini.cards.findIndex((c, i) => c === want && mini.face[i] !== 2 && i !== a);
+      for (const idx of [a, b]) {
+        mini.sel = idx;
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+        await new Promise(r => requestAnimationFrame(r));
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+        await new Promise(r => requestAnimationFrame(r));
+      }
+    }
+    return { matched: mini.matched, won: mini.won };
+  });
+  check(tarotWin.won && tarotWin.matched === 4, 'matching all four pairs wins');
+  await page.keyboard.press('Enter');
+  await frames(3);
+
+  await ev(() => startMini(doors[1]));
+  await frames(3);
+  const bell = await page.evaluate(async () => {
+    for (let s = 0; s < 3 && !mini.over; s++) {
+      for (let i = 0; i < 220; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (mini.swings > 0 && Math.abs(mini.p - 0.5) < 0.05) {
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+          await new Promise(r => requestAnimationFrame(r));
+          window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+          await new Promise(r => requestAnimationFrame(r));
+          break;
+        }
+      }
+    }
+    for (let i = 0; i < 80 && !mini.over; i++) await new Promise(r => requestAnimationFrame(r));
+    return { rung: mini.rung, won: mini.won };
+  });
+  check(bell.rung >= 1 && bell.won, 'striking gold rings a true toll');
+  await page.keyboard.press('Enter');
+  await frames(3);
+
+  await ev(() => startMini(doors[2]));
+  await frames(3);
+  const crowsRes = await page.evaluate(async () => {
+    for (let d = 0; d < 5 && mini.crows.length && !mini.over; d++) {
+      const p = mini.perches[mini.crows[0]];
+      mini.aimY = p.y;
+      mini.hopT = -999;                                 // no second thoughts
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      for (let i = 0; i < 110 && mini.dart; i++) {
+        mini.hopT = 0;                                  // hold their nerve mid-flight
+        await new Promise(r => requestAnimationFrame(r));
+      }
+      await new Promise(r => requestAnimationFrame(r)); // let the release register
+    }
+    for (let i = 0; i < 80 && !mini.over; i++) await new Promise(r => requestAnimationFrame(r));
+    return { hits: mini.hits, won: mini.won };
+  });
+  check(crowsRes.hits >= 3 && crowsRes.won, 'three crows fall to good aim');
+  await page.keyboard.press('Enter');
+  await frames(3);
+
+  await ev(() => { player.hp = 3; startMini(doors[3]); });
+  await frames(3);
+  const digRes = await page.evaluate(async () => {
+    mini.sel = mini.locket;                             // she reads graves fluently
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    for (let m = 0; m < 16 && mini.phase === 'digging'; m++) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    for (let i = 0; i < 220 && !mini.over; i++) await new Promise(r => requestAnimationFrame(r));
+    return { won: mini.won, hp: player.hp };
+  });
+  check(digRes.won && digRes.hp === 4, 'the right grave gives up a silver locket, and a heart');
+  await page.keyboard.press('Enter');
+  await frames(3);
+  check(await ev(() => state === 'play' && doors.every(d => d.used)),
+        'all four stones are spent');
 
   // death in the woods retries the woods
   await ev(() => { player.invuln = 0; player.hp = 1; player.y = 400; player.vy = 3; });
