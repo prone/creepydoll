@@ -380,6 +380,75 @@ const RAT_FRAMES = [
   ], RAT_PAL),
 ];
 
+// the deep woods' own hunger (level 3)
+const BEAR_PAL = { B: '#4a3320', b: '#3a2818', e: '#ff3040', c: '#2a1c10' };
+const BEAR_FRAMES = [
+  sprite([
+    '.....bBBBBBBBBBB......',
+    '...BBBBBBBBBBBBBB.....',
+    '..BBBBBBBBBBBBBBBBbb..',
+    '..BBBBBBBBBBBBBBBBBBe.',
+    '.BBBBBBBBBBBBBBBBBBBc.',
+    '.BBBBBBBBBBBBBBBBBB...',
+    '..BBb..BBb...BBb..Bb..',
+    '..bb...bb....bb...bb..',
+  ], BEAR_PAL),
+  sprite([
+    '.....bBBBBBBBBBB......',
+    '...BBBBBBBBBBBBBB.....',
+    '..BBBBBBBBBBBBBBBBbb..',
+    '..BBBBBBBBBBBBBBBBBBe.',
+    '.BBBBBBBBBBBBBBBBBBBc.',
+    '.BBBBBBBBBBBBBBBBBB...',
+    '...BBb..BBb..BBb..Bb..',
+    '..bb....bb....bb..bb..',
+  ], BEAR_PAL),
+];
+
+const WOLF_PAL = { G: '#5a5a64', g: '#44444e', w: '#8a8a94', e: '#ffd040', t: '#3a3a44' };
+const WOLF_FRAMES = [
+  sprite([
+    't.....gGGGGg....gg',
+    'tt...GGGGGGGGg.GGg',
+    '.t..GGGGGGGGGGGGeG',
+    '..gGGGGGGGGGGGGGww',
+    '...GGGGGGGGGGGGw..',
+    '...Gg..GGg..GGg...',
+    '...g...g....g.....',
+  ], WOLF_PAL),
+  sprite([
+    't.....gGGGGg....gg',
+    '.t...GGGGGGGGg.GGg',
+    '.tt.GGGGGGGGGGGGeG',
+    '..gGGGGGGGGGGGGGww',
+    '...GGGGGGGGGGGGw..',
+    '..Gg...GGg...GGg..',
+    '..g.....g.....g...',
+  ], WOLF_PAL),
+];
+
+const LION_PAL = { L: '#a3803a', l: '#8a6a2e', w: '#d9c8a2', e: '#ff3040', t: '#6d5324' };
+const LION_FRAMES = [
+  sprite([
+    't......lLLLLl...ll',
+    '.tt...LLLLLLLLl.Ll',
+    '..t..LLLLLLLLLLLeL',
+    '...lLLLLLLLLLLLLww',
+    '...LLLLLLLLLLLLw..',
+    '...Ll..LLl..LLl...',
+    '...l...l....l.....',
+  ], LION_PAL),
+  sprite([
+    't......lLLLLl...ll',
+    'tt....LLLLLLLLl.Ll',
+    '.t...LLLLLLLLLLLeL',
+    '...lLLLLLLLLLLLLww',
+    '...LLLLLLLLLLLLw..',
+    '..Ll...LLl...LLl..',
+    '..l.....l.....l...',
+  ], LION_PAL),
+];
+
 /* ---------------- the healthy kid (NPC) ---------------- */
 const KID_PAL = {
   C: '#c9903a',  // cap
@@ -554,6 +623,20 @@ function genWoods() {
   for (let r = 2; r < MAP_H - 2; r++)
     for (let cc = 0; cc < MAP_W; cc++)
       if (map[r][cc] === 2 && map[r + 2][cc]) map[r][cc] = 0;
+
+  // the woods are hungry — but the treeline is quiet, and so is the chapel
+  for (let cc = 30; cc < MAP_W - 26; cc += rint(10, 16)) {
+    if (map[9][cc] !== 1 || map[8][cc]) continue;
+    const prog = cc / MAP_W;
+    if (prog < 0.18) continue;
+    const roll = rng();
+    if (roll < 0.4) enemies.push(makeWolf(cc * TILE));
+    else if (roll < 0.6 && prog > 0.35) enemies.push(makeBear(cc * TILE));
+  }
+  // mountain lions wait on the branches
+  for (let cc = 40; cc < MAP_W - 30; cc++)
+    if ((map[4][cc] === 2 || map[6][cc] === 2) && tileNoise(cc, 13) < 0.12)
+      enemies.push(makeLion(cc * TILE));
 
   doors.length = 0;                                     // minigames come later
   eyePickups.length = 0;
@@ -934,6 +1017,21 @@ function makeRoach(x) {
   return { kind: 'roach', x, y: 0, w: 10, h: 4, hp: 1, dir: -1,
            dashT: 0, dashCd: 0, t: rng() * 100,
            dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeBear(x) {
+  return { kind: 'bear', x, y: 0, w: 22, h: 8, hp: 3, dir: -1,
+           minX: x - 4 * TILE, maxX: x + 4 * TILE, t: rng() * 100,
+           dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeWolf(x) {
+  return { kind: 'wolf', x, y: 0, w: 18, h: 7, hp: 2, dir: 1,
+           minX: x - 5 * TILE, maxX: x + 5 * TILE, dashT: 0, lungeCd: 0,
+           t: rng() * 100, dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeLion(x) {
+  return { kind: 'lion', x, y: 0, w: 18, h: 7, hp: 2, dir: -1, mode: 'perch',
+           vy: 0, pounceCd: 0, minX: x - 5 * TILE, maxX: x + 5 * TILE,
+           t: rng() * 100, dead: 0, lastHit: -1, placed: false, flashT: 0 };
 }
 function makeRat(x, minX, maxX) {
   return { kind: 'rat', x, y: 0, w: 14, h: 8, hp: 2, dir: 1, minX, maxX,
@@ -1704,7 +1802,8 @@ function updateKid() {
 
 function killEnemy(e) {
   e.dead = 1;
-  score += { snake: 200, valkyrie: 300, rat: 150, roach: 100, ant: 50 }[e.kind] || 100;
+  score += { snake: 200, valkyrie: 300, rat: 150, roach: 100, ant: 50,
+             bear: 250, wolf: 200, lion: 250 }[e.kind] || 100;
   sfx(90, 0.25, 'triangle', 0.07, -40);
   addShake(2, 8);
   // a bat's life feeds hers — one heart back, if she's hurt
@@ -1820,6 +1919,65 @@ function updateEnemies() {
       const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
       if (!solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2)) {
         e.dir *= -1; e.dashT = 0;
+      }
+    }
+
+    if (e.kind === 'bear') {    // slow, wide, and very sure of itself
+      e.x += e.dir * 0.3;
+      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+      if (e.x < e.minX || e.x > e.maxX ||
+          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
+        e.dir *= -1;
+    }
+
+    if (e.kind === 'wolf') {    // patrols, then closes fast
+      if (e.lungeCd > 0) e.lungeCd--;
+      if (e.dashT > 0) { e.dashT--; e.x += e.dir * 2.4; }
+      else {
+        e.x += e.dir * 0.6;
+        const dx = pcx - (e.x + e.w / 2);
+        if (e.lungeCd <= 0 && Math.abs(dx) < 110 &&
+            Math.abs((player.y + player.h) - (e.y + e.h)) < 26) {
+          e.dir = Math.sign(dx) || 1;
+          e.dashT = 22; e.lungeCd = 140;
+          sfx(300, 0.15, 'sawtooth', 0.04, -80);       // a low snarl
+        }
+      }
+      const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+      if (e.x < e.minX || e.x > e.maxX ||
+          !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2)) {
+        e.dir *= -1; e.dashT = 0;
+      }
+    }
+
+    if (e.kind === 'lion') {    // waits on a branch, then falls like weather
+      if (e.pounceCd > 0) e.pounceCd--;
+      if (e.mode === 'perch') {
+        const dx = pcx - (e.x + e.w / 2);
+        if (e.pounceCd <= 0 && Math.abs(dx) < 120 &&
+            player.y + player.h >= e.y + e.h - 4) {
+          e.mode = 'air';
+          e.dir = Math.sign(dx) || 1;
+          e.vy = -2.6;
+          sfx(500, 0.2, 'sawtooth', 0.045, -180);      // a cough of intent
+        }
+      } else if (e.mode === 'air') {
+        e.x += e.dir * 2.0;
+        e.vy = Math.min(e.vy + 0.3, 6);
+        e.y += e.vy;
+        if (e.vy > 0 && (solidAt(e.x + 2, e.y + e.h) || solidAt(e.x + e.w - 2, e.y + e.h))) {
+          e.y = Math.floor((e.y + e.h) / TILE) * TILE - e.h - 0.01;
+          e.mode = 'ground';
+          e.minX = e.x - 5 * TILE; e.maxX = e.x + 5 * TILE;
+          e.pounceCd = 160;
+        }
+        if (e.y > MAP_H * TILE + 20) { e.dead = 26; }  // pounced into a ravine
+      } else {                                          // prowls where it landed
+        e.x += e.dir * 0.7;
+        const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+        if (e.x < e.minX || e.x > e.maxX ||
+            !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
+          e.dir *= -1;
       }
     }
 
@@ -2458,10 +2616,14 @@ function drawEnemies() {
       if (e.dir < 0) ctx.drawImage(img, x - 2, y);
       else { ctx.translate(x + 22, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
       ctx.restore();
-    } else if (e.kind === 'ant' || e.kind === 'roach' || e.kind === 'rat') {
+    } else if (e.kind === 'ant' || e.kind === 'roach' || e.kind === 'rat' ||
+               e.kind === 'bear' || e.kind === 'wolf' || e.kind === 'lion') {
       const frames = e.kind === 'ant' ? ANT_FRAMES :
-                     e.kind === 'roach' ? ROACH_FRAMES : RAT_FRAMES;
-      let img = frames[(e.t >> (e.kind === 'ant' ? 2 : 3)) % 2];
+                     e.kind === 'roach' ? ROACH_FRAMES :
+                     e.kind === 'rat' ? RAT_FRAMES :
+                     e.kind === 'bear' ? BEAR_FRAMES :
+                     e.kind === 'wolf' ? WOLF_FRAMES : LION_FRAMES;
+      let img = frames[(e.t >> (e.kind === 'ant' ? 2 : e.kind === 'bear' ? 4 : 3)) % 2];
       if (flash) img = whiten(img);
       ctx.save();
       if (e.dir < 0) { ctx.translate(x + img.width, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }

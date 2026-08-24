@@ -925,6 +925,64 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         eyePickups.length === 0), 'wisps mark the way; no doors or eyes out here');
   check(await ev(() => map[8].some((t, c) => t === 1 && map[9][c] === 1)),
         'stone outcrops break the ground');
+
+  /* ---------- the woods are hungry ---------- */
+  section('woods enemies');
+  check(await ev(() => ['bear', 'wolf', 'lion'].every(k =>
+        enemies.some(e => e.kind === k))),
+        'bears, wolves, and mountain lions live here');
+  check(await ev(() => enemies.every(e => e.x > LEVEL_W * 0.15)),
+        'the treeline is quiet — nothing hunts the first stretch');
+  check(await ev(() => enemies.every(e => e.x < (MAP_W - 24) * TILE)),
+        'and the chapel clearing is calm');
+  const bearFight = await page.evaluate(async () => {
+    const b = enemies.find(e => e.kind === 'bear' && !e.dead);
+    if (!b) return 'no-bear';
+    player.invuln = 999999;
+    let hits = 0;
+    for (let h = 0; h < 3; h++) {
+      for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+      if (b.dead) break;
+      player.x = b.x - 12; player.y = b.y + b.h - player.h;
+      player.vy = 0; player.face = 1; player.attack = null;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (b.hp <= 2 - h || b.dead) { hits++; break; }
+      }
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+    }
+    return { hits, dead: b.dead > 0 || b.hp <= 0 };
+  });
+  check(bearFight !== 'no-bear' && bearFight.hits === 3 && bearFight.dead,
+        'three punches fell a bear');
+  const wolfLunge = await page.evaluate(async () => {
+    const w = enemies.find(e => e.kind === 'wolf' && e.placed && !e.dead);
+    if (!w) return 'no-wolf';
+    w.dashT = 0; w.lungeCd = 0;
+    player.x = w.x - 70; player.y = w.y + w.h - player.h; player.vy = 0;
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (w.dashT > 0) return 'lunged';
+    }
+    return 'idle';
+  });
+  check(wolfLunge === 'lunged', 'a wolf closes fast when she is near');
+  const lionPounce = await page.evaluate(async () => {
+    const l = enemies.find(e => e.kind === 'lion' && e.mode === 'perch' && !e.dead);
+    if (!l) return 'no-lion';
+    l.pounceCd = 0;
+    for (let i = 0; i < 30; i++) {
+      player.x = l.x - 60; player.y = 100; player.vy = 0;
+      await new Promise(r => requestAnimationFrame(r));
+      if (l.mode !== 'perch') return l.mode;
+    }
+    return 'perch';
+  });
+  check(lionPounce === 'air' || lionPounce === 'ground',
+        'a mountain lion pounces from its branch');
+
   // death in the woods retries the woods
   await ev(() => { player.invuln = 0; player.hp = 1; player.y = 400; player.vy = 3; });
   await page.waitForFunction(() => state === 'gameover', null, { timeout: 5000 });
