@@ -1203,8 +1203,44 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => checkpoints.length >= 4 &&
         checkpoints.some(cp => cp.gy < 9 * TILE)),
         'frozen crystals mark the way, some on high shelves');
-  check(await ev(() => doors.length === 0 && enemies.length === 0),
-        'no doors this high (and the slopes are empty, for now)');
+  check(await ev(() => doors.length === 0), 'no doors this high up');
+
+  /* ---------- the slopes have tenants ---------- */
+  section('alpine enemies');
+  check(await ev(() => ['goat', 'wolf', 'owl'].every(k =>
+        enemies.some(e => e.kind === k))),
+        'goats, white wolves, and snowy owls hold the slopes');
+  check(await ev(() => enemies.every(e => e.x > LEVEL_W * 0.12 &&
+        e.x < (MAP_W - 20) * TILE)),
+        'the first shelf and the summit stay empty');
+  const goatCharge = await page.evaluate(async () => {
+    const g = enemies.find(e => e.kind === 'goat' && e.placed && !e.dead);
+    if (!g) return 'no-goat';
+    g.chargeCd = 0; g.windupT = 0; g.chargeT = 0; g.stunT = 0;
+    player.invuln = 999999;
+    for (let i = 0; i < 60; i++) {
+      player.x = g.x - 80; player.y = g.y + g.h - player.h; player.vy = 0;
+      await new Promise(r => requestAnimationFrame(r));
+      if (g.windupT > 0) return 'windup';
+      if (g.chargeT > 0) return 'charging';
+    }
+    return 'grazing';
+  });
+  check(goatCharge === 'windup' || goatCharge === 'charging',
+        'a goat snorts and charges when she lingers');
+  const owlDive = await page.evaluate(async () => {
+    const o = enemies.find(e => e.kind === 'owl' && !e.dead);
+    if (!o) return 'no-owl';
+    o.diveCd = 0;
+    const y0 = { vx: o.vx, vy: o.vy };
+    for (let i = 0; i < 40; i++) {
+      player.x = o.x - 60; player.y = o.y + 40; player.vy = 0;
+      await new Promise(r => requestAnimationFrame(r));
+      if (Math.abs(o.vx) > 0.4 || Math.abs(o.vy) > 0.4) return 'diving';
+    }
+    return 'hovering';
+  });
+  check(owlDive === 'diving', 'a snowy owl folds its wings at her');
   check(await ev(() => creepStage() === 3 && inkMelt), 'still far gone, still half ink');
   // a raised checkpoint catches her fall at its own height
   const raisedRespawn = await page.evaluate(async () => {

@@ -449,6 +449,71 @@ const LION_FRAMES = [
   ], LION_PAL),
 ];
 
+// the mountain's tenants (level 4)
+const GOAT_PAL = { F: '#d9d5c9', f: '#b8b4a6', h: '#8a7a5c', e: '#2a1c10' };
+const GOAT_FRAMES = [
+  sprite([
+    'hh....fFFFFf....',
+    '.h...FFFFFFFFf.f',
+    '..h.FFFFFFFFFFFe',
+    '...fFFFFFFFFFFf.',
+    '...FFFFFFFFFFf..',
+    '...Ff..FFf..Ff..',
+    '...f...f....f...',
+  ], GOAT_PAL),
+  sprite([
+    'hh....fFFFFf....',
+    '.h...FFFFFFFFf.f',
+    '..h.FFFFFFFFFFFe',
+    '...fFFFFFFFFFFf.',
+    '...FFFFFFFFFFf..',
+    '..Ff...FFf...Ff.',
+    '..f.....f.....f.',
+  ], GOAT_PAL),
+];
+const OWL_PAL = { W: '#e8e4da', w: '#a8a49a', e: '#e8c66a', b: '#c9903a' };
+const OWL_FRAMES = [
+  sprite([
+    'WW..........WW',
+    'WWW..wWWw..WWW',
+    '.WWWWWWWWWWWW.',
+    '..WWeWWWWeWW..',
+    '...WWWbbWWW...',
+    '....WwWWwW....',
+    '.....W..W.....',
+  ], OWL_PAL),
+  sprite([
+    '..............',
+    '..W..wWWw..W..',
+    '.WWWWWWWWWWWW.',
+    'WWWWeWWWWeWWWW',
+    'WW.WWWbbWWW.WW',
+    '....WwWWwW....',
+    '.....W..W.....',
+  ], OWL_PAL),
+];
+const WHITEWOLF_PAL = { G: '#c9ccd6', g: '#a8adc0', w: '#f0f2f8', e: '#7ec9e8', t: '#8a8fa4' };
+const WHITEWOLF_FRAMES = [
+  sprite([
+    't.....gGGGGg....gg',
+    'tt...GGGGGGGGg.GGg',
+    '.t..GGGGGGGGGGGGeG',
+    '..gGGGGGGGGGGGGGww',
+    '...GGGGGGGGGGGGw..',
+    '...Gg..GGg..GGg...',
+    '...g...g....g.....',
+  ], WHITEWOLF_PAL),
+  sprite([
+    't.....gGGGGg....gg',
+    '.t...GGGGGGGGg.GGg',
+    '.tt.GGGGGGGGGGGGeG',
+    '..gGGGGGGGGGGGGGww',
+    '...GGGGGGGGGGGGw..',
+    '..Gg...GGg...GGg..',
+    '..g.....g.....g...',
+  ], WHITEWOLF_PAL),
+];
+
 /* ---------------- the healthy kid (NPC) ---------------- */
 const KID_PAL = {
   C: '#c9903a',  // cap
@@ -633,6 +698,19 @@ function genSnow() {
 
   doors.length = 0;                                   // no games this high up
   eyePickups.length = 0;
+
+  // the mountain's tenants — the first shelf and the summit stay empty
+  let herd = 0;
+  for (let cc = 26; cc < MAP_W - 22; cc += rint(9, 15)) {
+    const gr = groundTopRowAt(cc);
+    if (gr < 0) continue;
+    const prog = cc / MAP_W;
+    if (prog < 0.15 || rng() < 0.3) continue;
+    herd++;
+    if (herd % 3 === 0) enemies.push(makeGoat(cc * TILE));
+    else if (herd % 3 === 1) enemies.push(makeWolf(cc * TILE));
+    else enemies.push(makeOwl(cc * TILE, gr * TILE - 56));
+  }
 
   // a heart over the second crevasse, hung at local height
   heartPickup.taken = false; heartPickup.t = 0;
@@ -1141,6 +1219,16 @@ function makeLion(x) {
   return { kind: 'lion', x, y: 0, w: 18, h: 7, hp: 2, dir: -1, mode: 'perch',
            vy: 0, pounceCd: 0, minX: x - 5 * TILE, maxX: x + 5 * TILE,
            t: rng() * 100, dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeGoat(x) {
+  return { kind: 'goat', x, y: 0, w: 16, h: 7, hp: 2, dir: 1,
+           minX: x - 4 * TILE, maxX: x + 4 * TILE,
+           windupT: 0, chargeT: 0, chargeCd: 0, stunT: 0,
+           t: rng() * 100, dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeOwl(x, y) {
+  return { kind: 'owl', x, y, w: 14, h: 7, hp: 2, homeY: y, vx: 0, vy: 0,
+           diveCd: 0, t: rng() * 100, dead: 0, lastHit: -1, face: 1, flashT: 0 };
 }
 function makeRat(x, minX, maxX) {
   return { kind: 'rat', x, y: 0, w: 14, h: 8, hp: 2, dir: 1, minX, maxX,
@@ -1985,7 +2073,7 @@ function updateKid() {
 function killEnemy(e) {
   e.dead = 1;
   score += { snake: 200, valkyrie: 300, rat: 150, roach: 100, ant: 50,
-             bear: 250, wolf: 200, lion: 250 }[e.kind] || 100;
+             bear: 250, wolf: 200, lion: 250, goat: 200, owl: 200 }[e.kind] || 100;
   sfx(90, 0.25, 'triangle', 0.07, -40);
   addShake(2, 8);
   // a bat's life feeds hers — one heart back, if she's hurt
@@ -2102,6 +2190,53 @@ function updateEnemies() {
       if (!solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2)) {
         e.dir *= -1; e.dashT = 0;
       }
+    }
+
+    if (e.kind === 'goat') {    // grazes, snorts, and then arrives all at once
+      if (e.stunT > 0) e.stunT--;
+      else if (e.chargeT > 0) {
+        e.chargeT--;
+        e.x += e.dir * 2.6;
+        const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+        if (!solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2) ||
+            e.x < e.minX - TILE || e.x > e.maxX + TILE) {
+          e.chargeT = 0; e.stunT = 35;
+          sfx(120, 0.1, 'square', 0.05, -40);
+        }
+      } else if (e.windupT > 0) {
+        if (--e.windupT === 0) e.chargeT = 55;
+      } else {
+        e.x += e.dir * 0.35;
+        if (e.chargeCd > 0) e.chargeCd--;
+        const dx = pcx - (e.x + e.w / 2);
+        if (e.chargeCd <= 0 && Math.abs(dx) < 130 &&
+            Math.abs((player.y + player.h) - (e.y + e.h)) < 20) {
+          e.dir = Math.sign(dx) || 1;
+          e.windupT = 22; e.chargeCd = 200;
+          sfx(340, 0.12, 'sawtooth', 0.05, -120);      // a snort of intent
+        }
+        const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
+        if (e.x < e.minX || e.x > e.maxX ||
+            !solidAt(aheadX, e.y + e.h + 4) || solidAt(aheadX, e.y + e.h - 2))
+          e.dir *= -1;
+      }
+    }
+
+    if (e.kind === 'owl') {     // patient, then all wings
+      const d = Math.abs(e.x - player.x);
+      if (e.diveCd > 0) e.diveCd--;
+      if (e.diveCd <= 0 && d < 150 && Math.abs(e.y - player.y) < 90) {
+        e.vx += (pcx > e.x + 7 ? 0.06 : -0.06);
+        e.vy += (player.y + 4 > e.y ? 0.05 : -0.05);
+        e.vx = Math.max(-1.5, Math.min(1.5, e.vx));
+        e.vy = Math.max(-1.2, Math.min(1.2, e.vy));
+        if (e.t % 90 === 0) sfx(500, 0.15, 'triangle', 0.03, -120);
+      } else {
+        e.vx *= 0.95;
+        e.vy = (e.homeY + Math.sin(e.t / 24) * 8 - e.y) * 0.05;
+      }
+      e.x += e.vx; e.y += e.vy;
+      e.face = e.vx >= 0 ? 1 : -1;
     }
 
     if (e.kind === 'bear') {    // slow, wide, and very sure of itself
@@ -2879,16 +3014,21 @@ function drawEnemies() {
       else { ctx.translate(x + 22, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
       ctx.restore();
     } else if (e.kind === 'ant' || e.kind === 'roach' || e.kind === 'rat' ||
-               e.kind === 'bear' || e.kind === 'wolf' || e.kind === 'lion') {
+               e.kind === 'bear' || e.kind === 'wolf' || e.kind === 'lion' ||
+               e.kind === 'goat' || e.kind === 'owl') {
       const frames = e.kind === 'ant' ? ANT_FRAMES :
                      e.kind === 'roach' ? ROACH_FRAMES :
                      e.kind === 'rat' ? RAT_FRAMES :
                      e.kind === 'bear' ? BEAR_FRAMES :
-                     e.kind === 'wolf' ? WOLF_FRAMES : LION_FRAMES;
+                     e.kind === 'wolf' ? (level === 4 ? WHITEWOLF_FRAMES : WOLF_FRAMES) :
+                     e.kind === 'lion' ? LION_FRAMES :
+                     e.kind === 'goat' ? GOAT_FRAMES : OWL_FRAMES;
       let img = frames[(e.t >> (e.kind === 'ant' ? 2 : e.kind === 'bear' ? 4 : 3)) % 2];
       if (flash) img = whiten(img);
+      const mirror = (e.kind === 'owl' ? e.face : e.dir) < 0;
       ctx.save();
-      if (e.dir < 0) { ctx.translate(x + img.width, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
+      if (e.kind === 'goat' && e.windupT > 0) ctx.translate(-e.dir, 0);  // rearing back
+      if (mirror) { ctx.translate(x + img.width, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
       else ctx.drawImage(img, x, y);
       ctx.restore();
     }
