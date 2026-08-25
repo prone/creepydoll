@@ -2471,14 +2471,11 @@ function updatePlayer() {
   }
   crouchHeld = kCrouch();
 
-  // walking (attacks root you briefly on the ground; crouching is slow)
-  const rooted = player.attack && player.onGround;
+  // walking (crouching is slow; attacks never cost her momentum)
   const speed = player.crouch ? 0.8 : 1.7;
-  if (!rooted) {
-    if (kLeft())       { player.vx = -speed; player.face = -1; }
-    else if (kRight()) { player.vx = speed;  player.face = 1; }
-    else player.vx *= player.onGround ? 0.6 : 0.95;
-  } else player.vx *= 0.5;
+  if (kLeft())       { player.vx = -speed; player.face = -1; }
+  else if (kRight()) { player.vx = speed;  player.face = 1; }
+  else player.vx *= player.onGround ? 0.6 : 0.95;
 
   // power-jump charge: hold Down on the ground for 2 seconds to coil up
   const CHARGE_FRAMES = 120;

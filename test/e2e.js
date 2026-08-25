@@ -467,6 +467,43 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'lifting the finger stops her; all ten controls exist');
   await ev(() => { player.invuln = 999999; player.vx = 0; });
 
+  /* ---------- attacks keep her momentum ---------- */
+  section('attack momentum');
+  const stride = await page.evaluate(async () => {
+    player.x = 300; player.y = 126; player.vx = 0; player.vy = 0;
+    player.attack = null;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+    const x0 = player.x;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    let attacked = false;
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (player.attack) attacked = true;
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    const groundGain = player.x - x0;
+    // now the same mid-air: jump, then kick while rising
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+    for (let i = 0; i < 4; i++) await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }));
+    const ax0 = player.x;
+    player.attack = null;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
+    for (let i = 0; i < 8; i++) await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+    const airGain = player.x - ax0;
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight' }));
+    return { attacked, groundGain, airGain };
+  });
+  check(stride.attacked && stride.groundGain > 12,
+        'a punch mid-run never breaks her stride (' +
+        stride.groundGain.toFixed(1) + 'px over 10 frames)');
+  check(stride.airGain > 9,
+        'a kick mid-jump keeps her flying forward (' +
+        stride.airGain.toFixed(1) + 'px over 8 frames)');
+  await ev(() => { player.invuln = 999999; player.vx = 0; player.attack = null; });
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
