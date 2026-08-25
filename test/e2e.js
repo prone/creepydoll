@@ -555,6 +555,43 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await ev(() => { level = 1; resetGame(); state = 'play'; player.invuln = 999999; });
   await frames(3);
 
+  /* ---------- board tickets: crisp text, mute, boy speed, toss range ---------- */
+  section('board tickets');
+  check(await ev(() => !!glyphCanvas('A', '#ffffff') && !!FONT5['0'] &&
+                       !!FONT5['?'] && !!FONT5['/']),
+        'text renders from a real bitmap font — no more blur');
+  await ev(() => window.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'M', shiftKey: true })));
+  check(await ev(() => muted === true && (!masterGain || masterGain.gain.value === 0)),
+        'Shift+M silences everything');
+  await ev(() => window.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'M', shiftKey: true })));
+  check(await ev(() => muted === false &&
+                       (!masterGain || masterGain.gain.value === 0.5)),
+        'Shift+M again brings the night back');
+  const sprintV = await page.evaluate(async () => {
+    kid.stage = 'roam'; kid.mode = 'sprint';
+    kid.x = player.x + 250; kid.y = 100; kid.vy = 0;
+    await new Promise(r => requestAnimationFrame(r));
+    const v = kid.vx;
+    resetKid();
+    return v;
+  });
+  check(sprintV > 1.7 && sprintV <= 1.85,
+        'the boy runs just faster than her top speed (' + sprintV + ')');
+  const tossRange = await ev(() => {
+    const land = p => {
+      const v = tossVel(p);
+      let x = 42, y = 114, vy = v.vy;
+      for (let i = 0; i < 300 && y < 130; i++) { x += v.vx; y += vy; vy += 0.09; }
+      return Math.round(x);
+    };
+    return [land(0), land(0.25), land(0.5), land(0.75), land(1)];
+  });
+  check(tossRange.every(x => x >= 145 && x <= 300),
+        'every toss power lands on the bucket rail (' + tossRange.join(', ') + ')');
+  await ev(() => { player.invuln = 999999; });
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
@@ -839,8 +876,18 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.keyboard.down('ArrowRight');
   await page.waitForFunction(() => mini.eyeTaken, null, { timeout: 10000 });
   await page.keyboard.up('ArrowRight');
-  check(await ev(() => eyesFound === 2 && player.hp === 4),
-        'she takes the hollow\'s eye and it heals her (2/4)');
+  // bounded retry: the eye-take heal lands within a frame or two of
+  // eyeTaken, but a loaded host can slip a CDP read between them
+  const hollowTake = await page.evaluate(async () => {
+    for (let i = 0; i < 30; i++) {
+      if (eyesFound === 2 && player.hp === 4) return 'ok';
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    return { eyes: eyesFound, hp: player.hp };
+  });
+  check(hollowTake === 'ok',
+        'she takes the hollow\'s eye and it heals her (2/4) ' +
+        (hollowTake === 'ok' ? '' : JSON.stringify(hollowTake)));
   await page.waitForFunction(() => mini.over, null, { timeout: 10000 });
   await page.keyboard.press('Enter');
   await frames(3);

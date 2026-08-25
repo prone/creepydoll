@@ -2017,9 +2017,15 @@ function playAmbient(stage) {
 
 /* ---------------- input ---------------- */
 const keys = {};
+let muted = false;
 window.addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
   startAudio();
+  if (e.key === 'M' && e.shiftKey) {          // Shift+M: silence / unsilence
+    muted = !muted;
+    if (masterGain) masterGain.gain.value = muted ? 0 : 0.5;
+    return;
+  }
   if (e.key === 'Escape') { togglePause(); return; }
   if (paused && (state === 'play' || state === 'mini' || state === 'boss')) {
     handleAssistKeys(e.key);               // the pause screen is the assist menu
@@ -2677,7 +2683,7 @@ function updateKid() {
       }
     } else if (kid.mode === 'sprint') {
       // faster than the doll — she cannot catch him until the end
-      kid.vx = 1.95; kid.face = 1;
+      kid.vx = 1.8; kid.face = 1;   // just faster than her 1.7 — never gone
       const aheadX = kid.x + kid.w + 6;
       if (kid.onGround &&
           (hardAt(aheadX, kid.y + kid.h - 4) ||
@@ -3869,6 +3875,18 @@ function drawHUD() {
     pixelText(Math.min(eyesFound, EYES_TOTAL) + '/' + EYES_TOTAL, 16, eyeY, '#8a7a5c');
   }
   pixelText('SCORE ' + score, VIEW_W - 6 - (7 + String(score).length) * 6, 6, '#cfc3e8');
+  if (muted) {                                        // speaker, crossed out
+    const mx = VIEW_W - 17, my = 16;
+    ctx.fillStyle = '#9a8fb0';
+    ctx.fillRect(mx, my + 3, 3, 4);
+    ctx.fillRect(mx + 3, my + 2, 2, 6);
+    ctx.fillRect(mx + 5, my + 1, 1, 8);
+    ctx.fillStyle = '#d02838';
+    for (let i = 0; i < 8; i++) {
+      ctx.fillRect(mx + 1 + i, my + 1 + i, 1, 1);
+      ctx.fillRect(mx + 8 - i, my + 1 + i, 1, 1);
+    }
+  }
   const st = creepStage();
   pixelText('CREEP', 6, VIEW_H - 12, '#9a8fb0');
   for (let i = 0; i < 4; i++) {
@@ -3898,17 +3916,63 @@ function drawHUD() {
 }
 
 // chunky uppercase bitmap-ish text using canvas font at low res
+/* A real bitmap font — 5x5 glyphs drawn pixel-for-pixel, so text is as
+   crisp as the sprites at every scale (fillText anti-aliasing was the
+   source of the blur). Rows are 5-bit numbers, MSB = leftmost pixel. */
+const FONT5 = {
+  A: [14,17,31,17,17], B: [30,17,30,17,30], C: [15,16,16,16,15],
+  D: [30,17,17,17,30], E: [31,16,30,16,31], F: [31,16,30,16,16],
+  G: [15,16,19,17,15], H: [17,17,31,17,17], I: [14,4,4,4,14],
+  J: [1,1,1,17,14],    K: [17,18,28,18,17], L: [16,16,16,16,31],
+  M: [17,27,21,17,17], N: [17,25,21,19,17], O: [14,17,17,17,14],
+  P: [30,17,30,16,16], Q: [14,17,17,18,13], R: [30,17,30,18,17],
+  S: [15,16,14,1,30],  T: [31,4,4,4,4],    U: [17,17,17,17,14],
+  V: [17,17,17,10,4],  W: [17,17,21,21,10], X: [17,10,4,10,17],
+  Y: [17,10,4,4,4],    Z: [31,2,4,8,31],
+  0: [14,19,21,25,14], 1: [4,12,4,4,14],   2: [30,1,14,16,31],
+  3: [30,1,14,1,30],   4: [2,6,10,31,2],   5: [31,16,30,1,30],
+  6: [14,16,30,17,14], 7: [31,1,2,4,8],    8: [14,17,14,17,14],
+  9: [14,17,15,1,14],
+  '.': [0,0,0,0,4],    ',': [0,0,0,4,8],   "'": [4,4,0,0,0],
+  ':': [0,4,0,4,0],    ';': [0,4,0,4,8],   '/': [1,2,4,8,16],
+  '+': [0,4,14,4,0],   '-': [0,0,14,0,0],  '—': [0,0,14,0,0],
+  '!': [4,4,4,0,4],    '?': [14,17,2,0,4], '<': [2,4,8,4,2],
+  '>': [8,4,2,4,8],    '%': [25,26,4,11,19], '(': [2,4,4,4,2],
+  ')': [8,4,4,4,8],    '&': [12,18,12,18,13], '"': [10,10,0,0,0],
+  '_': [0,0,0,0,31],   '=': [0,14,0,14,0],
+};
+const glyphCache = new Map();
+function glyphCanvas(ch, color) {
+  const key = ch + color;
+  let g = glyphCache.get(key);
+  if (g) return g;
+  const rows = FONT5[ch];
+  if (!rows) return null;
+  g = document.createElement('canvas'); g.width = 5; g.height = 5;
+  const gc = g.getContext('2d');
+  gc.fillStyle = color;
+  for (let r = 0; r < 5; r++)
+    for (let c = 0; c < 5; c++)
+      if (rows[r] & (16 >> c)) gc.fillRect(c, r, 1, 1);
+  glyphCache.set(key, g);
+  return g;
+}
+function drawText(msg, x, y, color, s) {
+  let cx = Math.round(x);
+  const yy = Math.round(y);
+  for (const ch of msg) {
+    if (ch !== ' ') {
+      const g = glyphCanvas(ch, color);
+      if (g) ctx.drawImage(g, cx, yy, 5 * s, 5 * s);
+    }
+    cx += 6 * s;
+  }
+}
 function pixelText(msg, x, y, color) {
-  ctx.fillStyle = color;
-  ctx.font = '7px monospace';
-  ctx.textBaseline = 'top';
-  ctx.fillText(msg.toUpperCase(), Math.round(x), Math.round(y));
+  drawText(String(msg).toUpperCase(), x, y, color, 1);
 }
 function bigText(msg, x, y, color, size) {
-  ctx.fillStyle = color;
-  ctx.font = 'bold ' + size + 'px monospace';
-  ctx.textBaseline = 'top';
-  ctx.fillText(msg, Math.round(x), Math.round(y));
+  drawText(String(msg).toUpperCase(), x, y, color, Math.max(2, Math.round(size / 10)));
 }
 
 /* ---------------- the eyeless dragon ---------------- */
@@ -6138,7 +6202,26 @@ function drawHollow() {
 }
 
 /* --- doll toss: land the little rag doll in the moving bucket --- */
+// every power lands ON the rail: power p maps to a landing spot across the
+// bucket's whole 150-284 sweep, so no toss is ever out of range
+function tossVel(p) {
+  const v0 = 2.0 + p * 1.7;                            // launch rise
+  const t = (v0 + Math.sqrt(v0 * v0 + 2 * 0.09 * 16)) / 0.09;   // frames to rail
+  return { vx: (150 + p * 134 + 9 - 42) / t, vy: -v0 };
+}
+// the little thrown doll (and the pile waiting for their turn)
+function drawMiniDoll(x, y) {
+  ctx.fillStyle = '#2e2620'; ctx.fillRect(x, y - 6, 3, 1);            // hair
+  ctx.fillStyle = '#efe2cf'; ctx.fillRect(x, y - 5, 3, 3);            // head
+  ctx.fillStyle = '#1c1a22';
+  ctx.fillRect(x, y - 4, 1, 1); ctx.fillRect(x + 2, y - 4, 1, 1);     // eyes
+  ctx.fillStyle = '#5b7ea3'; ctx.fillRect(x - 1, y - 2, 5, 4);        // dress
+  ctx.fillStyle = '#efe2cf';
+  ctx.fillRect(x - 2, y - 1, 1, 2); ctx.fillRect(x + 4, y - 1, 1, 2); // arms
+  ctx.fillRect(x, y + 2, 1, 2); ctx.fillRect(x + 2, y + 2, 1, 2);     // legs
+}
 function updateToss() {
+  if (mini.flash && mini.flash.t > 0) mini.flash.t--;
   mini.bucketX += mini.bucketDir * 1.0;
   if (mini.bucketX < 150 || mini.bucketX > 284) mini.bucketDir *= -1;
   // golf-style two-step: lock the slow meter first, then confirm the throw
@@ -6153,7 +6236,9 @@ function updateToss() {
     if (mEdge('z', kPunch())) {
       mini.throws--;
       mini.aimPhase = 'sweep';
-      mini.proj = { x: 42, y: 114, vx: 1.4 + mini.lockedP * 2.4, vy: -2.0 - mini.lockedP * 1.7 };
+      const tv = tossVel(mini.lockedP);
+      mini.proj = { x: 42, y: 114, vx: tv.vx, vy: tv.vy };
+      mini.flash = { c: '#4a7ee8', t: 36 };            // blue: one in the air
       sfx(280, 0.1, 'square', 0.05, 140);
     } else if (mEdge('x', kKick())) {
       mini.aimPhase = 'sweep';
@@ -6167,13 +6252,18 @@ function updateToss() {
         pr.x > mini.bucketX + 2 && pr.x < mini.bucketX + 16) {
       mini.hits++; mini.proj = null;
       healOne();                                       // every bucket, a heart
+      mini.flash = { c: '#3ad06a', t: 36 };            // green: she's in
       sfx(540, 0.18, 'triangle', 0.08); sfx(800, 0.25, 'triangle', 0.05);
       mpBurst(mini.bucketX + 9, 128, '#e8c66a', 10);
     } else if (pr.y > 147) {
       mini.proj = null;
+      mini.flash = { c: '#d03040', t: 36 };            // red: the dust takes her
       sfx(90, 0.1, 'square', 0.04, -30);
       mpBurst(pr.x, 147, '#6a5f80', 5);
-    } else if (pr.x > 330) mini.proj = null;
+    } else if (pr.x > 330) {
+      mini.proj = null;
+      mini.flash = { c: '#d03040', t: 36 };
+    }
   }
   if (!mini.proj && mini.throws === 0) {
     if (!mini.doneT) mini.doneT = mini.t;
@@ -6188,6 +6278,34 @@ function updateToss() {
 
 function drawToss() {
   miniBackdrop('DOLL TOSS');
+  // a crowd came to watch her play
+  const SKIN = ['#d8b090', '#a8785a', '#e8c8a8', '#8a5c40'];
+  for (let i = 0; i < 14; i++) {
+    const cx = 128 + (i % 7) * 27 + (i > 6 ? 13 : 0);
+    const cy = 96 + Math.floor(i / 7) * 12 +
+               Math.round(Math.sin(frame / 16 + i * 1.7));
+    ctx.fillStyle = ['#3a3048', '#48395a', '#2e3a50', '#503048'][i % 4];
+    ctx.fillRect(cx - 1, cy + 3, 6, 7);                // coats
+    ctx.fillStyle = SKIN[i % 4];
+    ctx.fillRect(cx, cy, 4, 4);                        // faces
+  }
+  // the barker — an old man runs this stall, doll in hand for her
+  const bkx = 46, bky = 120;
+  ctx.fillStyle = '#8a2830'; ctx.fillRect(bkx - 1, bky - 12, 8, 3);   // hat brim
+  ctx.fillRect(bkx, bky - 17, 6, 5);                                  // hat top
+  ctx.fillStyle = '#e8c8a8'; ctx.fillRect(bkx, bky - 9, 6, 5);        // face
+  ctx.fillStyle = '#e8e4da'; ctx.fillRect(bkx, bky - 5, 6, 2);        // white whiskers
+  ctx.fillStyle = '#1c1a22'; ctx.fillRect(bkx + 1, bky - 8, 1, 1);
+  ctx.fillRect(bkx + 4, bky - 8, 1, 1);                               // eyes
+  ctx.fillStyle = '#8a2830'; ctx.fillRect(bkx - 1, bky - 3, 8, 12);   // striped coat
+  ctx.fillStyle = '#c9cede';
+  ctx.fillRect(bkx + 1, bky - 3, 1, 12); ctx.fillRect(bkx + 4, bky - 3, 1, 12);
+  ctx.fillStyle = '#2e2620'; ctx.fillRect(bkx - 1, bky + 9, 3, 5);
+  ctx.fillRect(bkx + 4, bky + 9, 3, 5);                               // trousers
+  if (!mini.proj && mini.throws > 0) {                 // handing her the next
+    ctx.fillStyle = '#e8c8a8'; ctx.fillRect(bkx - 5, bky - 2, 5, 2);  // arm out
+    drawMiniDoll(bkx - 8, bky + 2);
+  }
   // the doll herself, mid-carnival
   ctx.drawImage(DOLL[creepStage()].idle, 22, 130);
   // power meter — frozen and flashing once locked
@@ -6200,8 +6318,9 @@ function drawToss() {
   if (locked) {
     ctx.fillStyle = '#f0f0d0';
     ctx.fillRect(6, 58 + (1 - p) * 84, 12, 1);           // lock tick
-    // dotted trajectory preview for the locked power
-    let px = 44, py = 112, vx = 1.4 + p * 2.4, vy = -2.0 - p * 1.7;
+    // dotted trajectory preview for the locked power (the real physics)
+    const tv = tossVel(p);
+    let px = 44, py = 112, vx = tv.vx, vy = tv.vy;
     for (let i = 0; i < 60 && py < 146; i++) {
       px += vx; py += vy; vy += 0.09;
       if (i % 4 === 0) {
@@ -6210,22 +6329,19 @@ function drawToss() {
       }
     }
   }
-  // bucket
+  // bucket — its color answers every toss: blue in flight, green hit, red miss
   const bx = Math.round(mini.bucketX);
-  ctx.fillStyle = '#5a5f6e'; ctx.fillRect(bx + 2, 130, 14, 14);
-  ctx.fillStyle = '#7a8094'; ctx.fillRect(bx, 128, 18, 3);
+  const fl = mini.flash && mini.flash.t > 0 ? mini.flash.c : null;
+  ctx.fillStyle = fl || '#5a5f6e'; ctx.fillRect(bx + 2, 130, 14, 14);
+  ctx.fillStyle = fl || '#7a8094'; ctx.fillRect(bx, 128, 18, 3);
   ctx.fillStyle = '#33363e'; ctx.fillRect(bx + 4, 133, 10, 9);
-  // rag doll projectile
+  // the little doll, mid-flight (she tumbles)
   if (mini.proj) {
     const pr = mini.proj;
-    ctx.fillStyle = '#efe2cf'; ctx.fillRect(Math.round(pr.x), Math.round(pr.y) - 4, 3, 3);
-    ctx.fillStyle = '#5b7ea3'; ctx.fillRect(Math.round(pr.x) - 1, Math.round(pr.y) - 1, 5, 4);
+    drawMiniDoll(Math.round(pr.x), Math.round(pr.y));
   }
-  // throws left
-  for (let i = 0; i < mini.throws; i++) {
-    ctx.fillStyle = '#efe2cf'; ctx.fillRect(10 + i * 8, 46, 3, 3);
-    ctx.fillStyle = '#5b7ea3'; ctx.fillRect(9 + i * 8, 49, 5, 4);
-  }
+  // dolls waiting their turn
+  for (let i = 0; i < mini.throws; i++) drawMiniDoll(11 + i * 9, 50);
   pixelText(mini.aimPhase === 'locked' ? 'Z THROW    X RE-AIM' : 'Z LOCK POWER',
             mini.aimPhase === 'locked' ? 102 : 122, 160, '#9a8fb0');
   pixelText('HITS ' + mini.hits, 272, 46, '#e8c66a');
