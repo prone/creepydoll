@@ -1695,6 +1695,25 @@ function section(name) { console.log('\n== ' + name + ' =='); }
     return 'hovering';
   });
   check(owlDive === 'diving', 'a snowy owl folds its wings at her');
+  // no beast freezes on a ledge: every wolf and goat actually patrols
+  const beastsMove = await page.evaluate(async () => {
+    const beasts = enemies.filter(e =>
+      (e.kind === 'wolf' || e.kind === 'goat') && !e.dead);
+    if (!beasts.length) return 'no-beasts';
+    player.invuln = 999999; player.x = 10;      // far away: pure patrol, no lunges
+    const x0 = beasts.map(b => b.x);
+    let moved = beasts.map(() => 0);
+    for (let i = 0; i < 120; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      beasts.forEach((b, j) => {
+        moved[j] = Math.max(moved[j], Math.abs(b.x - x0[j]));
+      });
+    }
+    return { count: beasts.length, stuck: moved.filter(m => m < 3).length };
+  });
+  check(beastsMove !== 'no-beasts' && beastsMove.stuck === 0,
+        'every wolf and goat patrols its shelf — none frozen (' +
+        beastsMove.count + ' checked)');
   check(await ev(() => creepStage() === 3 && inkMelt), 'still far gone, still half ink');
   // a raised checkpoint catches her fall at its own height
   const raisedRespawn = await page.evaluate(async () => {

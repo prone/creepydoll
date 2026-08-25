@@ -1096,6 +1096,43 @@ function anchorSpiders() {
   }
 }
 
+// ground patrollers need a shelf wide enough to actually walk: an 18px
+// wolf seated on a 16px ledge fails edgeTurn's cliff probe on BOTH sides
+// and flips direction every frame — frozen, flickering like two wolves.
+// Measure the shelf each patroller would settle on, slide it to a wider
+// one nearby, and fence its patrol inside the shelf's edges.
+// Pure map scan — consumes no rng.
+function seatGroundlings() {
+  const PATROLLERS = { wolf: 1, goat: 1, bear: 1, snake: 1 };  // lions perch on branches — leave them be
+  const topRow = c => {
+    for (let r = 1; r < MAP_H; r++)
+      if (map[r][c] && !map[r - 1][c]) return r;
+    return -1;
+  };
+  const runOf = c0 => {
+    const r = topRow(c0);
+    if (r < 0) return null;
+    let s = c0, e = c0;
+    while (s > 1 && topRow(s - 1) === r) s--;
+    while (e < MAP_W - 2 && topRow(e + 1) === r) e++;
+    return { s, e, w: e - s + 1 };
+  };
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const en = enemies[i];
+    if (!PATROLLERS[en.kind]) continue;
+    const c = Math.max(1, Math.min(MAP_W - 2, Math.floor((en.x + en.w / 2) / TILE)));
+    let run = runOf(c);
+    // a shelf too narrow to patrol is no home — remove rather than migrate
+    // (migration can carry a beast into a quiet zone the pacing pass cleared)
+    if (!run || run.w < 3) { enemies.splice(i, 1); continue; }
+    const lo = run.s * TILE + 1, hi = (run.e + 1) * TILE - en.w - 1;
+    en.x = Math.max(lo, Math.min(hi, en.x));
+    en.minX = Math.max(en.minX, lo);
+    en.maxX = Math.min(en.maxX, hi);
+    if (en.minX > en.maxX) { en.minX = lo; en.maxX = hi; }
+  }
+}
+
 function genLevel() {
   FINALE_GY = 9 * TILE;
   if (level === 5) genTomb();
@@ -1104,6 +1141,7 @@ function genLevel() {
   else if (level === 2) genHouse();
   else genOutside();
   anchorSpiders();
+  seatGroundlings();
 }
 
 /* ---------------- level 4: the snowy mountain ---------------- */
@@ -2809,13 +2847,23 @@ function killEnemy(e) {
 
 // look one step ahead; turn at patrol bounds, cliff edges, and walls
 function edgeTurn(e, bounds, walls, resetDash) {
-  const aheadX = e.dir > 0 ? e.x + e.w + 2 : e.x - 2;
-  if ((bounds && (e.x < e.minX || e.x > e.maxX)) ||
-      !solidAt(aheadX, e.y + e.h + 4) ||
-      (walls && solidAt(aheadX, e.y + e.h - 2))) {
-    e.dir *= -1;
+  const blocked = d => {
+    const ax = d > 0 ? e.x + e.w + 2 : e.x - 2;
+    return (bounds && (d > 0 ? e.x > e.maxX : e.x < e.minX)) ||
+           !solidAt(ax, e.y + e.h + 4) ||
+           (walls && solidAt(ax, e.y + e.h - 2));
+  };
+  if (!blocked(e.dir)) return;
+  if (blocked(-e.dir)) {
+    // marooned (a lunge can land a beast on a sliver past its bounds):
+    // flipping both ways every frame freezes it in place — instead it
+    // presses on toward home ground and frees itself
+    e.dir = (e.minX + e.maxX) / 2 >= e.x + e.w / 2 ? 1 : -1;
     if (resetDash) e.dashT = 0;
+    return;
   }
+  e.dir *= -1;
+  if (resetDash) e.dashT = 0;
 }
 
 function updateEnemies() {
