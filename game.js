@@ -4129,7 +4129,7 @@ function relicPickOrThrow(rc) {
     o.vy = rc.tvy;
     carrying = null;
     sfx(rc.throwF, 0.1, 'square', 0.06, rc.throwS);
-  } else if (o.state === 'ground' && player.onGround &&
+  } else if ((o.state === 'ground' || o.state === 'wall') && player.onGround &&
              Math.abs(o.x - player.x) < 16) {
     o.state = 'held';
     carrying = rc.name;
@@ -4158,7 +4158,8 @@ function startBoss() {
            boss.kind === 'aztec' ? 30 : 40;
   boss.h = boss.kind === 'yeti' ? 44 : boss.kind === 'werewolf' ? 34 :
            boss.kind === 'aztec' ? 46 : 56;
-  dag.x = 250; dag.y = 132; dag.vx = 0; dag.vy = 0; dag.state = 'ground';
+  // the dagger waits mounted at the heart of the sun stone
+  dag.x = 210; dag.y = 70; dag.vx = 0; dag.vy = 0; dag.state = 'wall';
   skulls.length = 0;
   boss.lastHit = -1;
   iceCeil.length = 0; iceFloor.length = 0;
@@ -4856,15 +4857,25 @@ function drawSkull(x, y) {
 }
 
 function drawDagger(x, y) {
-  ctx.fillStyle = '#1c1a22';                           // obsidian blade
+  ctx.fillStyle = '#c8d4de';                           // silver blade
   ctx.fillRect(x, y + 2, 8, 3);
   ctx.fillRect(x + 8, y + 3, 2, 1);
-  ctx.fillStyle = '#d8b23a';                           // gold grip
+  ctx.fillStyle = '#eef6fc';                           // gleam along the edge
+  ctx.fillRect(x + 1, y + 2, 7, 1);
+  ctx.fillStyle = '#2e9e6a';                           // jade grip
   ctx.fillRect(x - 3, y + 1, 4, 5);
-  ctx.fillStyle = '#5aa88a'; ctx.fillRect(x - 2, y + 3, 1, 1);   // one jade eye
+  ctx.fillStyle = '#7ee8b0';                           // jade glints
+  ctx.fillRect(x - 2, y + 2, 1, 1);
+  ctx.fillRect(x - 2, y + 4, 1, 1);
 }
 
 function drawBossEntitiesAztec() {
+  if (dag.state === 'wall' || dag.state === 'ground') {
+    // a jade shimmer so she can always find it
+    const g = 0.22 + 0.14 * Math.sin(frame / 9);
+    ctx.fillStyle = 'rgba(126,232,176,' + g.toFixed(3) + ')';
+    ctx.fillRect(Math.round(dag.x) - 6, Math.round(dag.y) - 3, 18, 13);
+  }
   if (dag.state !== 'held') drawDagger(Math.round(dag.x), Math.round(dag.y));
   for (const sk of skulls) drawSkull(Math.round(sk.x), Math.round(sk.y));
   drawAztec();

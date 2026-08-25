@@ -1836,8 +1836,8 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   section('aztec god');
   await ev(() => { player.invuln = 999999; });
   check(await ev(() => boss.kind === 'aztec' && boss.hp === 4 &&
-        dag.state === 'ground'),
-        'a gold mask, four cracks to give, and a dagger in the dust');
+        dag.state === 'wall' && Math.abs(dag.x - 210) < 6 && dag.y < 90),
+        'a gold mask, four cracks to give, and a silver dagger mounted in the sun stone');
   await ev(() => { boss.shootCd = 1; });
   await frames(8);
   check(await ev(() => skulls.length > 0), 'he throws the tomb\'s own skulls');
