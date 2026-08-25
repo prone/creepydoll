@@ -6577,6 +6577,72 @@ function drawMini() {
 
 /* ---------------- screens ---------------- */
 let titleT = 0;
+/* The title is porcelain too: drawn big, then it cracks, then it falls
+   apart shard by shard — and is whole again, as if nothing happened. */
+let titleFx = null;
+function initTitleFx() {
+  const c = document.createElement('canvas');
+  c.width = 280; c.height = 42;
+  const g = c.getContext('2d');
+  g.font = 'bold 34px monospace'; g.textBaseline = 'top';
+  g.fillStyle = '#1a0a12'; g.fillText('CREEPY DOLL', 3, 4);
+  g.fillStyle = '#c9304a'; g.fillText('CREEPY DOLL', 0, 1);
+  const data = g.getImageData(0, 0, c.width, c.height).data;
+  const T = 4, tiles = [];
+  for (let ty = 0; ty < c.height; ty += T)
+    for (let tx = 0; tx < c.width; tx += T) {
+      let solid = false;
+      for (let y = ty; y < ty + T && !solid; y++)
+        for (let x = tx; x < tx + T && !solid; x++)
+          if (data[(y * c.width + x) * 4 + 3] > 0) solid = true;
+      if (solid)
+        tiles.push({ sx: tx, sy: ty,
+                     drop: tileNoise(tx * 7 + ty, 51),      // fall order
+                     drift: tileNoise(tx + ty * 13, 52) - 0.5 });
+    }
+  // three jagged cracks across the face of it
+  const cracks = [];
+  for (let k = 0; k < 3; k++) {
+    let x = 30 + k * 90 + tileNoise(k, 53) * 40, y = 0;
+    while (y < c.height) {
+      const nx = x + (tileNoise(x + y * 3 + k * 99, 54) - 0.5) * 12;
+      cracks.push({ x0: x, y0: y, x1: nx, y1: y + 6, k });
+      x = nx; y += 6;
+    }
+  }
+  titleFx = { c, T, tiles, cracks };
+}
+
+function drawTitleWord(x0, y0) {
+  if (!titleFx) initTitleFx();
+  const { c, T, tiles, cracks } = titleFx;
+  const CYC = 480, t = titleT % CYC;
+  if (t < 200) {                                   // whole, for a while
+    ctx.drawImage(c, x0, y0);
+  } else if (t < 290) {                            // the cracks arrive
+    ctx.drawImage(c, x0, y0);
+    const reveal = (t - 200) / 90;
+    for (const s of cracks)
+      if (s.y0 / c.height <= reveal) {
+        const steps = 6;
+        for (let i = 0; i <= steps; i++)
+          ctx.fillStyle = '#1a0a12',
+          ctx.fillRect(Math.round(x0 + s.x0 + (s.x1 - s.x0) * i / steps),
+                       Math.round(y0 + s.y0 + (s.y1 - s.y0) * i / steps), 1, 2);
+      }
+  } else {                                         // and it all comes down
+    const fall = t - 290;
+    for (const tl of tiles) {
+      const start = tl.drop * 110;                 // each shard picks its moment
+      const ft = Math.max(0, fall - start);
+      const oy = 0.028 * ft * ft, ox = tl.drift * ft * 0.35;
+      if (y0 + tl.sy + oy > VIEW_H) continue;      // gone into the dark
+      ctx.drawImage(c, tl.sx, tl.sy, T, T,
+                    Math.round(x0 + tl.sx + ox), Math.round(y0 + tl.sy + oy), T, T);
+    }
+  }
+}
+
 function drawTitle() {
   titleT++;
   drawBackground(Math.min(3, (titleT >> 8) % 4));
@@ -6584,8 +6650,7 @@ function drawTitle() {
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
   const wob = Math.sin(titleT / 40) * 2;
-  bigText('CREEPY DOLL', 74, 34 + wob, '#1a0a12', 24);
-  bigText('CREEPY DOLL', 72, 32 + wob, '#c9304a', 24);
+  drawTitleWord(44, 18 + wob);
 
   // the doll herself, big and slowly rotting
   const st = Math.min(3, (titleT >> 8) % 4);
