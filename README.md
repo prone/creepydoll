@@ -87,6 +87,9 @@ jump launches her about twice as high.
   appears on the road ahead, full of stars, counting down. Reach it within
   three seconds and a **flying saucer** takes her: +5 borrowed hearts (shown
   green), free flight on the arrows, **Z** fires laser beams, **C** bails out.
+  The **tractor beam** under the dome lifts any enemy she hovers over —
+  press **X** to fire the passenger back out as a projectile (a jet downed
+  this way still pays +300).
   The military notices — two to five jet fighters scramble and lob missiles
   that mostly miss. Lasering a jet is worth 300. Near the end of the level the
   saucer starts smoking: eject in time, or the explosion costs a heart. Either
@@ -129,9 +132,14 @@ jump launches her about twice as high.
   and he crumples — a naked hairy beast — turns back into the boy, and breaks
   THROUGH the chapel wall into the night. And still he runs.
 - **Level 4 — the snowy mountain:** the climb. Stepped shelves rise from the
-  valley floor to a summit plateau across crevasses, through constant snowfall,
-  past charging mountain goats, diving snowy owls, and wolves in winter coats,
-  with frozen crystals for checkpoints. In the ice cave at the top the boy is
+  valley floor to a summit plateau across crevasses, through snowfall that
+  **thickens with every step she climbs** — by the summit the whiteout takes
+  half the view, and drifts pile deep on every surface. The packed snow
+  barely grips: she builds speed gradually and glides a little after every
+  stop. **Ice ledges** hang along the climb with icicles beneath — strike
+  one and a few seconds later it comes down on whatever stands under it.
+  Charging mountain goats, diving snowy owls, and wolves in winter coats
+  patrol the shelves, with frozen crystals for checkpoints. In the ice cave at the top the boy is
   a **yeti** — strike the hanging icicles mid-jump to drop them on his head,
   kick the standing ones so they skid into him, or use your fists at half
   power. Beaten, he escapes down a tunnel.
@@ -141,8 +149,8 @@ jump launches her about twice as high.
   (back the right beetle), and the Spear Gauntlet (dash the gates while the
   spears are up). At the burial door the boy wears a god's gold face: the
   **Aztec god** throws skulls in arcs while she fetches and throws an
-  obsidian-and-gold dagger — every hit cracks his mask and sends the dagger
-  skidding. Four hits and the mask falls, and the boy slips into the dark
+  silver-and-jade dagger thrown in a true arc — every hit cracks his mask,
+  and the dagger drops right where it struck, waiting in the danger zone. Four hits and the mask falls, and the boy slips into the dark
   behind the sarcophagus. And still he runs.
 - **Cheats:** press **Esc** — the pause screen asks for the cheat password
   (someone who knows it will tell you; it's case-sensitive). Once unlocked

@@ -796,10 +796,12 @@ const dragon = { spawned: false, active: false, ridden: false,
 // reach it in three and she flies a borrowed saucer with borrowed hearts.
 const saucer = { active: false, x: 0, y: 0, vx: 0, vy: 0, face: 1, t: 0,
                  doorX: -1, doorGy: 0, doorT: 0, doorCd: 1800, entryHp: 5,
+                 caught: null,
                  laserCd: 0, smokeT: -1, jetCount: 0 };
 const jets = [];      // {x, y, vx, t, fireCd, dead}
 const missiles = [];  // {x, y, vx, vy, t}
 const lasers = [];    // {x, y, vx}
+const beamShots = []; // enemies fired out of the tractor beam (live refs)
 const shards = [];    // porcelain, thrown at full creep: {x, y, vx, vy, t}
 
 function enterSaucer() {
@@ -823,6 +825,11 @@ function exitSaucer(bang) {
   saucer.active = false;
   saucer.smokeT = -1;
   saucer.doorCd = 1800;
+  if (saucer.caught) {                 // the beam lets its passenger down
+    saucer.caught.beamed = false;
+    saucer.caught.placed = false;      // it resettles wherever it falls
+    saucer.caught = null;
+  }
   jets.length = 0; missiles.length = 0; lasers.length = 0;
   player.hp = Math.min(player.hp, saucer.entryHp);       // the loaner hearts go home
   player.vy = -1.5;
@@ -913,6 +920,34 @@ function updateSaucerFlight() {
                   y: saucer.y + 7, vx: saucer.face * 4.5 });
     sfx(1200, 0.08, 'square', 0.05, -700);
   }
+
+  // the tractor beam: whatever walks beneath is invited aboard
+  if (saucer.caught && saucer.caught.dead) saucer.caught = null;
+  if (!saucer.caught) {
+    for (const e of enemies) {
+      if (e.dead || e.beamed || e.shotOut) continue;
+      if (e.x + e.w > saucer.x + 9 && e.x < saucer.x + 25 &&
+          e.y > saucer.y + 12 && e.y < saucer.y + 130) {
+        e.beamed = true;
+        saucer.caught = e;
+        sfx(700, 0.25, 'sine', 0.05, 320);
+        break;
+      }
+    }
+  }
+  if (saucer.caught) {
+    const e = saucer.caught;
+    e.x += (saucer.x + 17 - e.w / 2 - e.x) * 0.2;   // drawn up the light
+    e.y += (saucer.y + 16 - e.y) * 0.15;
+    if (kKick() && !kickHeld) {                     // X: fire the passenger
+      e.beamed = false;
+      e.shotOut = true;
+      e.shotVx = saucer.face * 4.2;
+      beamShots.push(e);
+      saucer.caught = null;
+      sfx(340, 0.15, 'square', 0.07, 200);
+    }
+  }
   punchHeld = kPunch(); kickHeld = kKick(); jumpHeld = kJump();
 
   // C: bail out
@@ -924,6 +959,40 @@ function updateSaucerFlight() {
   crouchHeld = kCrouch();
 
   updateJets();
+}
+
+// enemies fired out of the tractor beam fly as ammunition
+function updateBeamShots() {
+  for (let i = beamShots.length - 1; i >= 0; i--) {
+    const e = beamShots[i];
+    if (e.dead) { beamShots.splice(i, 1); continue; }
+    e.x += e.shotVx;
+    let spent = false;
+    for (const j of jets)
+      if (!j.dead && rectsOverlap({ x: j.x, y: j.y, w: 18, h: 7 }, e)) {
+        j.dead = 1;
+        score += 300;
+        addShake(1.5, 5);
+        burst(j.x + 9, j.y + 3, '#ffa030', 10, Math.sign(e.shotVx));
+        sfx(300, 0.2, 'sawtooth', 0.07, -180);
+        spent = true;
+        break;
+      }
+    if (!spent)
+      for (const o of enemies)
+        if (o !== e && !o.dead && !o.beamed && !o.shotOut && rectsOverlap(o, e)) {
+          killEnemy(o);
+          spent = true;
+          break;
+        }
+    if (spent || e.x < camX - 60 || e.x > camX + VIEW_W + 60 ||
+        hardAt(e.x + e.w / 2, e.y + e.h / 2)) {
+      burst(e.x + e.w / 2, e.y + e.h / 2, '#9ae8b8', 8, Math.sign(e.shotVx));
+      e.dead = 1;                        // spent as ammunition, no bounty
+      e.shotOut = false;
+      beamShots.splice(i, 1);
+    }
+  }
 }
 
 function updateJets() {
@@ -1133,6 +1202,110 @@ function seatGroundlings() {
   }
 }
 
+/* ---------------- the mountain's weather (level 4) ---------------- */
+// snowfall thickens with her progress until the summit is near-whiteout
+function snowIntensity() {
+  return level === 4 ? Math.max(0, Math.min(1, player.maxX / (LEVEL_W * 0.9))) : 0;
+}
+// drifts deepen toward the summit — snow piles on every exposed surface
+function drawSnowCaps() {
+  ctx.fillStyle = '#e8eef6';
+  const c0 = Math.max(0, Math.floor(camX / TILE)), c1 = Math.min(MAP_W - 1, c0 + 21);
+  for (let c = c0; c <= c1; c++) {
+    const h = 1 + Math.round((c / MAP_W) * 4);
+    for (let r = 1; r < MAP_H; r++)
+      if (map[r][c] && !map[r - 1][c])
+        ctx.fillRect(c * TILE - Math.round(camX), r * TILE - h, TILE, h);
+  }
+}
+// icicles hang from the overhangs: strike one and, a few seconds later,
+// it comes down on whatever stands beneath
+const levelIcicles = [];
+function buildLevelIcicles() {
+  levelIcicles.length = 0;
+  if (level !== 4) return;
+  // the mountain terrain is solid rock — so it grows its own ice ledges:
+  // snow-crusted one-way shelves four tiles up, an icicle under each
+  // (placed post-gen via tileNoise, no rng consumed; 3 rows of air kept
+  // beneath per the headroom rule)
+  for (let c = 10; c < MAP_W - 16; c++) {
+    if (tileNoise(c, 62) >= 0.28) continue;
+    // the ledge hangs four tiles over the HIGHEST of its three columns
+    let gr = 99;
+    for (let i = 0; i < 3; i++) {
+      const g = groundTopRowAt(c + i);
+      if (g < 0) { gr = -1; break; }
+      gr = Math.min(gr, g);
+    }
+    if (gr < 0) continue;
+    const pr = Math.max(2, gr - 4);            // high plateau keeps 2 rows of air
+    if (gr - pr < 3) continue;
+    let clear = true;
+    for (let i = 0; i < 3; i++)
+      for (let r = pr - 1; r <= pr + 1; r++)
+        if (!map[r] || map[r][c + i]) clear = false;
+    if (!clear) continue;
+    for (let i = 0; i < 3; i++) map[pr][c + i] = 2;
+    levelIcicles.push({ x: (c + 1) * TILE + 5, y: (pr + 1) * TILE,
+                        state: 'hung', vy: 0, shakeT: 0 });
+    c += 9;                                    // spread along the climb
+  }
+}
+function updateLevelIcicles() {
+  if (!levelIcicles.length) return;
+  const hb = attackHitbox();
+  for (let i = levelIcicles.length - 1; i >= 0; i--) {
+    const ic = levelIcicles[i];
+    if (ic.state === 'hung') {
+      const box = { x: ic.x - 1, y: ic.y, w: 8, h: 12 };
+      const headBonk = player.vy < 0 && rectsOverlap(box, player);
+      if ((hb && rectsOverlap(box, hb)) || headBonk) {
+        ic.state = 'wobble'; ic.shakeT = 90;         // a few seconds of warning
+        sfx(900, 0.12, 'triangle', 0.05, -200);
+      }
+    } else if (ic.state === 'wobble') {
+      if (--ic.shakeT <= 0) {
+        ic.state = 'fall';
+        sfx(500, 0.15, 'triangle', 0.05, -300);
+      }
+    } else {
+      ic.vy = Math.min(ic.vy + 0.25, 5);
+      ic.y += ic.vy;
+      const box = { x: ic.x - 1, y: ic.y, w: 8, h: 12 };
+      let gone = false;
+      for (const e of enemies)
+        if (!e.dead && !e.beamed && rectsOverlap(box, e)) {
+          e.hp -= 2; e.flashT = 6;
+          if (e.hp <= 0) killEnemy(e);
+          gone = true;
+          break;
+        }
+      if (!gone && player.invuln <= 0 && rectsOverlap(box, player)) {
+        hurtPlayer(ic.x, 0.5);
+        gone = true;
+      }
+      if (gone || solidAt(ic.x + 3, ic.y + 12) || ic.y > MAP_H * TILE) {
+        burst(ic.x + 3, ic.y + 8, '#cfe3f2', 8);
+        sfx(1100, 0.1, 'triangle', 0.05, -500);
+        levelIcicles.splice(i, 1);
+      }
+    }
+  }
+}
+function drawLevelIcicles() {
+  for (const ic of levelIcicles) {
+    const wob = ic.state === 'wobble' ? Math.round(Math.sin(frame * 1.3)) : 0;
+    const x = Math.round(ic.x - camX) + wob, y = Math.round(ic.y);
+    if (x < -10 || x > VIEW_W + 10) continue;
+    ctx.fillStyle = '#cfe3f2';
+    ctx.fillRect(x, y, 6, 5);
+    ctx.fillRect(x + 1, y + 5, 4, 4);
+    ctx.fillRect(x + 2, y + 9, 2, 3);
+    ctx.fillStyle = '#f0f6fc';
+    ctx.fillRect(x + 1, y, 1, 8);
+  }
+}
+
 function genLevel() {
   FINALE_GY = 9 * TILE;
   if (level === 5) genTomb();
@@ -1142,6 +1315,7 @@ function genLevel() {
   else genOutside();
   anchorSpiders();
   seatGroundlings();
+  buildLevelIcicles();
 }
 
 /* ---------------- level 4: the snowy mountain ---------------- */
@@ -2357,9 +2531,9 @@ function resetGame() {
   dog.retreatT = 0; dog.barkCd = 0; dog.lastHit = -1;
   dog.hp = 3; dog.deadT = 0; dog.fleeT = 0; dog.flashT = 0;
   saucer.active = false; saucer.doorX = -1; saucer.doorT = 0;
-  saucer.doorCd = 1800; saucer.smokeT = -1;
+  saucer.doorCd = 1800; saucer.smokeT = -1; saucer.caught = null;
   jets.length = 0; missiles.length = 0; lasers.length = 0;
-  shards.length = 0;
+  shards.length = 0; beamShots.length = 0;
   boss.active = false;
   bossBats.length = 0; bossRoaches.length = 0; thrown.length = 0;
   carrying = null;
@@ -2559,11 +2733,18 @@ function updatePlayer() {
   }
   crouchHeld = kCrouch();
 
-  // walking (crouching is slow; attacks never cost her momentum)
+  // walking (crouching is slow; attacks never cost her momentum).
+  // packed snow barely grips: on the mountain her porcelain feet build
+  // speed gradually and glide a little after every stop
   const speed = player.crouch ? 0.8 : 1.7;
-  if (kLeft())       { player.vx = -speed; player.face = -1; }
-  else if (kRight()) { player.vx = speed;  player.face = 1; }
-  else player.vx *= player.onGround ? 0.6 : 0.95;
+  const icy = level === 4 && player.onGround;
+  if (kLeft()) {
+    player.vx = icy ? Math.max(-speed, player.vx - 0.14) : -speed;
+    player.face = -1;
+  } else if (kRight()) {
+    player.vx = icy ? Math.min(speed, player.vx + 0.14) : speed;
+    player.face = 1;
+  } else player.vx *= icy ? 0.955 : player.onGround ? 0.6 : 0.95;
 
   // power-jump charge: hold Down on the ground for 2 seconds to coil up
   const CHARGE_FRAMES = 120;
@@ -2872,6 +3053,7 @@ function updateEnemies() {
 
   for (const e of enemies) {
     if (e.dead) { e.dead++; continue; }
+    if (e.beamed || e.shotOut) continue;   // the saucer owns this one now
     e.t++;
     if (e.flashT > 0) e.flashT--;
 
@@ -4269,8 +4451,8 @@ const bossBox = () => ({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h });
 
 // the fetch-and-throw relics: one mechanic, two artifacts
 const RELICS = {
-  aztec:    { obj: dag,    name: 'dagger',     w: 10, h: 8,  g: 0.06,
-              tvx: 3.8, tvy: -0.6, throwF: 320, throwS: 200, pickF: 760,
+  aztec:    { obj: dag,    name: 'dagger',     w: 10, h: 8,  g: 0.085,
+              tvx: 3.8, tvy: -1.6, throwF: 320, throwS: 200, pickF: 760,
               clinkF: 700, clinkD: 0.08, clinkS: -250, onHit: () => aztecHit() },
   werewolf: { obj: candel, name: 'candelabra', w: 12, h: 10, g: 0.08,
               tvx: 3.6, tvy: -1.2, throwF: 300, throwS: 180, pickF: 700,
@@ -4279,6 +4461,17 @@ const RELICS = {
 
 function updateRelicFlight(rc) {
   const o = rc.obj;
+  if (o.state === 'loose') {           // knocked free: it falls where it is
+    o.x += o.vx; o.y += o.vy; o.vy += rc.g * 1.6;
+    if (o.y >= 132) {
+      o.y = 132; o.state = 'ground'; o.vx = 0;
+      sfx(rc.clinkF, rc.clinkD, 'triangle', 0.04, rc.clinkS);
+    } else if (o.x < 4 || o.x > VIEW_W - 16) {
+      o.vx *= -0.5;
+      o.x = Math.max(4, Math.min(VIEW_W - 16, o.x));
+    }
+    return;
+  }
   if (o.state !== 'thrown') return;
   o.x += o.vx; o.y += o.vy; o.vy += rc.g;
   if (rectsOverlap({ x: o.x, y: o.y, w: rc.w, h: rc.h }, bossBox())) {
@@ -4380,9 +4573,11 @@ function aztecHit() {
   burst(boss.x + boss.w / 2, 110, '#d8b23a', 12, -1.4);
   sfx(140, 0.5, 'sawtooth', 0.09, -50);                // a voice too old for the room
   sfx(1100, 0.15, 'triangle', 0.05, -400);             // obsidian on gold
-  const farLeft = boss.x + boss.w / 2 > VIEW_W / 2;
-  dag.x = farLeft ? 24 + Math.random() * 40 : 230 + Math.random() * 40;
-  dag.y = 132; dag.vx = 0; dag.vy = 0; dag.state = 'ground';
+  // the dagger drops where it struck — it lies where it lands, and she
+  // must dodge in close to take it back
+  dag.vx = dag.vx > 0 ? -0.8 : 0.8;                    // recoil off the gold
+  dag.vy = -1.4;
+  dag.state = 'loose';
   if (boss.hp <= 0) {
     boss.phase = 'crumple'; boss.phaseT = 0;
     flashText = { msg: 'the mask falls.', t: 110 };
@@ -6849,11 +7044,18 @@ function tick(now) {
       ambientCd = 480 + Math.random() * 600;
       playAmbient(creepStage());
     }
-    // the mountain snows, always
-    if (level === 4 && frame % 4 === 0)
-      particles.push({ x: camX + Math.random() * VIEW_W, y: -4,
-                       vx: -0.3 - Math.random() * 0.4, vy: 0.5 + Math.random() * 0.3,
-                       t: 320, float: true, color: '#e8eef6' });
+    // the mountain snows, always — and harder the higher she climbs
+    if (level === 4) {
+      const si = snowIntensity();
+      if (frame % Math.max(1, 5 - Math.round(si * 4)) === 0)
+        particles.push({ x: camX + Math.random() * VIEW_W, y: -4,
+                         vx: -0.3 - Math.random() * (0.4 + si), vy: 0.5 + Math.random() * 0.3,
+                         t: 320, float: true, color: '#e8eef6' });
+      if (si > 0.55 && frame % 2 === 0)
+        particles.push({ x: camX + Math.random() * VIEW_W, y: -4,
+                         vx: -0.5 - Math.random() * 0.8, vy: 0.6 + Math.random() * 0.4,
+                         t: 300, float: true, color: '#f0f6fc' });
+    }
     // once the decay starts, ash sifts out of the sky — redder as she goes
     const ast = creepStage();
     if (level === 1 && ast >= 1 && frame % 9 === 0)
@@ -6871,6 +7073,8 @@ function tick(now) {
     updateEnemies();
     updateFireballs();
     updateShards();
+    updateLevelIcicles();
+    updateBeamShots();
     updateHeartPickup();
     updateEyePickups();
     updateParticles();
@@ -6888,6 +7092,7 @@ function tick(now) {
   else if (level === 2) drawHouseBackground(st);
   else drawBackground(st);
   drawTiles();
+  if (level === 4) { drawSnowCaps(); drawLevelIcicles(); }
   drawCheckpoints();
   drawDoors();
   drawHouse();
@@ -6905,6 +7110,13 @@ function tick(now) {
   drawShards();
   drawParticles();
   ctx.restore();
+  // near the summit the snow itself takes the view
+  const veil = snowIntensity();
+  if (veil > 0.12) {
+    ctx.fillStyle = 'rgba(232,238,246,' +
+                    (veil * (assist.calm ? 0.16 : 0.3)).toFixed(3) + ')';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
   drawHUD();
 
   // vignette creeps in with her (outside — the house keeps its lights on)

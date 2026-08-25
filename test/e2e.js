@@ -597,6 +597,105 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   }), 'every spider thread is tied to real wood above it');
   await ev(() => { player.invuln = 999999; });
 
+  /* ---------- level & dynamics tickets ---------- */
+  section('mountain weather, dagger, tractor beam');
+  const mountain = await page.evaluate(async () => {
+    const glideFrames = async () => {
+      player.vx = 1.7; player.vy = 0;
+      let n = 0;
+      for (; n < 120 && Math.abs(player.vx) > 0.3; n++)
+        await new Promise(r => requestAnimationFrame(r));
+      return n;
+    };
+    level = 4; resetGame(); state = 'play'; player.invuln = 999999;
+    for (let i = 0; i < 14; i++) await new Promise(r => requestAnimationFrame(r));
+    const icy = await glideFrames();
+    const icicles = levelIcicles.length;
+    player.maxX = 40;   const si0 = snowIntensity();
+    player.maxX = LEVEL_W; const si1 = snowIntensity();
+    player.maxX = 200;
+    level = 1; resetGame(); state = 'play'; player.invuln = 999999;
+    for (let i = 0; i < 14; i++) await new Promise(r => requestAnimationFrame(r));
+    const dry = await glideFrames();
+    return { icy, dry, icicles, si0: +si0.toFixed(2), si1 };
+  });
+  check(mountain.icy > mountain.dry + 6,
+        'packed snow barely grips — she glides (' + mountain.icy + 'f vs ' +
+        mountain.dry + 'f on the road)');
+  check(mountain.si0 < 0.2 && mountain.si1 === 1,
+        'the snowfall thickens with her climb, whiteout at the summit');
+  check(mountain.icicles > 0,
+        'icicles hang from the mountain overhangs (' + mountain.icicles + ')');
+  const icicleDrop = await page.evaluate(async () => {
+    level = 4; resetGame(); state = 'play'; player.invuln = 999999;
+    const ic = levelIcicles[0];
+    if (!ic) return 'none';
+    player.x = ic.x - 12; player.y = ic.y + 2; player.vy = 0;
+    player.face = 1; player.attack = null;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    let state1 = '';
+    for (let i = 0; i < 20; i++) {
+      player.x = ic.x - 12; player.y = ic.y + 2; player.vy = 0;
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 3) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      if (ic.state !== 'hung') { state1 = ic.state; break; }
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    if (state1 !== 'wobble') return { state1 };
+    ic.shakeT = 2;
+    player.x = ic.x + 60;                              // step clear
+    let fell = false, shattered = false;
+    for (let i = 0; i < 200; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (ic.state === 'fall') fell = true;
+      if (levelIcicles.indexOf(ic) < 0) { shattered = true; break; }
+    }
+    return { state1, fell, shattered };
+  });
+  check(icicleDrop !== 'none' && icicleDrop.state1 === 'wobble' &&
+        icicleDrop.fell && icicleDrop.shattered,
+        'a struck icicle wobbles, falls a few seconds later, and shatters');
+  const beamProbe = await page.evaluate(async () => {
+    level = 1; resetGame(); state = 'play'; player.invuln = 999999;
+    player.x = 400; enterSaucer();
+    saucer.x = 400; saucer.y = 60; saucer.vx = 0; saucer.face = 1;
+    const prey = enemies.find(e =>
+      (e.kind === 'snake' || e.kind === 'bat') && !e.dead);
+    if (!prey) return 'no-enemy';
+    let caught = false;
+    for (let i = 0; i < 40 && !caught; i++) {
+      prey.x = saucer.x + 12; prey.y = saucer.y + 60; prey.vx = 0; prey.vy = 0;
+      await new Promise(r => requestAnimationFrame(r));
+      if (saucer.caught === prey) caught = true;
+    }
+    if (!caught) return 'not-caught';
+    for (let i = 0; i < 20; i++) await new Promise(r => requestAnimationFrame(r));
+    jets.length = 0;
+    const target = { x: saucer.x + 80, y: saucer.y + 14, vx: 0, t: 0,
+                     fireCd: 9999, dead: 0 };
+    jets.push(target);
+    const s0 = score;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
+    let hit = false;
+    for (let i = 0; i < 60 && !hit; i++) {
+      target.x = saucer.x + 80; target.y = saucer.y + 14; target.vx = 0;
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 3) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+      if (target.dead) hit = true;
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+    const gained = score - s0;
+    exitSaucer(false);
+    return { caught, hit, gained };
+  });
+  check(beamProbe !== 'no-enemy' && beamProbe !== 'not-caught' && beamProbe.caught,
+        'the tractor beam lifts an enemy aboard');
+  check(beamProbe.hit && beamProbe.gained >= 300,
+        'X fires the passenger — a jet goes down (+' + beamProbe.gained + ')');
+  await ev(() => { level = 1; resetGame(); state = 'play';
+                   player.invuln = 999999; });
+  await frames(3);
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
@@ -1991,8 +2090,12 @@ function section(name) { console.log('\n== ' + name + ' =='); }
       await new Promise(r => requestAnimationFrame(r));
       if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
       if (boss.hp < 4) {
-        ret = { hp: boss.hp, moved: Math.abs(dag.x - dx0) > 40,
-                grounded: dag.state === 'ground' };
+        const hitX = dag.x;
+        for (let j = 0; j < 60 && dag.state !== 'ground'; j++)
+          await new Promise(r => requestAnimationFrame(r));
+        ret = { hp: boss.hp,
+                grounded: dag.state === 'ground',
+                stayed: Math.abs(dag.x - hitX) < 60 };
         break;
       }
     }
@@ -2000,8 +2103,8 @@ function section(name) { console.log('\n== ' + name + ' =='); }
     return ret;
   });
   check(godHit1 !== 'miss' && godHit1.hp === 3, 'obsidian finds gold — the mask cracks');
-  check(godHit1 !== 'miss' && godHit1.moved && godHit1.grounded,
-        'the dagger skids away; she must fetch it again');
+  check(godHit1 !== 'miss' && godHit1.grounded && godHit1.stayed,
+        'the dagger falls where it struck and lies there waiting');
   for (let h = 0; h < 3; h++) {
     await page.evaluate(async () => {
       window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
