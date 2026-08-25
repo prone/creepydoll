@@ -3037,10 +3037,9 @@ function updateHeartPickup() {
   heartPickup.t++;
   const hy = heartPickup.y + Math.sin(heartPickup.t / 25) * 3;
   const box = { x: heartPickup.x - 1, y: hy - 1, w: 9, h: 10 };
-  if (player.hp < 5 && rectsOverlap(box, player)) {
-    heartPickup.taken = true;       // it only gives itself to the wounded
-    player.hp = Math.min(5, player.hp + 1);
-    sndHeal();
+  if (rectsOverlap(box, player)) {
+    heartPickup.taken = true;       // a new container, whoever she is
+    healOne();
     burst(heartPickup.x + 4, hy + 4, '#e8506a', 10);
   }
 }
@@ -3971,8 +3970,13 @@ function drawText(msg, x, y, color, s) {
 function pixelText(msg, x, y, color) {
   drawText(String(msg).toUpperCase(), x, y, color, 1);
 }
+// headings keep the original heavy monospace look (the title reads better
+// in it) — only the small text moved to the bitmap font
 function bigText(msg, x, y, color, size) {
-  drawText(String(msg).toUpperCase(), x, y, color, Math.max(2, Math.round(size / 10)));
+  ctx.fillStyle = color;
+  ctx.font = 'bold ' + size + 'px monospace';
+  ctx.textBaseline = 'top';
+  ctx.fillText(msg, Math.round(x), Math.round(y));
 }
 
 /* ---------------- the eyeless dragon ---------------- */

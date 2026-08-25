@@ -250,10 +250,8 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   section('heart pickup');
   await ev(() => { player.hp = 5; player.x = heartPickup.x - 2; player.y = 90; player.vy = 0; });
   await frames(14);
-  check(await ev(() => !heartPickup.taken && player.hp === 5), 'heart refuses a full-health doll');
-  await ev(() => { player.hp = 2; player.x = heartPickup.x - 2; player.y = 90; player.vy = 0; });
-  await frames(14);
-  check(await ev(() => heartPickup.taken && player.hp === 3), 'heart heals exactly one heart when hurt');
+  check(await ev(() => heartPickup.taken && player.hp === 6),
+        'the gap heart grows a sixth container even at full health');
 
   /* ---------- pause ---------- */
   section('pause');
