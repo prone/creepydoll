@@ -332,7 +332,9 @@ const SNAKE_FRAMES = [
 ];
 
 // the house's own tenants (level 2)
-const ANT_PAL = { A: '#2a1c14', a: '#3e2c1e' };
+// vermin must READ against the dark floorboards — no camouflage, no
+// invisible bites: black silhouette bodies with pale legs and lit shells
+const ANT_PAL = { A: '#12100e', a: '#e8c8a8' };
 const ANT_FRAMES = [
   sprite([
     'AA.AA.',
@@ -346,7 +348,7 @@ const ANT_FRAMES = [
   ], ANT_PAL),
 ];
 
-const ROACH_PAL = { R: '#5a3a1e', r: '#7a4e28', L: '#3a2812' };
+const ROACH_PAL = { R: '#b06a30', r: '#d89a50', L: '#12100e' };
 const ROACH_FRAMES = [
   sprite([
     '.rrrrrr..L',
@@ -362,7 +364,7 @@ const ROACH_FRAMES = [
   ], ROACH_PAL),
 ];
 
-const RAT_PAL = { G: '#6a6272', g: '#524a5c', p: '#c98f9a', e: '#ff3040', t: '#8a6a70' };
+const RAT_PAL = { G: '#9a92a8', g: '#6a6272', p: '#c98f9a', e: '#ff3040', t: '#8a6a70' };
 const RAT_FRAMES = [
   sprite([
     '...ggGGGg.....',
