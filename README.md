@@ -47,9 +47,13 @@ jump launches her about twice as high.
   Defeating a bat gives one heart back if she's hurt. A spider's silk thread can be
   struck instead of the spider — three hits snap the web, the spider dies with it,
   and it's worth 200 points.
-- **Hearts:** you have five. Enemy contact costs one. Falling into a pit costs a
-  heart too — after a second in the dark, the last lit lantern pulls her back.
-  On her last heart, the dark keeps her.
+- **Hearts:** she starts with five, and there is **no ceiling** — every heart
+  she earns appends a new container to the HUD (rows of ten). Defeating a bat
+  always feeds her one, and **every minigame win grants a heart** (the doll
+  toss pays one per bucket landed — three buckets, three hearts). Enemy
+  contact costs one. Falling into a pit costs a heart too — after a second in
+  the dark, the last lit lantern pulls her back. On her last heart, the dark
+  keeps her.
 - **Lanterns:** checkpoint posts stand every couple of screens. Walking past one
   lights it and saves her spot for the next fall.
 - **Lost button eyes:** five are hidden along the road — on platform tops, over
@@ -86,7 +90,8 @@ jump launches her about twice as high.
   The military notices — two to five jet fighters scramble and lob missiles
   that mostly miss. Lasering a jet is worth 300. Near the end of the level the
   saucer starts smoking: eject in time, or the explosion costs a heart. Either
-  way the borrowed hearts go home. Aboard, the music box gives way to a
+  way the borrowed hearts go home — though every heart she owned before
+  boarding walks out with her. Aboard, the music box gives way to a
   thumping little eurodance number.
 - **Porcelain shards:** once she reaches full creep, every kick also flings a
   spinning shard of her own porcelain — a short-range thrown weapon that

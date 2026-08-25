@@ -504,6 +504,57 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         stride.airGain.toFixed(1) + 'px over 8 frames)');
   await ev(() => { player.invuln = 999999; player.vx = 0; player.attack = null; });
 
+  /* ---------- hearts without ceiling ---------- */
+  section('unbounded hearts');
+  await ev(() => { player.hp = 5; healOne(); healOne(); healOne(); });
+  check(await ev(() => player.hp === 8),
+        'hearts stack past five — three heals make eight containers');
+  const batFeast = await ev(() => {
+    const b = enemies.find(e => e.kind === 'bat' && !e.dead);
+    if (!b) return 'no-bat';
+    killEnemy(b);
+    return player.hp;
+  });
+  check(batFeast === 9, 'a bat at full health still feeds her (nine)');
+  await ev(() => enterSaucer());
+  check(await ev(() => player.hp === 14 && saucer.entryHp === 9),
+        'the saucer lends five on top of her nine');
+  await ev(() => exitSaucer(false));
+  check(await ev(() => player.hp === 9),
+        'bailing out returns only the loaners — her own nine stay hers');
+  await ev(() => { player.hp = 5; saucer.doorCd = 1800;
+                   player.invuln = 999999; flashText = null; });
+
+  /* ---------- the boy never falls down a shaft ---------- */
+  section('boy vs shafts');
+  await ev(() => { level = 2; resetGame(); state = 'play'; player.invuln = 999999; });
+  await frames(3);
+  const shaft = await ev(() => {
+    for (let c = 30; c < MAP_W - 20; c++)
+      if (!map[9][c] && !map[10][c]) return c;
+    return -1;
+  });
+  check(shaft > 0, 'the house floor has stairwell shafts (first at col ' + shaft + ')');
+  const finale = await ev(() => {
+    player.x = houseX - 279; player.maxX = houseX - 279;
+    updateKid();
+    const col = Math.floor((kid.x + 3) / TILE);
+    return { stage: kid.stage, solid: map[9][col] === 1 };
+  });
+  check(finale.stage === 'final' && finale.solid,
+        'the finale boy stands on real floorboards');
+  const recovered = await page.evaluate(async (c) => {
+    kid.stage = 'final'; kid.mode = 'flee';
+    kid.x = c * TILE + 2; kid.y = 150; kid.vy = 2; kid.vx = 0;
+    for (let i = 0; i < 30; i++) await new Promise(r => requestAnimationFrame(r));
+    const col = Math.floor((kid.x + 3) / TILE);
+    return { solid: map[9][col] === 1, visible: kid.y > 0 && kid.y < 170 };
+  }, shaft);
+  check(recovered.solid && recovered.visible,
+        'shoved down a shaft, he reappears on solid ground, visible');
+  await ev(() => { level = 1; resetGame(); state = 'play'; player.invuln = 999999; });
+  await frames(3);
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
@@ -717,6 +768,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'three carnival doors and one secret crack: the hollow');
 
   // walk in through the real doorway with a real Up press
+  const tossHp = await ev(() => { player.hp = 5; return player.hp; });
   await ev(() => { player.invuln = 999999; player.x = doors[0].x + 2; player.y = 126; player.vy = 0; });
   await frames(4);
   await tap('ArrowUp');
@@ -732,6 +784,9 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   }
   await page.waitForFunction(() => mini === null || mini.over, null, { timeout: 10000 });
   check(await ev(() => mini.over), 'doll toss finishes after three throws');
+  check(await page.evaluate(h => player.hp === h + mini.hits, tossHp),
+        'every bucket landed grew a heart container (' +
+        (await ev(() => mini.hits)) + ' buckets)');
   await page.keyboard.press('Enter');
   await frames(3);
   check(await ev(() => state === 'play' && doors[0].used), 'Enter returns; the door is spent');

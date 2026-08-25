@@ -793,7 +793,7 @@ const dragon = { spawned: false, active: false, ridden: false,
 // the alien invasion — every thirty seconds, a door that should not be there.
 // reach it in three and she flies a borrowed saucer with borrowed hearts.
 const saucer = { active: false, x: 0, y: 0, vx: 0, vy: 0, face: 1, t: 0,
-                 doorX: -1, doorGy: 0, doorT: 0, doorCd: 1800,
+                 doorX: -1, doorGy: 0, doorT: 0, doorCd: 1800, entryHp: 5,
                  laserCd: 0, smokeT: -1, jetCount: 0 };
 const jets = [];      // {x, y, vx, t, fireCd, dead}
 const missiles = [];  // {x, y, vx, vy, t}
@@ -809,7 +809,8 @@ function enterSaucer() {
   saucer.smokeT = -1; saucer.laserCd = 0;
   saucer.jetCount = 2 + Math.floor(Math.random() * 4);   // two to five
   jets.length = 0; missiles.length = 0; lasers.length = 0;
-  player.hp = Math.min(10, player.hp + 5);               // five extra, alien courtesy
+  saucer.entryHp = player.hp;                            // hers, to give back later
+  player.hp += 5;                                        // five extra, alien courtesy
   player.invuln = 60;
   musicStep = 0;
   flashText = { msg: 'the saucer takes her. +5 hearts.', t: 120, hold: true };
@@ -821,7 +822,7 @@ function exitSaucer(bang) {
   saucer.smokeT = -1;
   saucer.doorCd = 1800;
   jets.length = 0; missiles.length = 0; lasers.length = 0;
-  player.hp = Math.min(5, player.hp);                    // the loaner hearts go home
+  player.hp = Math.min(player.hp, saucer.entryHp);       // the loaner hearts go home
   player.vy = -1.5;
   musicStep = 0;
   if (!bang) sfx(300, 0.2, 'sine', 0.05, -150);
@@ -1462,6 +1463,19 @@ function genOutside() {
 
   // the healthy kid roams ahead — glimpsed, never caught, until the end
   resetKid();
+}
+
+// the boy is never placed over a shaft: walk outward from the wanted
+// column until real ground answers
+function kidSolidCol(want) {
+  const c0 = Math.max(2, Math.min(MAP_W - 3, Math.floor(want / TILE)));
+  for (let d = 0; d < 40; d++)
+    for (const c of d ? [c0 - d, c0 + d] : [c0]) {
+      if (c < 2 || c > MAP_W - 3) continue;
+      const gr = groundTopRowAt(c);
+      if (gr > 0) return { c, gr };
+    }
+  return { c: c0, gr: 9 };
 }
 
 function resetKid() {
@@ -2629,18 +2643,19 @@ function updateKid() {
   // roaming phase: glimpses ahead of the doll, always out of reach
   if (kid.stage === 'roam') {
     if (player.maxX >= houseX - 280) {
-      // the finale — the kid takes their place at the landmark
+      // the finale — the kid takes their place at the landmark,
+      // on ground that will actually hold him
       kid.stage = 'final'; kid.mode = 'idle';
-      kid.x = houseX - 70; kid.y = FINALE_GY - kid.h - 1;
+      const fs = kidSolidCol(houseX - 70);
+      kid.x = fs.c * TILE + 3; kid.y = fs.gr * TILE - kid.h - 1;
       kid.vx = 0; kid.vy = 0; kid.face = -1;
       return;
     }
     if (kid.mode === 'hidden') {
       if (--kid.hideT <= 0) {
         // step out onto solid ground ahead of her — close enough to chase
-        let c = Math.floor((player.x + 120) / TILE), gr = -1;
-        while (c < MAP_W - 16 && (gr = groundTopRowAt(c)) < 0) c++;
-        kid.x = c * TILE + 3; kid.y = (gr > 0 ? gr : 9) * TILE - kid.h - 1;
+        const gs = kidSolidCol(player.x + 120);
+        kid.x = gs.c * TILE + 3; kid.y = gs.gr * TILE - kid.h - 1;
         kid.vx = 0; kid.vy = 0;
         kid.mode = 'peek'; kid.glimpseT = 0;
         const lines = level === 5 ? TOMB_GLIMPSE_LINES :
@@ -2665,7 +2680,9 @@ function updateKid() {
       kid.vx = 1.95; kid.face = 1;
       const aheadX = kid.x + kid.w + 6;
       if (kid.onGround &&
-          (hardAt(aheadX, kid.y + kid.h - 4) || !solidAt(aheadX, kid.y + kid.h + 6)))
+          (hardAt(aheadX, kid.y + kid.h - 4) ||
+           !solidAt(aheadX, kid.y + kid.h + 6) ||
+           !solidAt(kid.x + kid.w + 14, kid.y + kid.h + 6)))
         kid.vy = -6;
       kid.vy = Math.min(kid.vy + 0.38, 7);
       moveAndCollide(kid);
@@ -2701,17 +2718,25 @@ function updateKid() {
       kid.vx = 0;
       kid.face = dx < 0 ? -1 : 1;       // trembling, watching her come
     }
-    // hop over small obstacles / gaps
+    // hop over small obstacles / gaps — looking two steps out, so the
+    // leap starts before the shaft, not at its lip
     const aheadX = kid.face > 0 ? kid.x + kid.w + 6 : kid.x - 6;
+    const ahead2 = kid.face > 0 ? kid.x + kid.w + 14 : kid.x - 14;
     if (kid.onGround &&
-        (hardAt(aheadX, kid.y + kid.h - 4) || !solidAt(aheadX, kid.y + kid.h + 6)))
+        (hardAt(aheadX, kid.y + kid.h - 4) ||
+         !solidAt(aheadX, kid.y + kid.h + 6) ||
+         !solidAt(ahead2, kid.y + kid.h + 6)))
       kid.vy = -6;
   }
 
   kid.vy = Math.min(kid.vy + 0.38, 7);
   moveAndCollide(kid);
-  if (kid.y > MAP_H * TILE + 30) {      // never lose the kid down a pit
-    kid.x = houseX - 40; kid.y = FINALE_GY - kid.h - 1; kid.vy = 0;
+  // never lose the kid down a shaft: the moment his feet drop below the
+  // finale floor he's set back on real ground, visible, waiting
+  if (kid.y + kid.h > FINALE_GY + TILE + 8) {
+    const rs = kidSolidCol(houseX - 40);
+    kid.x = rs.c * TILE + 3; kid.y = rs.gr * TILE - kid.h - 1;
+    kid.vx = 0; kid.vy = 0;
   }
   if (kid.alarmT > 0) kid.alarmT--;
   kid.animT += Math.abs(kid.vx) > 0.2 ? 1 : 0;
@@ -2739,10 +2764,9 @@ function killEnemy(e) {
              mummy: 250, scarab: 100, cobra: 200 }[e.kind] || 100;
   sfx(90, 0.25, 'triangle', 0.07, -40);
   addShake(2, 8);
-  // a bat's life feeds hers — one heart back, if she's hurt
-  if (e.kind === 'bat' && player.hp < 5) {
-    player.hp = Math.min(5, player.hp + 1);
-    sndHeal();
+  // a bat's life feeds hers — one heart, always, no ceiling
+  if (e.kind === 'bat') {
+    healOne();
     burst(player.x + 5, player.y + 6, '#e8506a', 8);
   }
 }
@@ -3823,24 +3847,26 @@ function drawHeart(x, y, color) {
 }
 
 function drawHUD() {
-  // hearts (the small things chew them half at a time; the saucer lends five)
-  const slots = player.hp > 5 || saucer.active ? 10 : 5;
+  // hearts: a container per heart she's earned, no ceiling — rows of ten
+  // (the small things chew them half at a time; the saucer's five run green)
+  const slots = Math.max(5, Math.ceil(player.hp));
   for (let i = 0; i < slots; i++) {
-    const x = 6 + i * 12;
-    const full = i >= 5 ? '#6ade8a' : '#c9304a';      // borrowed hearts run green
-    drawHeart(x, 6, '#3a2530');                       // empty socket
-    if (player.hp >= i + 1) drawHeart(x, 6, full);
+    const x = 6 + (i % 10) * 12, y = 6 + Math.floor(i / 10) * 11;
+    const full = saucer.active && i >= saucer.entryHp ? '#6ade8a' : '#c9304a';
+    drawHeart(x, y, '#3a2530');                       // empty socket
+    if (player.hp >= i + 1) drawHeart(x, y, full);
     else if (player.hp >= i + 0.5) {
       ctx.save();
-      ctx.beginPath(); ctx.rect(x, 6, 4, 8); ctx.clip();
-      drawHeart(x, 6, full);                          // the left half survives
+      ctx.beginPath(); ctx.rect(x, y, 4, 8); ctx.clip();
+      drawHeart(x, y, full);                          // the left half survives
       ctx.restore();
     }
   }
-  // lost eyes found (an outdoor hunt)
+  // lost eyes found (an outdoor hunt) — tucked under however many rows of hearts
   if (level === 1) {
-    drawButtonEye(6, 17, false);
-    pixelText(Math.min(eyesFound, EYES_TOTAL) + '/' + EYES_TOTAL, 16, 17, '#8a7a5c');
+    const eyeY = 6 + Math.ceil(slots / 10) * 11;
+    drawButtonEye(6, eyeY, false);
+    pixelText(Math.min(eyesFound, EYES_TOTAL) + '/' + EYES_TOTAL, 16, eyeY, '#8a7a5c');
   }
   pixelText('SCORE ' + score, VIEW_W - 6 - (7 + String(score).length) * 6, 6, '#cfc3e8');
   const st = creepStage();
@@ -4090,7 +4116,8 @@ function bEdge(name, cur) {
 }
 
 function healOne() {
-  if (player.hp < 5) { player.hp = Math.min(5, player.hp + 1); sndHeal(); }
+  player.hp += 1;                 // hearts stack without limit — every one
+  sndHeal();                      // she takes, she keeps
 }
 const bossBox = () => ({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h });
 
@@ -5661,7 +5688,7 @@ function updateScarabs() {
     }
     if (mini.winner >= 0) {
       mini.over = true; mini.won = mini.winner === mini.sel;
-      if (mini.won) score += 300;
+      if (mini.won) { score += 300; healOne(); }
       mini.msg = mini.won ? 'HER BEETLE KNEW THE WAY   +300'
                           : 'YOUR BEETLE DAWDLED.';
       sfx(mini.won ? 660 : 140, 0.3, mini.won ? 'triangle' : 'sawtooth', 0.06);
@@ -5702,6 +5729,7 @@ function updateSpears() {
       if (mini.gate === 3) {
         mini.over = true; mini.won = true;
         score += 400;
+        healOne();
         mini.msg = 'THREE GATES, UNTOUCHED   +400';
       }
     } else {
@@ -5855,6 +5883,7 @@ function updateBell() {
   }
   if (mini.swings === 0 && mini.bellT === 0) {
     mini.over = true; mini.won = mini.rung > 0;
+    if (mini.won) healOne();
     mini.msg = mini.rung + ' TRUE TOLL' + (mini.rung === 1 ? '' : 'S');
   }
 }
@@ -5923,6 +5952,7 @@ function updateCrows() {
     if (!mini.doneT) mini.doneT = mini.t;
     else if (mini.t - mini.doneT > 50) {
       mini.over = true; mini.won = mini.hits >= 3;
+      if (mini.won) healOne();
       mini.msg = mini.hits + '/3 CROWS   +' + mini.hits * 150;
     }
   }
@@ -6136,6 +6166,7 @@ function updateToss() {
     if (pr.vy > 0 && pr.y > 126 && pr.y < 140 &&
         pr.x > mini.bucketX + 2 && pr.x < mini.bucketX + 16) {
       mini.hits++; mini.proj = null;
+      healOne();                                       // every bucket, a heart
       sfx(540, 0.18, 'triangle', 0.08); sfx(800, 0.25, 'triangle', 0.05);
       mpBurst(mini.bucketX + 9, 128, '#e8c66a', 10);
     } else if (pr.y > 147) {
@@ -6237,6 +6268,7 @@ function updateBalloon() {
     if (!mini.doneT) mini.doneT = mini.t;
     else if (mini.t - mini.doneT > 55) {
       mini.over = true; mini.won = mini.pops >= 3;
+      if (mini.won) healOne();
       const bonus = mini.pops * 100 + (mini.won ? 200 : 0);
       score += bonus;
       mini.msg = mini.pops + ' POPPED   +' + bonus;
