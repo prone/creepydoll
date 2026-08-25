@@ -2941,10 +2941,17 @@ function updateKid() {
         kid.vy = -6;
       kid.vy = Math.min(kid.vy + 0.38, 7);
       moveAndCollide(kid);
+      // a wall he cannot jump (a tree trunk, a tall step) must never
+      // hold him in place — if the sprint stops making ground, he slips
+      // into the dark and reappears farther along
+      if (Math.abs(kid.x - (kid.prevX ?? kid.x)) < 0.5)
+        kid.stuckT = (kid.stuckT || 0) + 1;
+      else kid.stuckT = 0;
+      kid.prevX = kid.x;
       if (kid.x > camX + VIEW_W + 80 || kid.x > houseX - 90 ||
-          kid.y > MAP_H * TILE + 30) {
+          kid.y > MAP_H * TILE + 30 || kid.stuckT > 40) {
         kid.mode = 'hidden'; kid.hideT = 240 + Math.random() * 240;
-        kid.x = -1000; kid.vx = 0; kid.vy = 0;
+        kid.x = -1000; kid.vx = 0; kid.vy = 0; kid.stuckT = 0;
       }
     }
     if (kid.alarmT > 0) kid.alarmT--;

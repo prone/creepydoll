@@ -550,6 +550,26 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   }, shaft);
   check(recovered.solid && recovered.visible,
         'shoved down a shaft, he reappears on solid ground, visible');
+  const unstick = await page.evaluate(async () => {
+    // back below the finale trigger, then build an unjumpable wall
+    // and set the boy sprinting into it
+    player.x = 400; player.maxX = 400; player.y = 126; player.vy = 0;
+    kid.stage = 'roam';
+    const c = Math.floor((player.x + 200) / TILE);
+    const saved = [];
+    for (let r = 4; r <= 8; r++) { saved.push(map[r][c]); map[r][c] = 1; }
+    kid.stage = 'roam'; kid.mode = 'sprint';
+    kid.x = (c - 2) * TILE; kid.y = 126; kid.vy = 0; kid.stuckT = 0;
+    let hid = false;
+    for (let i = 0; i < 180 && !hid; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (kid.mode === 'hidden') hid = true;
+    }
+    for (let r = 4; r <= 8; r++) map[r][c] = saved[r - 4];
+    resetKid();
+    return hid;
+  });
+  check(unstick, 'a boy walled into a dead end slips away instead of standing');
   await ev(() => { level = 1; resetGame(); state = 'play'; player.invuln = 999999; });
   await frames(3);
 
