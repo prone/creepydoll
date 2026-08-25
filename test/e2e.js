@@ -159,7 +159,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   for (let hit = 0; hit < 3; hit++) {
     await ev(() => {
       const s = window.__spider && !window.__spider.dead ? window.__spider
-        : (window.__spider = enemies.find(e => e.kind === 'spider' && e.anchorY === 0 && !e.dead));
+        : (window.__spider = enemies.find(e => e.kind === 'spider' && !e.dead));
       if (s) { s.y = 210; player.x = s.x - 14; player.y = 126; player.vy = 0; player.face = 1; }
     });
     await tap('z');
@@ -588,6 +588,13 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   });
   check(tossRange.every(x => x >= 145 && x <= 300),
         'every toss power lands on the bucket rail (' + tossRange.join(', ') + ')');
+  check(await ev(() => {
+    const sp = enemies.filter(e => e.kind === 'spider');
+    return sp.length > 0 && sp.every(s => {
+      const c = Math.floor((s.x + 2) / TILE);
+      return map[Math.floor(s.anchorY / TILE)][c] > 0;
+    });
+  }), 'every spider thread is tied to real wood above it');
   await ev(() => { player.invuln = 999999; });
 
   /* ---------- checkpoints & pit respawn ---------- */

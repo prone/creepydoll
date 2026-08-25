@@ -1069,6 +1069,33 @@ const dog = { active: false, x: 0, y: 0, w: 16, h: 10, vx: 0, vy: 0,
 const fireballs = [];
 let playTime = 0;
 
+// every spider thread ties to the underside of a real tile: find the
+// nearest column with wood overhead, slide the spider under it, anchor
+// the silk there, and keep the dangle clear of whatever waits below.
+// Pure map scan — consumes no rng, safe for the seeded stream.
+function anchorSpiders() {
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    if (e.kind !== 'spider') continue;
+    const c0 = Math.max(1, Math.min(MAP_W - 2, Math.floor((e.x + 5) / TILE)));
+    let ar = -1, ac = c0;
+    for (let d = 0; d < 14 && ar < 0; d++)
+      for (const c of d ? [c0 - d, c0 + d] : [c0]) {
+        if (c < 1 || c > MAP_W - 2) continue;
+        for (let r = MAP_H - 2; r >= 0; r--)
+          if (map[r][c] && !map[r + 1][c]) { ar = r; ac = c; break; }
+        if (ar >= 0) break;
+      }
+    if (ar < 0) { enemies.splice(i, 1); continue; }  // open sky: no web, no spider
+    e.x = ac * TILE + 3;
+    e.anchorY = (ar + 1) * TILE - 2;
+    let s = ar + 1;
+    while (s < MAP_H && !map[s][ac]) s++;            // first solid below the anchor
+    e.len = Math.max(12, Math.min(e.len, s * TILE - e.anchorY - 24));
+    e.y = e.anchorY;
+  }
+}
+
 function genLevel() {
   FINALE_GY = 9 * TILE;
   if (level === 5) genTomb();
@@ -1076,6 +1103,7 @@ function genLevel() {
   else if (level === 3) genWoods();
   else if (level === 2) genHouse();
   else genOutside();
+  anchorSpiders();
 }
 
 /* ---------------- level 4: the snowy mountain ---------------- */
