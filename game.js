@@ -818,6 +818,7 @@ function enterSaucer() {
   player.invuln = 60;
   musicStep = 0;
   flashText = { msg: 'the saucer takes her. +5 hearts.', t: 120, hold: true };
+  unlock('ride_saucer');
   sfx(220, 0.6, 'sine', 0.07, 500);
 }
 
@@ -972,6 +973,7 @@ function updateBeamShots() {
       if (!j.dead && rectsOverlap({ x: j.x, y: j.y, w: 18, h: 7 }, e)) {
         j.dead = 1;
         score += 300;
+        unlock('jet_down');
         addShake(1.5, 5);
         burst(j.x + 9, j.y + 3, '#ffa030', 10, Math.sign(e.shotVx));
         sfx(300, 0.2, 'sawtooth', 0.07, -180);
@@ -1050,6 +1052,7 @@ function updateJets() {
                                   { x: j.x, y: j.y, w: 18, h: 7 })) {
         j.dead = 1;
         score += 300;
+        unlock('jet_down');
         addShake(1.5, 5);
         burst(j.x + 9, j.y + 3, '#ffa030', 10, Math.sign(L.vx));
         sfx(300, 0.2, 'sawtooth', 0.07, -180);
@@ -1306,6 +1309,89 @@ function drawLevelIcicles() {
   }
 }
 
+/* ---------------- her lost parts — one hidden in each level ----------------
+   L1's button eyes came first; deeper levels each hide one keepsake:
+   braids in the house, ivory teeth in the woods, fingernails in the snow,
+   and her porcelain heart in the tomb. Placed post-gen, no rng consumed. */
+const PART_KINDS = { 2: 'braids', 3: 'teeth', 4: 'nails', 5: 'heart' };
+const part = { x: 0, y: 0, kind: null, taken: false, t: 0 };
+function placePart() {
+  part.kind = PART_KINDS[level] || null;
+  part.taken = false;
+  part.t = 0;
+  if (!part.kind) return;
+  // deep in the back half, tucked up on something she must climb
+  let best = null;
+  for (let c = Math.floor(MAP_W * 0.55); c < MAP_W - 12 && !best; c++) {
+    for (let r = 2; r < MAP_H - 1; r++) {
+      if (!map[r][c] || map[r - 1][c]) continue;
+      if (r <= 7 && tileNoise(c, 71) < 0.35) best = { c, r };
+      break;                       // only the column's topmost surface counts
+    }
+  }
+  if (!best) {                     // plain ground then, still deep in
+    const s = kidSolidCol(Math.floor(MAP_W * 0.7) * TILE);
+    best = { c: s.c, r: s.gr };
+  }
+  part.x = best.c * TILE + 4;
+  part.y = best.r * TILE - 12;
+}
+function updatePartPickup() {
+  if (!part.kind || part.taken) return;
+  part.t++;
+  const py = part.y + Math.sin(part.t / 25) * 2;
+  if (rectsOverlap({ x: part.x - 1, y: py - 1, w: 10, h: 10 }, player)) {
+    part.taken = true;
+    score += 500;
+    progress.parts[part.kind] = true;
+    saveProgress();
+    unlock('part_' + part.kind);
+    burst(part.x + 4, py + 4, '#e8c66a', 12);
+    sfx(1046, 0.2, 'triangle', 0.06);
+    sfx(1568, 0.3, 'sine', 0.04);
+  }
+}
+function drawPartPickup() {
+  if (!part.kind || part.taken) return;
+  const x = Math.round(part.x - camX);
+  const y = Math.round(part.y + Math.sin(part.t / 25) * 2);
+  if (x < -12 || x > VIEW_W + 12) return;
+  if ((frame >> 4) % 3 === 0) {                       // a small betraying glint
+    ctx.fillStyle = '#fff8e0';
+    ctx.fillRect(x + 8, y - 2, 1, 1);
+  }
+  if (part.kind === 'braids') {
+    ctx.fillStyle = '#5a3a28';
+    ctx.fillRect(x, y, 3, 8); ctx.fillRect(x + 5, y, 3, 8);
+    ctx.fillStyle = '#7a5238';
+    ctx.fillRect(x, y + 2, 3, 1); ctx.fillRect(x + 5, y + 5, 3, 1);
+    ctx.fillStyle = '#c9304a';                        // her ribbons, still tied
+    ctx.fillRect(x, y + 8, 3, 2); ctx.fillRect(x + 5, y + 8, 3, 2);
+  } else if (part.kind === 'teeth') {
+    ctx.fillStyle = '#f0ece2';
+    ctx.fillRect(x, y + 1, 7, 1);
+    for (let i = 0; i < 4; i++) ctx.fillRect(x + i * 2, y + 2, 1, 3);
+    ctx.fillStyle = '#c9b8a0';
+    ctx.fillRect(x, y + 5, 7, 1);
+  } else if (part.kind === 'nails') {
+    for (let i = 0; i < 5; i++) {
+      ctx.fillStyle = '#e8d8d0';
+      ctx.fillRect(x + i * 2, y + (i % 2), 1, 2);
+      ctx.fillStyle = '#c98f9a';
+      ctx.fillRect(x + i * 2, y + (i % 2) + 2, 1, 1);
+    }
+  } else {                                            // her porcelain heart
+    ctx.fillStyle = '#efe2cf';
+    ctx.fillRect(x, y + 1, 3, 3); ctx.fillRect(x + 4, y + 1, 3, 3);
+    ctx.fillRect(x, y + 3, 7, 3);
+    ctx.fillRect(x + 1, y + 6, 5, 1);
+    ctx.fillRect(x + 2, y + 7, 3, 1);
+    ctx.fillRect(x + 3, y + 8, 1, 1);
+    ctx.fillStyle = '#c9b8a0';                        // the crack down its middle
+    ctx.fillRect(x + 3, y + 2, 1, 5);
+  }
+}
+
 function genLevel() {
   FINALE_GY = 9 * TILE;
   if (level === 5) genTomb();
@@ -1316,6 +1402,7 @@ function genLevel() {
   anchorSpiders();
   seatGroundlings();
   buildLevelIcicles();
+  placePart();
 }
 
 /* ---------------- level 4: the snowy mountain ---------------- */
@@ -2269,6 +2356,16 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (e.key === 'Escape') { togglePause(); return; }
+  if (paused && e.key === 'Tab') {            // pause screen: flip to her keepsakes
+    e.preventDefault();
+    pauseTab = pauseTab === 'ach' ? 'menu' : 'ach';
+    return;
+  }
+  if (paused && pauseTab === 'ach') {         // scrolling the achievement list
+    if (e.key === 'ArrowUp') achScroll--;
+    else if (e.key === 'ArrowDown') achScroll++;
+    return;
+  }
   if (paused && (state === 'play' || state === 'mini' || state === 'boss')) {
     handleAssistKeys(e.key);               // the pause screen is the assist menu
     return;
@@ -2380,6 +2477,10 @@ function shakeOffset() {
 }
 let inkMelt = false;            // past the second lantern, half of her runs to ink
 let creepClean = false;         // a lost-all-hearts retry starts the creep meter over
+let hurtThisLevel = false;      // clean-run tracking for the UNTOUCHED badge
+function levelClean() {
+  if (!hurtThisLevel) unlock('no_hurt_level');
+}
 let shakeT = 0, shakeMag = 0;   // screen shake: frames left, pixel magnitude
 function addShake(mag, frames) {
   if (assist.calm) return;      // reduced-flash mode keeps the camera still
@@ -2425,6 +2526,103 @@ try {
   }
 } catch (e) {}
 
+/* ---------------- achievements & persistent progress ----------------
+   She remembers across every death and every session. One registry,
+   one unlock() callable from anywhere, one validated localStorage key
+   ('creepydoll-progress') — this is also the entitlement seam the
+   store ports will hang from (PORTS.md), so the ids stay stable. */
+const ACHIEVEMENTS = {
+  first_tag:     { name: "TAG. YOU'RE IT.",     line: 'she touched him.' },
+  boss_dracula:  { name: 'PALE BOY',            line: 'the spell broke.' },
+  boss_werewolf: { name: 'SILVER SERVICE',      line: 'four wounds by candlelight.' },
+  boss_yeti:     { name: 'COLD SHOULDER',       line: 'the ice came down.' },
+  boss_aztec:    { name: 'THE MASK FALLS',      line: 'gold remembers.' },
+  eyes_all:      { name: 'SHE SEES',            line: 'four buttons, one road.' },
+  part_braids:   { name: 'HER BRAIDS',          line: 'found in his house.' },
+  part_teeth:    { name: 'HER IVORY TEETH',     line: 'the woods gave them back.' },
+  part_nails:    { name: 'HER FINGERNAILS',     line: 'kept cold, kept safe.' },
+  part_heart:    { name: 'HER PORCELAIN HEART', line: 'in the tomb all along.' },
+  ride_dragon:   { name: 'WINGS IN THE DARK',   line: 'she rode.' },
+  ride_saucer:   { name: 'ABDUCTED, POLITELY',  line: 'five borrowed hearts.' },
+  jet_down:      { name: 'AIR SUPERIORITY',     line: 'a jet met a doll.' },
+  hearts_ten:    { name: 'OVERFULL',            line: 'ten containers and counting.' },
+  full_creep:    { name: 'VERY WRONG',          line: 'the paint is gone.' },
+  dog_thrice:    { name: 'THE DOG KNOWS',       line: 'sent home three times.' },
+  mini_all:      { name: 'CARNIVAL ROYALTY',    line: 'every game, won once.' },
+  no_hurt_level: { name: 'UNTOUCHED',           line: 'a whole level without a scratch.' },
+  game_done:     { name: 'AND STILL HE RUNS',   line: 'the long walk ended.' },
+};
+const MINI_KINDS = ['toss', 'balloon', 'coffin', 'tarot', 'bell',
+                    'crows', 'dig', 'glyphs', 'scarabs', 'spears'];
+const progress = {
+  ach: Object.create(null),      // achievement id -> true
+  parts: Object.create(null),    // eyes/braids/teeth/nails/heart -> true
+  bosses: Object.create(null),   // boss kind -> true
+  minis: Object.create(null),    // minigame kind -> true
+  dogRuns: 0,
+};
+function saveProgress() {
+  try {
+    localStorage.setItem('creepydoll-progress', JSON.stringify(progress));
+  } catch (e) {}
+}
+// load field-by-field, validated — stored data is untrusted
+try {
+  const s = JSON.parse(localStorage.getItem('creepydoll-progress') || '{}');
+  if (s && typeof s === 'object') {
+    for (const k of ['ach', 'parts', 'bosses', 'minis'])
+      if (s[k] && typeof s[k] === 'object')
+        for (const id of Object.keys(s[k]))
+          if (s[k][id] === true && /^[a-z_]{1,32}$/.test(id))
+            progress[k][id] = true;
+    if (Number.isInteger(s.dogRuns) && s.dogRuns >= 0 && s.dogRuns <= 99)
+      progress.dogRuns = s.dogRuns;
+  }
+} catch (e) {}
+const achToasts = [];            // {id, t} — announced one at a time
+let pauseTab = 'menu';           // 'menu' | 'ach' (Tab flips, any player)
+let achScroll = 0;
+function unlock(id) {
+  if (!ACHIEVEMENTS[id] || progress.ach[id]) return;
+  progress.ach[id] = true;
+  saveProgress();
+  achToasts.push({ id, t: 0 });
+  sfx(880, 0.25, 'triangle', 0.06);
+  sfx(1320, 0.4, 'sine', 0.04);
+}
+// the single number behind "% finished" — same weights everywhere
+function completionPct() {
+  let have = 0, total = 0;
+  for (const k of ['eyes', 'braids', 'teeth', 'nails', 'heart']) {
+    total++; if (progress.parts[k]) have++;
+  }
+  for (const k of ['dracula', 'werewolf', 'yeti', 'aztec']) {
+    total++; if (progress.bosses[k]) have++;
+  }
+  for (const k of MINI_KINDS) { total++; if (progress.minis[k]) have++; }
+  for (const id of Object.keys(ACHIEVEMENTS)) {
+    total++; if (progress.ach[id]) have++;
+  }
+  return Math.round((have / total) * 100);
+}
+function drawToasts() {
+  if (!achToasts.length) return;
+  const t0 = achToasts[0];
+  t0.t++;
+  if (t0.t > 200) { achToasts.shift(); return; }
+  const a = ACHIEVEMENTS[t0.id];
+  const w = Math.max(a.name.length, a.line.length + 2) * 6 + 16;
+  const x = Math.round((VIEW_W - w) / 2);
+  const slide = Math.min(1, t0.t / 12) * (t0.t > 186 ? (200 - t0.t) / 14 : 1);
+  const y = Math.round(-26 + slide * 44);
+  ctx.fillStyle = 'rgba(10,6,16,0.92)';
+  ctx.fillRect(x, y, w, 24);
+  ctx.fillStyle = '#e8c66a';
+  ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + 23, w, 1);
+  pixelText(a.name, x + 8, y + 4, '#e8c66a');
+  pixelText(a.line, x + 8, y + 13, '#9a8fb0');
+}
+
 function handleAssistKeys(key) {
   if (!cheatsOn) {                          // the password gate
     if (key === 'Enter') {
@@ -2469,6 +2667,7 @@ function handleAssistKeys(key) {
       dragon.x = player.x - 6; dragon.y = Math.max(20, player.y - 20);
       dragon.vx = dragon.vy = 0; dragon.t = 0; dragon.mountCd = 0;
       flashText = { msg: 'she rides.', t: 100, hold: true };
+      unlock('ride_dragon');
       sfx(320, 0.35, 'triangle', 0.08, 260);
     }
   }
@@ -2518,6 +2717,7 @@ function resetGame() {
   score = 0; camX = 0; flashText = null;
   inkMelt = level >= 3;         // the house's candle already took half of her
   creepClean = false;           // a gameover retry flips this back on after the reset
+  hurtThisLevel = false;        // every level starts with a clean record
   shakeT = 0; shakeMag = 0;
   particles.length = 0;
   fireballs.length = 0;
@@ -2546,10 +2746,31 @@ function togglePause() {
   Object.keys(keys).forEach(k => { keys[k] = false; });  // drop held inputs
 }
 
+function drawAchScreen() {
+  const ids = Object.keys(ACHIEVEMENTS);
+  const got = ids.filter(id => progress.ach[id]).length;
+  pixelText('ACHIEVEMENTS ' + got + '/' + ids.length +
+            '    COMPLETE ' + completionPct() + '%', 52, 60, '#e8c66a');
+  const rows = 8;
+  achScroll = Math.max(0, Math.min(achScroll, ids.length - rows));
+  for (let i = 0; i < rows && achScroll + i < ids.length; i++) {
+    const id = ids[achScroll + i];
+    const has = !!progress.ach[id];
+    const y = 74 + i * 10;
+    ctx.fillStyle = has ? '#e8c66a' : '#241c30';
+    ctx.fillRect(58, y, 5, 5);
+    pixelText(has ? ACHIEVEMENTS[id].name : '. . .', 70, y,
+              has ? '#e8d8f0' : '#4a4060');
+  }
+  pixelText('UP DOWN SCROLL   TAB: MENU', 82, 160, '#6a5f80');
+}
+
 function drawPauseOverlay() {
   ctx.fillStyle = 'rgba(6,3,10,0.72)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   bigText('PAUSED', 116, 34, '#cfc3e8', 20);
+  if (pauseTab === 'ach') { drawAchScreen(); return; }
+  pixelText('TAB: ACHIEVEMENTS', 109, 54, '#6a5f80');
   if (!cheatsOn) {
     pixelText('ENABLE CHEATS', 121, 70, '#e8c66a');
     pixelText('TYPE THE PASSWORD, THEN ENTER:', 72, 92, '#9a8fb0');
@@ -2651,6 +2872,7 @@ function rectsOverlap(a, b) {
 
 function hurtPlayer(fromX, dmg) {
   if (player.invuln > 0 || (state !== 'play' && state !== 'boss') || assist.invuln) return;
+  hurtThisLevel = true;
   player.hp -= dmg || 1;
   if (assist.hearts && player.hp < 5) player.hp = 5;   // the hearts refuse to empty
   player.invuln = 80;
@@ -2885,6 +3107,7 @@ function afterMove(prevStage) {
   const st = creepStage();
   if (st > prevStage && STAGE_MSGS[st] && !(flashText && flashText.hold)) {
     flashText = { msg: STAGE_MSGS[st], t: 150 };
+    if (st >= 3) unlock('full_creep');
     sndStage();
     addShake(2, 12);
     burst(player.x + 5, player.y + 6, '#3b3b3b', 12);
@@ -3008,6 +3231,8 @@ function updateKid() {
     if (level === 1) {
       score += 1000;
       if (eyesFound >= EYES_TOTAL) score += 1000;  // she found every eye
+      unlock('first_tag');
+      levelClean();
       state = 'interlude';                         // but he slips away, and runs home
       sndWin();
       burst(kid.x + 5, kid.y + 8, '#f0e040', 10);
@@ -3323,9 +3548,14 @@ function updateEyePickups() {
       sfx(1046, 0.15, 'triangle', 0.06);
       sfx(1568, 0.25, 'sine', 0.04);
       burst(ep.x + 3, ey + 3, '#e8c66a', 10);
-      flashText = eyesFound >= EYES_TOTAL
-        ? { msg: 'all her eyes... she sees.', t: 120, hold: true }  // two steady seconds
-        : { msg: 'a lost button eye (' + eyesFound + '/' + EYES_TOTAL + ')', t: 120 };
+      if (eyesFound >= EYES_TOTAL) {
+        flashText = { msg: 'all her eyes... she sees.', t: 120, hold: true };
+        progress.parts.eyes = true;
+        saveProgress();
+        unlock('eyes_all');
+      } else {
+        flashText = { msg: 'a lost button eye (' + eyesFound + '/' + EYES_TOTAL + ')', t: 120 };
+      }
     }
   }
 }
@@ -4179,6 +4409,7 @@ function drawHUD() {
       pixelText(flashText.msg, (VIEW_W - w) / 2, 60, '#e8d8f0');
     }
   }
+  drawToasts();
 }
 
 // chunky uppercase bitmap-ish text using canvas font at low res
@@ -4303,6 +4534,7 @@ function updateDragon() {
       dragon.ridden = true;
       dragon.vx = 0; dragon.vy = 0;
       flashText = { msg: 'she rides.', t: 100 };
+      unlock('ride_dragon');
       sfx(320, 0.35, 'triangle', 0.08, 260);
     }
   }
@@ -4453,8 +4685,15 @@ function bEdge(name, cur) {
 function healOne() {
   player.hp += 1;                 // hearts stack without limit — every one
   sndHeal();                      // she takes, she keeps
+  if (player.hp >= 10) unlock('hearts_ten');
 }
 const bossBox = () => ({ x: boss.x, y: 144 - boss.h, w: boss.w, h: boss.h });
+// every boss remembers being beaten — for the completion count and its badge
+function bossDown() {
+  progress.bosses[boss.kind] = true;
+  saveProgress();
+  unlock('boss_' + boss.kind);
+}
 
 // the fetch-and-throw relics: one mechanic, two artifacts
 const RELICS = {
@@ -4586,6 +4825,7 @@ function aztecHit() {
   dag.vy = -1.4;
   dag.state = 'loose';
   if (boss.hp <= 0) {
+    bossDown();
     boss.phase = 'crumple'; boss.phaseT = 0;
     flashText = { msg: 'the mask falls.', t: 110 };
   } else {
@@ -4604,6 +4844,7 @@ function yetiHit(dmg) {
   sfx(100, 0.4, 'sawtooth', 0.08, -35);                // a roar off the ice
   if (dmg >= 1) sfx(1200, 0.12, 'triangle', 0.05, -500);
   if (boss.hp <= 0) {
+    bossDown();
     boss.phase = 'crumple'; boss.phaseT = 0;
     flashText = { msg: 'the mountain lets him go.', t: 110 };
   } else {
@@ -4624,6 +4865,7 @@ function wolfHit() {
   candel.x = farLeft ? 24 + Math.random() * 40 : 240 + Math.random() * 40;
   candel.y = 132; candel.vx = 0; candel.vy = 0; candel.state = 'ground';
   if (boss.hp <= 0) {
+    bossDown();
     boss.phase = 'crumple'; boss.phaseT = 0;
     flashText = { msg: 'the fourth finds the heart of him.', t: 110 };
   } else {
@@ -4643,6 +4885,7 @@ function bossHit() {
   sfx(90, 0.5, 'sawtooth', 0.09, -30);               // a roar too big for a boy
   sfx(700, 0.2, 'sawtooth', 0.05, -300);
   if (boss.hp <= 0) {
+    bossDown();
     boss.phase = 'shrink'; boss.phaseT = 0;
     flashText = { msg: 'the third one lands.', t: 100 };
   } else {
@@ -4993,6 +5236,8 @@ function updateBossOutro() {
       sfx(60, 1.0, 'sawtooth', 0.05, -12);             // the dark behind the sarcophagus takes him
       burst(boss.x + 10, 120, '#2a2216', 10, 1);
     } else if (boss.phase === 'gone' && boss.phaseT > 100) {
+      levelClean();
+      unlock('game_done');
       state = 'win';                                   // the true, final ending
       score += 2000;
       sndWin();
@@ -5011,6 +5256,7 @@ function updateBossOutro() {
       boss.x += 2.4;                                   // for the tunnel at the back
       if (boss.phaseT > 90 || boss.x > VIEW_W - 30) { boss.phase = 'gone'; boss.phaseT = 0; }
     } else if (boss.phase === 'gone' && boss.phaseT > 80) {
+      levelClean();
       state = 'interlude';                             // down, into the old halls
       score += 1500;
       sndWin();
@@ -5033,6 +5279,7 @@ function updateBossOutro() {
       boss.x += 2.4;                                   // through, not around
       if (boss.phaseT > 80) { boss.phase = 'gone'; boss.phaseT = 0; }
     } else if (boss.phase === 'gone' && boss.phaseT > 90) {
+      levelClean();
       state = 'interlude';       // his tracks run uphill, into the snow
       score += 1500;
       sndWin();
@@ -5065,6 +5312,7 @@ function updateBossOutro() {
       flashText = { msg: 'meow.', t: 60 };
     }
     if (boss.phaseT > 210) {
+      levelClean();
       state = 'interlude';       // the house is hers — but he ran for the trees
       score += 1000;
       sndWin();
@@ -5683,6 +5931,7 @@ function updateDog() {
     if (player.invuln === 80) {              // the bite landed just now
       dog.deadT = 600;
       dog.fleeT = 1;
+      dogSentOff();
       dog.barkCd = 0;
       flashText = { msg: 'the dog trots off, satisfied.', t: 100 };
     }
@@ -5708,6 +5957,7 @@ function dogStruck(dir) {
   if (dog.hp <= 0) {
     dog.deadT = 600;                         // ten seconds before it dares again
     dog.fleeT = 1;                           // visible until it clears the screen
+    dogSentOff();
     dog.retreatT = 0;
     dog.barkCd = 0;
     score += 250;
@@ -5940,8 +6190,23 @@ function mpBurst(x, y, color, n) {
                       t: 18 + Math.random() * 14, color });
 }
 
+function dogSentOff() {
+  progress.dogRuns = Math.min(99, progress.dogRuns + 1);
+  saveProgress();
+  if (progress.dogRuns >= 3) unlock('dog_thrice');
+}
+
 function updateMini() {
   mini.t++;
+  // won games count once, forever — the carnival keeps its own ledger
+  if (mini.over && mini.won && !mini.tallied) {
+    mini.tallied = true;
+    if (MINI_KINDS.indexOf(mini.kind) >= 0) {
+      progress.minis[mini.kind] = true;
+      saveProgress();
+      if (MINI_KINDS.every(k => progress.minis[k])) unlock('mini_all');
+    }
+  }
   for (let i = mini.parts.length - 1; i >= 0; i--) {
     const q = mini.parts[i];
     q.x += q.vx; q.y += q.vy; q.vy += 0.12;
@@ -7019,6 +7284,7 @@ function tick(now) {
       if (speedAcc >= 1) { speedAcc -= 1; updateMini(); }
     }
     drawMini();
+    drawToasts();
     if (paused) drawPauseOverlay();
     requestAnimationFrame(tick);
     return;
@@ -7084,6 +7350,7 @@ function tick(now) {
     updateBeamShots();
     updateHeartPickup();
     updateEyePickups();
+    updatePartPickup();
     updateParticles();
     camX = Math.max(0, Math.min(LEVEL_W - VIEW_W, player.x - 130));
   }
@@ -7105,6 +7372,7 @@ function tick(now) {
   drawHouse();
   drawHeartPickup();
   drawEyePickups();
+  drawPartPickup();
   drawKid();
   drawEnemies();
   drawDragon();

@@ -152,6 +152,16 @@ jump launches her about twice as high.
   silver-and-jade dagger thrown in a true arc — every hit cracks his mask,
   and the dagger drops right where it struck, waiting in the danger zone. Four hits and the mask falls, and the boy slips into the dark
   behind the sarcophagus. And still he runs.
+- **Achievements:** nineteen of them, from TAG. YOU'RE IT. to AND STILL HE
+  RUNS — bosses, rides, minigame sweeps, a deathless level, ten hearts, and
+  more. Unlocks announce themselves with a gold banner, persist across
+  deaths and sessions, and press **Tab** on the pause screen to see the
+  list and your **completion %**.
+- **Her lost parts:** beyond level 1's button eyes, each level hides one
+  keepsake of hers — her braids in the house, her ivory teeth in the woods,
+  her fingernails in the snow, and her porcelain heart in the tomb. Each is
+  tucked somewhere high in the back half, glinting faintly, worth +500 and
+  an achievement.
 - **Cheats:** press **Esc** — the pause screen asks for the cheat password
   (someone who knows it will tell you; it's case-sensitive). Once unlocked
   (↑/↓ pick, ←/→ set): invincibility, game speed (100/80/60%), infinite

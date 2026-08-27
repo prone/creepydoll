@@ -716,6 +716,65 @@ function section(name) { console.log('\n== ' + name + ' =='); }
                    player.invuln = 999999; });
   await frames(3);
 
+  /* ---------- achievements & her lost parts ---------- */
+  section('achievements');
+  const achCore = await ev(() => {
+    achToasts.length = 0;
+    delete progress.ach.ride_saucer;
+    const before = completionPct();
+    unlock('ride_saucer');
+    const once = progress.ach.ride_saucer === true && achToasts.length === 1;
+    unlock('ride_saucer');
+    const stillOne = achToasts.length === 1;
+    const stored = JSON.parse(localStorage.getItem('creepydoll-progress'));
+    return { once, stillOne, persisted: stored.ach.ride_saucer === true,
+             grew: completionPct() > before };
+  });
+  check(achCore.once && achCore.stillOne,
+        'unlock() fires exactly once and raises a toast');
+  check(achCore.persisted, 'the unlock survives in creepydoll-progress');
+  check(achCore.grew, 'the completion % rises with it');
+  await ev(() => { delete progress.ach.hearts_ten; player.hp = 9; healOne(); });
+  check(await ev(() => progress.ach.hearts_ten === true),
+        'ten heart containers earns OVERFULL');
+  await page.keyboard.press('Escape');
+  await frames(2);
+  await page.keyboard.press('Tab');
+  await frames(2);
+  check(await ev(() => paused && pauseTab === 'ach'),
+        'Tab on the pause screen opens her achievement page');
+  await page.keyboard.press('Tab');
+  await frames(2);
+  await page.keyboard.press('Escape');
+  await frames(2);
+  check(await ev(() => !paused && pauseTab === 'menu'), 'Tab returns, Esc resumes');
+  const partProbe = await page.evaluate(async () => {
+    level = 2; resetGame(); state = 'play'; player.invuln = 999999;
+    if (part.kind !== 'braids' || part.taken) return { kind: part.kind };
+    delete progress.ach.part_braids;
+    delete progress.parts.braids;
+    player.x = part.x; player.y = part.y - 4; player.vy = 0;
+    for (let i = 0; i < 10; i++) await new Promise(r => requestAnimationFrame(r));
+    return { kind: 'braids', taken: part.taken,
+             ach: progress.ach.part_braids === true,
+             saved: progress.parts.braids === true };
+  });
+  check(partProbe.kind === 'braids' && partProbe.taken && partProbe.ach &&
+        partProbe.saved,
+        'her braids wait in the house — taking them unlocks and persists');
+  const partKinds = await ev(() => {
+    const out = [];
+    for (const lv of [3, 4, 5]) {
+      level = lv; resetGame();
+      out.push(part.kind + ':' + (!part.taken && part.y < 160));
+    }
+    level = 1; resetGame(); state = 'play'; player.invuln = 999999;
+    return out.join(' ');
+  });
+  check(partKinds === 'teeth:true nails:true heart:true',
+        'teeth, fingernails, and her heart wait deeper in (' + partKinds + ')');
+  await frames(3);
+
   /* ---------- checkpoints & pit respawn ---------- */
   section('checkpoints');
   check(await ev(() => checkpoints.length >= 4),
@@ -989,6 +1048,9 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.waitForFunction(() => mini.over, null, { timeout: 10000 });
   check(await ev(() => mini.won), 'picking the right coffin wins');
   check(await ev(() => player.hp === 4), 'the coffin heart heals her');
+  await frames(3);
+  check(await ev(() => progress.minis.coffin === true),
+        'the carnival ledger remembers the win');
   await page.keyboard.press('Enter');
   await frames(3);
 
@@ -1136,6 +1198,8 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.waitForFunction(() => state === 'interlude', null, { timeout: 30000 });
   await page.keyboard.up('ArrowRight');
   check(true, 'tagging the kid ends level 1 — but he slips away');
+  check(await ev(() => progress.ach.first_tag === true),
+        'and TAG. YOU\'RE IT. is hers forever');
   check((await ev(() => score)) >= preWin + 2000,
         'finding every eye doubles the level-1 bonus');
 
