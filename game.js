@@ -1160,7 +1160,9 @@ function anchorSpiders() {
       }
     if (ar < 0) { enemies.splice(i, 1); continue; }  // open sky: no web, no spider
     e.x = ac * TILE + 3;
-    e.anchorY = (ar + 1) * TILE - 2;
+    // thin planks (tile 2) are drawn as 6px of wood at the tile's top —
+    // the silk must meet the wood itself, not the tile's empty lower half
+    e.anchorY = map[ar][ac] === 2 ? ar * TILE + 5 : (ar + 1) * TILE - 2;
     let s = ar + 1;
     while (s < MAP_H && !map[s][ac]) s++;            // first solid below the anchor
     e.len = Math.max(12, Math.min(e.len, s * TILE - e.anchorY - 24));
