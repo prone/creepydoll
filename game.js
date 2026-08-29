@@ -2824,9 +2824,11 @@ function handleMenuKeys(key) {
     if (wasTitle && assist.speed < 1)
       flashText = { msg: 'game speed ' + Math.round(assist.speed * 100) +
                          '% cheat is on — esc to change', t: 240, hold: true };
-    // losing every heart wipes the creep: she retries porcelain-clean
-    // and has to earn the cracks (and the ink) all over again
-    if (retry) { creepClean = true; inkMelt = false; }
+    // losing every heart wipes the creep: she retries with clean porcelain
+    // and earns the cracks again. The melt is different — it's the house's
+    // doing, part of the story: level 2 re-earns it (its candles relight),
+    // deeper levels keep it (that candle already burned).
+    if (retry) creepClean = true;
     score = carry;
     state = 'play';
   }
@@ -3085,17 +3087,19 @@ function afterMove(prevStage) {
       sfx(660, 0.12, 'triangle', 0.05);
       sfx(990, 0.2, 'sine', 0.03);
       burst(cp.x + 4, 9 * TILE - 20, '#e8c66a', 8);
-      // the house's second candle is one candle too many
-      if (!inkMelt && level === 2 &&
-          checkpoints.filter(c => c.reached).length === 2) {
-        inkMelt = true;
-        flashText = { msg: 'she is annoyed.', t: 120, hold: true };
-        addShake(2, 10);
-        sfx(120, 0.5, 'sawtooth', 0.05, -60);
-        sfx(90, 0.7, 'sine', 0.06, -30);
-        burst(player.x + 5, player.y + 14, '#0c0a12', 12, 0, 1);
-      }
     }
+  }
+  // the house's candlelight does its work while she walks among them:
+  // two lit is one too many. The saucer's dome keeps the light off her —
+  // if she flew past the candles, the melt waits until she steps out.
+  if (!inkMelt && level === 2 && !saucer.active &&
+      checkpoints.filter(c => c.reached).length >= 2) {
+    inkMelt = true;
+    flashText = { msg: 'she is annoyed.', t: 120, hold: true };
+    addShake(2, 10);
+    sfx(120, 0.5, 'sawtooth', 0.05, -60);
+    sfx(90, 0.7, 'sine', 0.06, -30);
+    burst(player.x + 5, player.y + 14, '#0c0a12', 12, 0, 1);
   }
   // and the ink never stops dripping
   if (inkMelt && Math.random() < 0.06)

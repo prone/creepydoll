@@ -63,7 +63,9 @@ jump launches her about twice as high.
 - **Creep meter:** advancing through the level raises her creepiness through four
   stages. Each stage cracks the porcelain a little more, stains the dress, reddens
   the moon — and sours the lullaby. Losing every heart wipes it: the retry starts
-  her porcelain-clean (ink melt included), and she earns the cracks all over again.
+  her porcelain-clean, and she earns the cracks all over again. The ink melt is
+  different — it's the house's doing, story-bound: level 2 re-earns it at the
+  second candle, and the deeper levels keep it (that candle already burned).
 - **The goal:** reach the dollhouse at the end. The kid will run. Catch them.
 - **Carnival doors:** three glowing doorways stand along the road, a few screens
   apart. Press **↑** in front of one to step into a minigame world (each door

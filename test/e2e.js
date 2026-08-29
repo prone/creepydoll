@@ -1213,6 +1213,26 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(await ev(() => map[0].every(t => t === 1)), 'the house has a ceiling');
   check(await ev(() => creepStage() === 3 && !inkMelt),
         'she arrives already far gone — something is very wrong');
+  // the saucer's dome keeps the candlelight off her — until she steps out
+  const domeMelt = await page.evaluate(async () => {
+    player.invuln = 999999;
+    enterSaucer();
+    saucer.x = checkpoints[1].x + 20;      // glide past the first two candles
+    for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+    const litAloft = checkpoints.filter(c => c.reached).length >= 2;
+    const dryAloft = !inkMelt;
+    exitSaucer(false);
+    for (let i = 0; i < 8; i++) await new Promise(r => requestAnimationFrame(r));
+    const meltAfter = inkMelt;
+    // put the house back the way the section expects it
+    checkpoints.forEach(c => { c.reached = false; });
+    inkMelt = false; flashText = null;
+    player.x = 40; player.y = 100; player.vy = 0; player.hp = 5;
+    saucer.doorCd = 1800;
+    return { litAloft, dryAloft, meltAfter };
+  });
+  check(domeMelt.litAloft && domeMelt.dryAloft && domeMelt.meltAfter,
+        'flying past the candles lights them — the melt waits for her feet');
   check(await ev(() => tables.length >= 3 && tables[0] <= 26 * TILE),
         'tables to jump, the first just past the start');
   check(await ev(() => doors.length === 0 && eyePickups.length === 0),
@@ -1738,8 +1758,8 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.keyboard.press('Enter');
   await frames(4);
   check(await ev(() => level === 3 && state === 'play' &&
-                       creepStage() === 0 && !inkMelt),
-        'game over retries the woods — scrubbed porcelain-clean');
+                       creepStage() === 0 && inkMelt),
+        'game over retries the woods — cracks wiped, but the melt is forever');
   // corner him at the chapel (the werewolf will land here next)
   await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
                    player.vy = 0; player.maxX = houseX - 250; });
