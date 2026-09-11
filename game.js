@@ -1344,6 +1344,7 @@ function updatePartPickup() {
   const py = part.y + Math.sin(part.t / 25) * 2;
   if (rectsOverlap({ x: part.x - 1, y: py - 1, w: 10, h: 10 }, player)) {
     part.taken = true;
+    runParts++;
     score += 500;
     progress.parts[part.kind] = true;
     saveProgress();
@@ -2373,6 +2374,7 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (AC && AC.state === 'suspended' && !paused) AC.resume();
+  if (state === 'win' && handleBoardKeys(e.key)) return;
   keys[e.key.toLowerCase()] = true;
   handleMenuKeys(e.key);
 });
@@ -2481,7 +2483,7 @@ let inkMelt = false;            // past the second lantern, half of her runs to 
 let creepClean = false;         // a lost-all-hearts retry starts the creep meter over
 let hurtThisLevel = false;      // clean-run tracking for the UNTOUCHED badge
 function levelClean() {
-  if (!hurtThisLevel) unlock('no_hurt_level');
+  if (!hurtThisLevel) { unlock('no_hurt_level'); runUntouched++; }
 }
 let shakeT = 0, shakeMag = 0;   // screen shake: frames left, pixel magnitude
 function addShake(mag, frames) {
@@ -2497,6 +2499,90 @@ const CHEAT_PASSWORD = 'Duncan';   // case-sensitive
 let cheatsOn = false, cheatBuf = '', cheatMsgT = 0, warpLevel = 1,
     rideChoice = 'dragon';         // the summon-a-ride cheat: 'dragon' | 'saucer'
 let assistSel = 0;
+/* ---------------- the board: an optional leaderboard ----------------
+   A finished run can be signed with a name and posted to the board at
+   creepydoll.party/scores.html. Nothing leaves the device unless the player
+   types a name on the win screen and presses Enter. Assisted runs (any
+   cheat on, a warp, a summoned ride) cannot sign. BOARD.url empty = off. */
+const BOARD = { url: 'https://sisgndxlargcuhuiutul.supabase.co',
+                key: 'sb_publishable_lH5Yq5RmM5x872qwSKgLng_l5EwO4zP' };   // public anon key; RLS guards the table
+const BOARD_VERSION = '1.0';
+const board = { name: '', status: 'idle' };   // idle | sending | sent | failed
+let runDeaths = 0, runFrames = 0, runMinis = 0, runParts = 0, runUntouched = 0,
+    runAssisted = false;                 // the stats of the story in progress
+function newRun() {
+  runDeaths = 0; runFrames = 0; runMinis = 0; runParts = 0; runUntouched = 0;
+  runAssisted = false;
+  board.name = ''; board.status = 'idle';
+}
+function boardEligible() { return !!BOARD.url && !runAssisted; }
+function handleBoardKeys(key) {         // true when the key was spent on the name
+  if (!boardEligible() || board.status !== 'idle') return false;
+  if (key === 'Backspace') { board.name = board.name.slice(0, -1); return true; }
+  if (key.length === 1 && /[A-Za-z0-9 _.\-]/.test(key) && board.name.length < 12) {
+    board.name += key;
+    return true;
+  }
+  return false;
+}
+function boardSign() {                  // true when Enter was spent on signing
+  if (!boardEligible()) return false;
+  if (board.status === 'sending') return true;         // wait for the answer
+  if (board.status !== 'idle' || !board.name.trim()) return false;
+  submitRun();
+  return true;
+}
+function runPayload() {
+  return { name: board.name.trim(), score, seconds: Math.round(runFrames / 60),
+           deaths: runDeaths, minis: runMinis, parts: runParts,
+           untouched: runUntouched, hearts: player.hp,
+           completion: completionPct(), version: BOARD_VERSION };
+}
+function submitRun() {
+  board.status = 'sending';
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = ctl ? setTimeout(() => ctl.abort(), 8000) : 0;
+  fetch(BOARD.url + '/rest/v1/runs', {
+    method: 'POST',
+    headers: { apikey: BOARD.key, Authorization: 'Bearer ' + BOARD.key,
+               'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify(runPayload()),
+    signal: ctl ? ctl.signal : undefined,
+  }).then(r => { board.status = r.ok ? 'sent' : 'failed'; },
+          () => { board.status = 'failed'; })
+    .then(() => { if (timer) clearTimeout(timer); });
+  sfx(660, 0.15, 'triangle', 0.06);
+}
+function centerText(msg, y, color) {
+  pixelText(msg, Math.round((VIEW_W - msg.length * 6) / 2), y, color);
+}
+function drawBoardLines() {             // the two lines under the win score
+  const blink = (frame >> 5) % 2;
+  if (!BOARD.url) {
+    centerText('thanks for playing', 136, '#9a8fb0');
+    if (blink) centerText('press ENTER', 150, '#cfc3e8');
+  } else if (runAssisted) {
+    centerText("assisted runs don't sign the board", 136, '#9a8fb0');
+    if (blink) centerText('press ENTER', 150, '#cfc3e8');
+  } else if (board.status === 'idle') {
+    const cursor = blink ? '_' : ' ';
+    if (board.name) {
+      centerText('sign as: ' + board.name + cursor, 136, '#e8c66a');
+      if (blink) centerText('ENTER to sign the board', 150, '#cfc3e8');
+    } else {
+      centerText('sign the board? type a name' + cursor, 136, '#e8c66a');
+      if (blink) centerText('or ENTER to skip', 150, '#9a8fb0');
+    }
+  } else if (board.status === 'sending') {
+    centerText('signing the board...', 136, '#9a8fb0');
+  } else if (board.status === 'sent') {
+    centerText('signed. creepydoll.party/scores', 136, '#e8c66a');
+    if (blink) centerText('press ENTER', 150, '#cfc3e8');
+  } else {
+    centerText("the board didn't answer. no matter.", 136, '#9a8fb0');
+    if (blink) centerText('press ENTER', 150, '#cfc3e8');
+  }
+}
 let speedAcc = 0;               // fractional update accumulator for game speed
 let lastTickT = 0;              // rAF timestamp of the previous tick
 // game speed must not follow the display: when the browser hands us long
@@ -2648,6 +2734,7 @@ function handleAssistKeys(key) {
   else if (key === 'Enter' && assistSel === 5) {
     // warp: a fresh run of the chosen level
     level = warpLevel;
+    runAssisted = true;
     resetGame();
     state = 'play';
     paused = false;
@@ -2662,6 +2749,7 @@ function handleAssistKeys(key) {
       return;
     }
     paused = false;
+    runAssisted = true;
     if (AC) AC.resume();
     if (rideChoice === 'saucer') enterSaucer();
     else {
@@ -2812,11 +2900,14 @@ function handleMenuKeys(key) {
     else if (mini && assist.skipMini) endMini();   // assist: walk out any time
     return;
   }
+  if (state === 'win' && boardSign()) return;   // Enter with a name signs the board
   if (state === 'title' || state === 'gameover' || state === 'win' ||
       state === 'interlude') {
     const carry = state === 'interlude' ? score : 0;   // the score follows her in
     const retry = state === 'gameover';
     const wasTitle = state === 'title';
+    if (wasTitle || state === 'win') newRun();      // a fresh story, fresh stats
+    if (retry) runDeaths++;
     if (state === 'interlude') level = Math.min(5, level + 1);
     else if (!retry) level = 1;                        // game over retries the level
     resetGame();
@@ -3557,6 +3648,7 @@ function updateEyePickups() {
       if (eyesFound >= EYES_TOTAL) {
         flashText = { msg: 'all her eyes... she sees.', t: 120, hold: true };
         progress.parts.eyes = true;
+        runParts++;
         saveProgress();
         unlock('eyes_all');
       } else {
@@ -6178,6 +6270,7 @@ function startMini(door) {
 }
 
 function endMini() {
+  if (mini && mini.won) runMinis++;
   mini = null;
   state = 'play';
   jumpHeld = punchHeld = kickHeld = true;
@@ -7267,14 +7360,15 @@ function drawWin() {
   if (eyesFound >= EYES_TOTAL)
     pixelText('and with every eye found, she sees him clearly.', 22, 112, '#e8c66a');
   pixelText('score ' + score, 136, eyesFound >= EYES_TOTAL ? 126 : 116, '#cfc3e8');
-  pixelText('thanks for playing', 118, 136, '#9a8fb0');
-  if ((frame >> 5) % 2) pixelText('press ENTER', 126, 150, '#cfc3e8');
+  drawBoardLines();
 }
 
 /* ---------------- main loop ---------------- */
 function tick(now) {
   frame++;
   pollGamepad();
+  if (assist.invuln || assist.hearts || assist.speed < 1 || assist.skipMini)
+    runAssisted = true;                  // any cheat on: the run can't sign
   const steps = lastTickT > 0 && now > 0 ? catchupSteps(now - lastTickT) : 1;
   if (now > 0) lastTickT = now;
 
@@ -7287,7 +7381,7 @@ function tick(now) {
   if (state === 'mini') {
     if (!paused) for (let s = 0; s < steps && state === 'mini'; s++) {
       speedAcc += assist.speed;
-      if (speedAcc >= 1) { speedAcc -= 1; updateMini(); }
+      if (speedAcc >= 1) { speedAcc -= 1; runFrames++; updateMini(); }
     }
     drawMini();
     drawToasts();
@@ -7300,7 +7394,7 @@ function tick(now) {
     if (state === 'boss' && !paused) {
       for (let s = 0; s < steps && state === 'boss'; s++) {
         speedAcc += assist.speed;
-        if (speedAcc >= 1) { speedAcc -= 1; updateBoss(); }
+        if (speedAcc >= 1) { speedAcc -= 1; runFrames++; updateBoss(); }
       }
       if (shakeT > 0 && --shakeT === 0) shakeMag = 0;
     }
@@ -7318,6 +7412,7 @@ function tick(now) {
     if (speedAcc < 1) continue;
     speedAcc -= 1;
     playTime++;
+    runFrames++;
     // the night murmurs now and then
     if (AC && --ambientCd <= 0) {
       ambientCd = 480 + Math.random() * 600;

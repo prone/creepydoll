@@ -16,12 +16,18 @@ These are the rules the file already follows; keep following them.
   Call position within each generator matters — don't reorder it.
 - **Test-visible surface.** `test/e2e.js` reaches into top-level bindings
   (`player`, `boss`, `mini`, `dag`, `candel`, `checkpoints`, `doors`,
-  `enemies`, `assist`, `dog`, `kid`, `level`, `state`, …) and their field
-  names, including `boss.phase`/`boss.kind`/`mini.kind` string values and
+  `enemies`, `assist`, `dog`, `kid`, `level`, `state`, `board`, `BOARD`,
+  `runAssisted`, `runDeaths`, `runFrames`, …) and their field names, including `boss.phase`/`boss.kind`/`mini.kind` string values and
   `carrying` item names. Renaming any of these is a breaking change; mutate
   the existing array/object bindings (`arr.length = 0`), never reassign them.
 - **localStorage** (`creepydoll-assist`) is loaded field-by-field with
   validation, never merged wholesale — stored data is untrusted.
+- **The board is opt-in and honest.** The only network request in the game
+  is `submitRun()`, and it fires only from Enter on the win screen with a
+  typed name. Anything that makes a run easier (a cheat toggle, a warp, a
+  summoned ride) must set `runAssisted = true`; assisted runs never sign.
+  New per-run stats belong in `newRun()` and `runPayload()` together, and
+  in `supabase/schema.sql` in the site repo with a CHECK constraint.
 
 ## Established patterns (extend these, don't invent parallels)
 

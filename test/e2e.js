@@ -2231,6 +2231,50 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
   check(await ev(() => boss.phase === 'gone'),
         'the boy slips behind the sarcophagus — the true, final ending');
+
+  /* ---------- the board ---------- */
+  section('the board');
+  check(await ev(() => /^https:\/\/[a-z]+\.supabase\.co$/.test(BOARD.url) && BOARD.key.length > 20),
+        'the board has a home');
+  await ev(() => { BOARD.url = 'https://creepydoll-test.supabase.co'; BOARD.key = 'anon-test'; });
+  check(await ev(() => runAssisted === true && !boardEligible()),
+        'a warped run is assisted, and assisted runs cannot sign');
+  await page.keyboard.type('abc');
+  check(await ev(() => board.name === ''), 'typing on an assisted win goes nowhere');
+  let posted = null, answer = 201;
+  await page.route('**/rest/v1/runs', route => {
+    posted = { headers: route.request().headers(), body: route.request().postDataJSON() };
+    route.fulfill({ status: answer, contentType: 'application/json', body: '' });
+  });
+  await ev(() => { runAssisted = false; board.status = 'idle';
+                   runDeaths = 2; runFrames = 60 * 754; runMinis = 3; runUntouched = 1; });
+  await page.keyboard.type('Nasir');
+  check(await ev(() => board.name === 'Nasir'), 'a name types onto the win screen');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type('R');
+  check(await ev(() => board.name === 'NasiR'), 'backspace edits it');
+  await page.keyboard.type('0123456789abc');
+  check(await ev(() => board.name.length === 12), 'a name stops at twelve characters');
+  await ev(() => { board.name = 'NasiR'; });
+  answer = 500;
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => board.status === 'failed');
+  check(await ev(() => state === 'win'), 'a refused signing leaves her on the win screen');
+  answer = 201; posted = null;
+  await ev(() => { board.status = 'idle'; });
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => board.status === 'sent');
+  const finalScore = await ev(() => score);
+  check(posted && posted.body.name === 'NasiR', 'Enter posts the run under her name');
+  check(posted && posted.body.score === finalScore, 'the posted score is the real score');
+  check(posted && posted.body.deaths === 2 && posted.body.seconds === 754 &&
+        posted.body.minis === 3 && posted.body.untouched === 1,
+        'deaths, seconds, and accolades ride along');
+  check(posted && posted.headers.apikey === 'anon-test' &&
+        posted.headers.authorization === 'Bearer anon-test',
+        'the anon key rides in the headers');
+  check(await ev(() => state === 'win'), 'signing does not restart the story');
+  await page.unroute('**/rest/v1/runs');
   await page.keyboard.press('Enter');
   await frames(4);
   check(await ev(() => level === 1 && state === 'play' && score === 0),

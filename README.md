@@ -172,6 +172,13 @@ jump launches her about twice as high.
   level, Enter jumps), and **summon a ride** — pick the dragon or the
   flying saucer and Enter drops her straight into the saddle, any level,
   mid-run. The unlock and your choices persist between sessions.
+- **The board:** finish the whole night and the win screen offers to sign
+  the public leaderboard at creepydoll.party/scores.html — type a name (12
+  characters), Enter to sign, or Enter on a blank name to skip. That is the
+  game's only network request, and it only happens if you sign. Score,
+  time, deaths, and accolades (carnival royalty, whole again, untouched
+  levels, deathless, overfull) go up with the name. Assisted runs — any
+  cheat on, a warp, a summoned ride — can't sign.
 - **One-way platforms:** thin wooden platforms and branches never block her —
   walk beneath them freely, jump up through them, and land on top. Only
   ground, furniture, and tree trunks are truly solid.
