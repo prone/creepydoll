@@ -167,14 +167,41 @@ jump launches her about twice as high.
   silver-and-jade dagger thrown in a true arc — every hit cracks his mask,
   and the dagger drops right where it struck, waiting in the danger zone. Four hits and the mask falls, and the boy slips into the dark
   behind the sarcophagus. And still he runs.
-- **Achievements:** twenty-one of them, from TAG. YOU'RE IT. to AND STILL HE
+- **Level 6 — the hollow mountain:** behind the sarcophagus the floor gives
+  way into a cave of basalt and crystal, lava where the floor is not, crystal
+  pillars to vault, and ember stones for checkpoints (warm: the melt can
+  return here). Cave trolls leap and land on her, magma slugs glow in pulses
+  (punch one while it glows and it burns her fist; wait for it to dim), and
+  centipedes hug the floor too low for a fist, and turn on their heels when kicked. Bats hang and spiders drop.
+  Three cracks in the rock: the Minecart Rush (Z jumps the cart over three
+  gaps), the Blind Pool (wait for the tug, then Z; a twitch too soon costs a
+  bait), and the Rockfall (outlast eight seconds under a ceiling that
+  disagrees). At the hoard door the boy has scales and a furnace: the
+  **wyrm** breathes fire along the floor after a long breath in, and sheds
+  embers from the ceiling. Her only weapon is a **miner's pick**: punch to
+  lift it, punch to throw it — it glances off scales and bites only in the
+  open mouth. Four throws and the fire goes out; he climbs the chimney of
+  light. And still he runs.
+- **Level 7 — the high air:** islands of cloud with open sky between, wisps
+  to step on, wind chimes for checkpoints (cold light: the sky neither melts
+  nor sets her). Harpies circle their islands and fold into a dive, storm
+  clouds darken over her and answer with a bolt, cherubs hover and loose
+  arrows. Three rainbow gates: the Star Catch (six of ten in her lap), the
+  Weathervane (Z stops it on the east wind), and the Cloud Hop (thin clouds
+  need Z as she lands). At the crowned gate the boy is a **three-headed golden
+  storm king**: each head dips to fire lightning at her, and that dip is the
+  only time her heels can reach it. Stomp a head while it is low — twice each
+  — while the wings push her toward the edge. Three crowns fallen and he runs
+  off the last cloud, laughing. That is the true ending.
+- **Achievements:** twenty-five of them, from TAG. YOU'RE IT. to AND STILL HE
   RUNS — bosses, rides, minigame sweeps, a deathless level, ten hearts, and
   more. Unlocks announce themselves with a gold banner, persist across
   deaths and sessions, and press **Tab** on the pause screen to see the
   list and your **completion %**.
 - **Her lost parts:** beyond level 1's button eyes, each level hides one
   keepsake of hers — her braids in the house, her ivory teeth in the woods,
-  her fingernails in the snow, and her porcelain heart in the tomb. Each is
+  her fingernails in the snow, her porcelain heart in the tomb, her winding
+  key in the hollow mountain, and her glass tears in the high air. Each is
   tucked somewhere high in the back half, glinting faintly, worth +500 and
   an achievement.
 - **Cheats:** press **Esc** — the pause screen asks for the cheat password
@@ -182,7 +209,7 @@ jump launches her about twice as high.
   (↑/↓ pick, ←/→ set): invincibility, game speed (100/80/60%), infinite
   hearts, reduced flash (no screen shake or hit-strobe), skip-minigames
   (Enter walks straight out of one), **warp to any level** (dial the
-  level, Enter jumps), and **summon a ride** — pick the dragon or the
+  level, 1 to 7, Enter jumps), and **summon a ride** — pick the dragon or the
   flying saucer and Enter drops her straight into the saddle, any level,
   mid-run. The unlock and your choices persist between sessions.
 - **The board:** finish the whole night and the win screen offers to sign

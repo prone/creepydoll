@@ -2333,9 +2333,443 @@ function section(name) { console.log('\n== ' + name + ' =='); }
     });
   }
   check(await ev(() => boss.phase !== 'fight' && boss.hp <= 0), 'the mask falls');
-  await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
+  await page.waitForFunction(() => state === 'interlude', null, { timeout: 30000 });
   check(await ev(() => boss.phase === 'gone'),
-        'the boy slips behind the sarcophagus — the true, final ending');
+        'the boy slips behind the sarcophagus — and the floor gives way');
+
+  /* ---------- level 6: the hollow mountain ---------- */
+  section('level 6');
+  const creepPre6 = await ev(() => creep);
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => level === 6 && state === 'play' && player.x === 40),
+        'the floor gives way into the hollow mountain');
+  check(await ev(() => map[0].every(t => t === 1)), 'the mountain overhead');
+  check(await ev(() => tables.length >= 3), 'crystal pillars to vault');
+  check(await ev(() => doors.length === 3 &&
+        doors.map(d => d.kind).join() === 'cart,fish,rockfall'),
+        'three cracks: the minecart rush, the blind pool, the rockfall');
+  check(await ev(() => checkpoints.length >= 4), 'ember stones mark the way');
+  check(await ev(() => { let g = 0; for (let c = 0; c < MAP_W; c++) if (groundTopRowAt(c) < 0) g++; return g > 6; }),
+        'lava where the floor is not');
+  check(Math.abs((await ev(() => creep)) - creepPre6) < 2, 'the creep follows her down');
+  check(await ev(() => { player.x = checkpoints[1].x; return heatNear(); }),
+        'the ember stones are warm — the melt can return here');
+  check(await ev(() => part.kind === 'key' && part.x > LEVEL_W * 0.5), 'her winding key waits deep in');
+  check(await ev(() => {
+    for (let r = 2; r < MAP_H - 2; r++)
+      for (let c = 0; c < MAP_W; c++)
+        if (map[r][c] === 2 && map[r + 2][c]) return false;
+    return true;
+  }), 'every ledge leaves standing room beneath it');
+  await ev(() => { player.x = 40; player.y = 100; player.vy = 0; player.invuln = 999999; });
+
+  section('cave enemies');
+  check(await ev(() => ['troll', 'slug', 'centipede', 'bat', 'spider'].every(k =>
+        enemies.some(e => e.kind === k))),
+        'trolls, slugs, centipedes, bats, and spiders keep the dark');
+  check(await ev(() => enemies.every(e => e.x > LEVEL_W * 0.10 &&
+        e.x < (MAP_W - 22) * TILE)),
+        'the threshold and the hoard door stay quiet');
+  const trollSlam = await page.evaluate(async () => {
+    const t = enemies.find(e => e.kind === 'troll' && e.placed && !e.dead);
+    if (!t) return 'no-troll';
+    player.invuln = 999999;
+    player.x = t.x - 44; player.y = t.y + t.h - player.h; player.vy = 0;
+    let wound = false, flew = false, landed = false;
+    for (let i = 0; i < 300; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (t.windupT > 0) wound = true;
+      if (t.mode === 'air') flew = true;
+      if (flew && t.mode === 'walk') { landed = true; break; }
+    }
+    return { wound, flew, landed };
+  });
+  check(trollSlam !== 'no-troll' && trollSlam.wound && trollSlam.flew && trollSlam.landed,
+        'a troll gathers itself, leaps, and lands');
+  const slugHeat = await page.evaluate(async () => {
+    const s = enemies.find(e => e.kind === 'slug' && e.placed && !e.dead);
+    if (!s) return 'no-slug';
+    assist.invuln = false; assist.hearts = false;
+    player.invuln = 0; player.hp = 5;
+    s.hotT = 10;                                        // glowing
+    player.x = s.x - 14; player.y = s.y + s.h - player.h; player.vy = 0; player.face = 1;
+    player.attack = null;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    for (let i = 0; i < 12; i++) {
+      s.x = player.x + 12; s.y = player.y + player.h - s.h;
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    const burned = player.hp < 5, hpHot = s.hp;
+    player.invuln = 999999; player.hp = 5; s.hotT = 150; player.attack = null;
+    for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    for (let i = 0; i < 12; i++) {
+      s.x = player.x + 12; s.y = player.y + player.h - s.h;
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      if (s.hp < hpHot) break;
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    return { burned, hpHot, hpDim: s.hp };
+  });
+  check(slugHeat !== 'no-slug' && slugHeat.burned && slugHeat.hpHot === 2 && slugHeat.hpDim < 2,
+        'a glowing slug burns her fist; a dim one takes the punch');
+  const centTurn = await page.evaluate(async () => {
+    const c = enemies.find(e => e.kind === 'centipede' && e.placed && !e.dead);
+    if (!c) return 'no-centipede';
+    player.invuln = 999999; player.attack = null;
+    player.x = c.x - 14; player.y = c.y + c.h - player.h; player.vy = 0; player.face = 1;
+    await new Promise(r => requestAnimationFrame(r));
+    let prevDir = c.dir;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));   // too low for a fist: a kick
+    let hit = false, turned = false;
+    for (let i = 0; i < 14; i++) {
+      c.x = player.x + 12; c.y = player.y + player.h - c.h;
+      prevDir = c.dir;
+      await new Promise(r => requestAnimationFrame(r));
+      if (i === 2) window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+      if (c.hp < 3) { hit = true; turned = c.dir === -prevDir; break; }
+    }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+    return { hit, turned };
+  });
+  check(centTurn !== 'no-centipede' && centTurn.hit && centTurn.turned,
+        'a kicked centipede turns on its heels');
+  await ev(() => { player.invuln = 999999; player.hp = 5; player.x = 40; player.y = 100; player.vy = 0; });
+
+  /* ---------- cave minigames ---------- */
+  section('cave minigames');
+  await ev(() => startMini(doors[0]));
+  await frames(3);
+  check(await ev(() => state === 'mini' && mini.kind === 'cart'), 'the cart is on the rail');
+  const cartRun = await page.evaluate(async () => {
+    for (let i = 0; i < 400 && !mini.over; i++) {
+      const cx = mini.cartX + 8;
+      const near = mini.gaps.some(g => cx > g - 16 && cx < g - 8);
+      if (near && !mini.air) {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+        await new Promise(r => requestAnimationFrame(r));
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+        continue;
+      }
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    return { won: mini.won, crashed: mini.crashed };
+  });
+  check(cartRun.won && !cartRun.crashed, 'three gaps jumped, the cart comes through');
+  await page.keyboard.press('Enter');
+  await frames(3);
+
+  await ev(() => startMini(doors[1]));
+  await frames(3);
+  const fishing = await page.evaluate(async () => {
+    let scared = 0;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));   // too soon
+    await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    scared = mini.baits;
+    for (let i = 0; i < 1200 && !mini.over; i++) {
+      if (mini.phase === 'tug') {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+        await new Promise(r => requestAnimationFrame(r));
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      }
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    return { scared, won: mini.won, caught: mini.caught };
+  });
+  check(fishing.scared === 4, 'a twitch too soon costs a bait');
+  check(fishing.won && fishing.caught === 3, 'three tugs answered, three from the dark');
+  await page.keyboard.press('Enter');
+  await frames(3);
+
+  await ev(() => startMini(doors[2]));
+  await frames(3);
+  const rockfall = await page.evaluate(async () => {
+    mini.rocks.length = 0; mini.spawnCd = 9999;
+    mini.rocks.push({ x: mini.dollX + 1, y: 118, vy: 1 });
+    for (let i = 0; i < 10; i++) await new Promise(r => requestAnimationFrame(r));
+    const hits = mini.hits;
+    mini.timeLeft = 20; mini.spawnCd = 9999;
+    for (let i = 0; i < 40 && !mini.over; i++) { mini.rocks.length = 0; await new Promise(r => requestAnimationFrame(r)); }
+    return { hits, won: mini.won };
+  });
+  check(rockfall.hits === 1 && rockfall.won, 'a rock lands once; the clock runs out in her favour');
+  await page.keyboard.press('Enter');
+  await frames(3);
+  check(await ev(() => doors.every(d => d.used)), 'the three cracks are spent');
+
+  // the hoard door
+  await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
+                   player.vy = 0; player.maxX = houseX - 250; setCreep(0); });
+  await frames(4);
+  check(await ev(() => kid.stage === 'final'), 'the boy waits at the hoard door');
+  await page.keyboard.down('ArrowRight');
+  await page.waitForFunction(() => state === 'boss', null, { timeout: 30000 });
+  await page.keyboard.up('ArrowRight');
+  check(true, 'reaching him at the hoard wakes the wyrm');
+
+  /* ---------- the wyrm ---------- */
+  section('wyrm');
+  await ev(() => { player.invuln = 999999; });
+  check(await ev(() => boss.kind === 'wyrm' && boss.hp === 4 && pick.state === 'ground'),
+        'the boy has scales; a miner\'s pick lies in the hoard');
+  const scales = await page.evaluate(async () => {
+    boss.mouth = 0; boss.fireT = 0; boss.breathCd = 9999;
+    pick.state = 'thrown'; pick.x = boss.x - 20; pick.y = 120; pick.vx = 3; pick.vy = 0;
+    const hp0 = boss.hp;
+    for (let i = 0; i < 30; i++) { await new Promise(r => requestAnimationFrame(r)); if (pick.state !== 'thrown') break; }
+    return { dhp: boss.hp - hp0, state: pick.state };
+  });
+  check(scales.dhp === 0 && scales.state !== 'thrown', 'against shut scales the pick only glances off');
+  const mouth = await page.evaluate(async () => {
+    for (let i = 0; i < 90 && pick.state !== 'ground'; i++) await new Promise(r => requestAnimationFrame(r));
+    boss.mouth = 40; boss.fireT = 0; boss.breathCd = 9999;
+    pick.state = 'thrown'; pick.x = boss.x - 20; pick.y = 120; pick.vx = 3; pick.vy = 0;
+    const hp0 = boss.hp;
+    for (let i = 0; i < 30; i++) { await new Promise(r => requestAnimationFrame(r)); if (boss.hp < hp0) break; }
+    return hp0 - boss.hp;
+  });
+  check(mouth === 1, 'into the open mouth, the pick bites');
+  const breath = await page.evaluate(async () => {
+    assist.invuln = false; assist.hearts = false;
+    player.invuln = 0; player.hp = 5;
+    player.x = 120; player.y = 126; player.vy = 0;
+    boss.mouth = 0; boss.fireT = 30; boss.breathCd = 9999;
+    for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+    const burned = player.hp < 5;
+    player.invuln = 999999; player.hp = 5; boss.fireT = 0;
+    return burned;
+  });
+  check(breath, 'when it breathes, the floor burns');
+  await page.evaluate(async () => {
+    for (let k = 0; k < 8 && boss.phase === 'fight'; k++) {
+      for (let i = 0; i < 90 && pick.state !== 'ground'; i++) await new Promise(r => requestAnimationFrame(r));
+      boss.mouth = 40; boss.fireT = 0; boss.breathCd = 9999;
+      pick.state = 'thrown'; pick.x = boss.x - 20; pick.y = 120; pick.vx = 3; pick.vy = 0;
+      for (let i = 0; i < 40; i++) { await new Promise(r => requestAnimationFrame(r)); if (pick.state !== 'thrown') break; }
+      for (let i = 0; i < 4; i++) await new Promise(r => requestAnimationFrame(r));
+    }
+  });
+  check(await ev(() => boss.phase !== 'fight' && boss.hp <= 0 && progress.bosses.wyrm === true),
+        'the fire goes out');
+  await page.waitForFunction(() => state === 'interlude', null, { timeout: 30000 });
+  check(await ev(() => boss.phase === 'gone'), 'he climbs the chimney of light');
+
+  /* ---------- level 7: the high air ---------- */
+  section('level 7');
+  await page.keyboard.press('Enter');
+  await frames(5);
+  check(await ev(() => level === 7 && state === 'play' && player.x === 40),
+        'up, into the high air');
+  check(await ev(() => map[0].every(t => t === 0)), 'nothing overhead but sky');
+  check(await ev(() => { let g = 0; for (let c = 0; c < MAP_W; c++) if (groundTopRowAt(c) < 0) g++; return g > 6; }),
+        'open sky between the islands');
+  check(await ev(() => map.some(row => row.includes(2))), 'wisps to step on');
+  check(await ev(() => doors.length === 3 &&
+        doors.map(d => d.kind).join() === 'stars,vane,hop'),
+        'three rainbow gates: the star catch, the weathervane, the cloud hop');
+  check(await ev(() => checkpoints.length >= 4), 'wind chimes mark the way');
+  check(await ev(() => { player.x = checkpoints[1].x; return !heatNear(); }),
+        'chimes are cold light — the sky cannot melt her');
+  check(await ev(() => part.kind === 'tears' && part.x > LEVEL_W * 0.5), 'her glass tears wait deep in');
+  await ev(() => { player.x = 40; player.y = 100; player.vy = 0; player.invuln = 999999; });
+
+  section('sky enemies');
+  check(await ev(() => ['harpy', 'stormcloud', 'cherub'].every(k =>
+        enemies.some(e => e.kind === k))),
+        'harpies, storm clouds, and cherubs keep the air');
+  const harpyDive = await page.evaluate(async () => {
+    const h = enemies.find(e => e.kind === 'harpy' && !e.dead);
+    if (!h) return 'no-harpy';
+    player.invuln = 999999;
+    const gr = groundTopRowAt(Math.floor(h.homeX / TILE));
+    player.x = h.homeX; player.y = (gr > 0 ? gr * TILE : 130) - player.h; player.vy = 0;
+    h.diveCd = 0;
+    let dove = false, back = false;
+    for (let i = 0; i < 400; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      if (h.mode === 'dive') dove = true;
+      if (dove && h.mode === 'circle') { back = true; break; }
+    }
+    return { dove, back };
+  });
+  check(harpyDive !== 'no-harpy' && harpyDive.dove && harpyDive.back,
+        'a harpy folds, drops, and climbs back to its circle');
+  const stormBolt = await page.evaluate(async () => {
+    const s = enemies.find(e => e.kind === 'stormcloud' && !e.dead);
+    if (!s) return 'no-cloud';
+    assist.invuln = false; assist.hearts = false;
+    player.invuln = 0; player.hp = 5;
+    const gr = groundTopRowAt(Math.floor((s.x + 8) / TILE));
+    s.boltCd = 0;
+    let warned = false;
+    for (let i = 0; i < 80; i++) {
+      player.x = s.x + 3; player.y = (gr > 0 ? gr * TILE : 130) - player.h; player.vy = 0;
+      await new Promise(r => requestAnimationFrame(r));
+      if (s.boltT > 0) warned = true;
+      if (player.hp < 5) break;
+    }
+    const hp = player.hp;
+    player.invuln = 999999; player.hp = 5;
+    return { warned, hp };
+  });
+  check(stormBolt !== 'no-cloud' && stormBolt.warned && stormBolt.hp === 4,
+        'a storm cloud darkens over her, and answers');
+  const cherubShot = await page.evaluate(async () => {
+    const c = enemies.find(e => e.kind === 'cherub' && !e.dead);
+    if (!c) return 'no-cherub';
+    player.invuln = 999999;
+    player.x = c.x - 80; player.y = c.y; player.vy = 0;
+    arrows.length = 0; c.shootCd = 1;
+    for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+    const n = arrows.length, x0 = n ? arrows[0].x : 0;
+    for (let i = 0; i < 4; i++) await new Promise(r => requestAnimationFrame(r));
+    return { n, moved: n && arrows.length && arrows[0].x !== x0 };
+  });
+  check(cherubShot !== 'no-cherub' && cherubShot.n === 1 && cherubShot.moved,
+        'a cherub looses an arrow, and it flies');
+  await ev(() => { arrows.length = 0; player.invuln = 999999; player.hp = 5;
+                   player.x = 40; player.y = 100; player.vy = 0; });
+
+  /* ---------- sky minigames ---------- */
+  section('sky minigames');
+  await ev(() => startMini(doors[0]));
+  await frames(3);
+  check(await ev(() => state === 'mini' && mini.kind === 'stars'), 'the stars begin to fall');
+  const starCatch = await page.evaluate(async () => {
+    for (let i = 0; i < 900 && !mini.over; i++) {
+      let low = null;
+      for (const s of mini.stars) if (!low || s.y > low.y) low = s;
+      if (low) mini.dollX = low.x - 3;
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    return { won: mini.won, caught: mini.caught };
+  });
+  check(starCatch.won && starCatch.caught >= 6, 'six of ten stars in her lap');
+  await page.keyboard.press('Enter');
+  await frames(3);
+
+  await ev(() => startMini(doors[1]));
+  await frames(3);
+  const vane = await page.evaluate(async () => {
+    mini.ang = 0; mini.spd = 0.01;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+    await new Promise(r => requestAnimationFrame(r));
+    const gold1 = mini.gold;
+    for (let k = 0; k < 2; k++) {
+      for (let i = 0; i < 80 && mini.stopT > 0; i++) await new Promise(r => requestAnimationFrame(r));
+      mini.ang = Math.PI; mini.spd = 0.01;             // west, deliberately
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    for (let i = 0; i < 120 && !mini.over; i++) await new Promise(r => requestAnimationFrame(r));
+    return { gold1, gold: mini.gold, won: mini.won };
+  });
+  check(vane.gold1 === 1 && vane.gold === 1 && vane.won, 'once on the east wind is enough');
+  await page.keyboard.press('Enter');
+  await frames(3);
+
+  await ev(() => startMini(doors[2]));
+  await frames(3);
+  const hop = await page.evaluate(async () => {
+    for (let i = 0; i < 400 && !mini.over; i++) {
+      const ph = mini.hopT % 40;
+      if (mini.idx >= 0 && mini.wisps[mini.idx] && !mini.kicked && ph < 6) {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+        await new Promise(r => requestAnimationFrame(r));
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+        continue;
+      }
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    return { won: mini.won, fell: mini.fell, idx: mini.idx };
+  });
+  check(hop.won && !hop.fell, 'six clouds, the thin ones kicked off in time');
+  await page.keyboard.press('Enter');
+  await frames(3);
+  check(await ev(() => doors.every(d => d.used)), 'the three gates are spent');
+
+  // the crowned gate
+  await ev(() => { player.invuln = 999999; player.x = houseX - 250;
+                   player.y = FINALE_GY - 40; player.vy = 0; player.maxX = houseX - 250; setCreep(0); });
+  await frames(4);
+  check(await ev(() => kid.stage === 'final'), 'the boy waits at the crowned gate');
+  await page.keyboard.down('ArrowRight');
+  await page.waitForFunction(() => state === 'boss', null, { timeout: 30000 });
+  await page.keyboard.up('ArrowRight');
+  check(true, 'reaching him at the gate wakes the storm king');
+
+  /* ---------- the storm king ---------- */
+  section('storm king');
+  await ev(() => { player.invuln = 999999; boss.gustCd = 9999; boss.pickCd = 9999; });
+  check(await ev(() => boss.kind === 'ghidorah' && boss.hp === 6 && boss.heads.length === 3 &&
+        boss.heads.every(h => h.hp === 2)),
+        'three heads, two crowns of life each');
+  const crownStomp = await page.evaluate(async () => {
+    const h = boss.heads[1];
+    h.mode = 'charge'; h.y = 96; h.t = 0;
+    player.x = h.x + 3; player.y = 50; player.vy = 1; player.attack = null;
+    let bounced = false;
+    for (let i = 0; i < 60; i++) {
+      h.mode = 'charge'; h.y = 96; h.t = 0;             // hold it low
+      await new Promise(r => requestAnimationFrame(r));
+      if (h.hp < 2) { bounced = player.vy < 0; break; }
+    }
+    return { hp: h.hp, total: boss.hp, bounced };
+  });
+  check(crownStomp.hp === 1 && crownStomp.total === 5 && crownStomp.bounced,
+        'her heels on a lowered head crack a crown, and she bounces');
+  const beam = await page.evaluate(async () => {
+    const h = boss.heads[0];
+    assist.invuln = false; assist.hearts = false;
+    player.invuln = 0; player.hp = 5;
+    player.x = h.x + 5; player.y = 126; player.vy = 0;
+    h.mode = 'beam'; h.y = 96; h.t = 4;
+    for (let i = 0; i < 6; i++) { h.mode = 'beam'; h.y = 96; h.t = 6; await new Promise(r => requestAnimationFrame(r)); if (player.hp < 5) break; }
+    const hp = player.hp;
+    player.invuln = 999999; player.hp = 5; h.mode = 'idle'; h.t = 0;
+    return hp;
+  });
+  check(beam === 4, 'standing under a head when it fires costs a heart');
+  const gust = await page.evaluate(async () => {
+    player.x = 200; player.y = 126; player.vy = 0; player.vx = 0;
+    boss.gustT = 30;
+    for (let i = 0; i < 20; i++) await new Promise(r => requestAnimationFrame(r));
+    const x = player.x;
+    boss.gustT = 0;
+    return x;
+  });
+  check(gust < 190, 'the wings push her toward the edge');
+  await page.evaluate(async () => {
+    for (let k = 0; k < 12 && boss.phase === 'fight'; k++) {
+      const h = boss.heads.find(x => x.hp > 0);
+      if (!h) break;
+      player.x = h.x + 3; player.y = 50; player.vy = 1; player.attack = null;
+      const hp0 = h.hp;
+      for (let i = 0; i < 60; i++) {
+        if (boss.phase !== 'fight') break;
+        h.mode = 'charge'; h.y = 96; h.t = 0;
+        await new Promise(r => requestAnimationFrame(r));
+        if (h.hp < hp0) break;
+      }
+      for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+    }
+  });
+  check(await ev(() => boss.phase !== 'fight' && boss.hp <= 0 && boss.heads.every(h => h.hp <= 0) &&
+        progress.bosses.ghidorah === true),
+        'three crowns, all fallen');
+  await page.waitForFunction(() => state === 'win', null, { timeout: 30000 });
+  check(await ev(() => boss.phase === 'gone' && progress.ach.game_done === true),
+        'he runs off the edge of the last cloud — the true, final ending');
 
   /* ---------- the board ---------- */
   section('the board');

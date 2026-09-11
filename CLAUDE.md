@@ -18,7 +18,7 @@ These are the rules the file already follows; keep following them.
   (`player`, `boss`, `mini`, `dag`, `candel`, `checkpoints`, `doors`,
   `enemies`, `assist`, `dog`, `kid`, `level`, `state`, `board`, `BOARD`,
   `runAssisted`, `runDeaths`, `runFrames`, `creep`, `piece`, `slicks`,
-  `boss.marked`, …) and their field names, including `boss.phase`/`boss.kind`/`mini.kind` string values and
+  `boss.marked`, `boss.heads`, `pick`, `embers`, `arrows`, …) and their field names, including `boss.phase`/`boss.kind`/`mini.kind` string values and
   `carrying` item names. Renaming any of these is a breaking change; mutate
   the existing array/object bindings (`arr.length = 0`), never reassign them.
 - **localStorage** (`creepydoll-assist`) is loaded field-by-field with
@@ -43,6 +43,11 @@ These are the rules the file already follows; keep following them.
   décor rules apply), 3 furniture (solid, vaultable), 4 tree trunk (solid,
   root arch beneath). New solid kinds get the next integer plus a `drawTiles`
   branch.
+- **Seven levels:** road, house, woods, snow, tomb, cave (6), clouds (7).
+  Every `level === 5`-style switch (music, ambients, glimpse lines, tiles,
+  checkpoints, landmarks, doors, backgrounds, `startBoss`, `heatNear`,
+  warp bounds, interlude text) must gain a branch when a level is added;
+  grep for the highest level number to find them all.
 - **A level is:** `gen<Name>()` (terrain → doors → enemies → `headroomPass()`
   → `placeHeartOverGap()` → `placeCheckpoints(30, 30)` → `houseX`/`FINALE_GY`
   → `resetKid()`), a `draw<Name>Background(st)`, a checkpoint-marker branch in

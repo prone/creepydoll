@@ -587,6 +587,160 @@ const COBRA_FRAMES = [
   ], COBRA_PAL),
 ];
 
+/* ---------------- the hollow mountain's tenants ---------------- */
+const TROLL_PAL = { G: '#5a6a4a', g: '#3e4a34', e: '#e8c66a', t: '#d8d0b0', k: '#2a2e22' };
+const TROLL_FRAMES = [
+  sprite([
+    '......GGGGGGGG......',
+    '.....GGGGGGGGGG.....',
+    '.....GeGGGGGGeG.....',
+    '.....GGGGggGGGG.....',
+    '......GGttttGG......',
+    '....GGGGGGGGGGGG....',
+    '...GGGGGGGGGGGGGG...',
+    '..GGgGGGGGGGGGGgGG..',
+    '..GG.GGGGGGGGGG.GG..',
+    '..GG.GGGGGGGGGG.GG..',
+    '.....GGGGGGGGGG.....',
+    '.....GGGgGGgGGG.....',
+    '.....GGG.GG.GGG.....',
+    '.....GGG.GG.GGG.....',
+    '.....kkk.kk.kkk.....',
+    '....kkkk.kk.kkkk....',
+  ], TROLL_PAL),
+  sprite([
+    '......GGGGGGGG......',
+    '.....GGGGGGGGGG.....',
+    '.....GeGGGGGGeG.....',
+    '.....GGGGggGGGG.....',
+    '......GGttttGG......',
+    '....GGGGGGGGGGGG....',
+    '...GGGGGGGGGGGGGG...',
+    '..GGgGGGGGGGGGGgGG..',
+    '..GG.GGGGGGGGGG.GG..',
+    '..GG.GGGGGGGGGG.GG..',
+    '.....GGGGGGGGGG.....',
+    '.....GGGgGGgGGG.....',
+    '....GGG..GG..GGG....',
+    '....GGG..GG..GGG....',
+    '....kkk..kk..kkk....',
+    '...kkkk..kk..kkkk...',
+  ], TROLL_PAL),
+];
+const SLUG_PAL = { S: '#8a3a2a', s: '#5a2418', h: '#ff9a3a', e: '#ffe0a0' };
+const SLUG_FRAMES = [
+  sprite([
+    '....SSSSSS....',
+    '..SSSShhSSSS..',
+    '.SSShhhhhhSSSe',
+    'SSShhhhhhhhSSS',
+    'sSSSSSSSSSSSSs',
+    '.ssssssssssss.',
+  ], SLUG_PAL),
+  sprite([
+    '.....SSSSS....',
+    '...SSShhSSSS..',
+    '..SShhhhhhSSSe',
+    '.SShhhhhhhhSSS',
+    'sSSSSSSSSSSSSs',
+    '.ssssssssssss.',
+  ], SLUG_PAL),
+];
+const CENT_PAL = { C: '#b04a2a', c: '#7a2e1a', l: '#e8c66a', e: '#ffe040' };
+const CENT_FRAMES = [
+  sprite([
+    '.CCcCCcCCcCCcCCcCCcCCCe.',
+    'CCcCCcCCcCCcCCcCCcCCcCCC',
+    'l.l.l.l.l.l.l.l.l.l.l...',
+  ], CENT_PAL),
+  sprite([
+    '.CCcCCcCCcCCcCCcCCcCCCe.',
+    'CCcCCcCCcCCcCCcCCcCCcCCC',
+    '.l.l.l.l.l.l.l.l.l.l.l..',
+  ], CENT_PAL),
+];
+
+/* ---------------- the high air's tenants ---------------- */
+const HARPY_PAL = { H: '#7a5a8a', h: '#503a60', f: '#e8d8c0', e: '#ff3040', w: '#b8a0c8' };
+const HARPY_FRAMES = [
+  sprite([
+    'ww............ww',
+    'wwww........wwww',
+    '.wwwwHHHHHHwwww.',
+    '..wwHHfffHHHww..',
+    '....HHfefHHH....',
+    '....HHfffHHH....',
+    '.....HHHHHH.....',
+    '......hHHh......',
+    '......h..h......',
+    '.....hh..hh.....',
+  ], HARPY_PAL),
+  sprite([
+    '................',
+    '................',
+    '.....HHHHHH.....',
+    'wwwwHHfffHHHwwww',
+    '.wwwHHfefHHHwww.',
+    '..wwHHfffHHHww..',
+    '....wHHHHHHw....',
+    '......hHHh......',
+    '......h..h......',
+    '.....hh..hh.....',
+  ], HARPY_PAL),
+];
+const STORM_PAL = { D: '#3a3a4e', d: '#26263a', l: '#ffe86a', w: '#8888a8' };
+const STORM_FRAMES = [
+  sprite([
+    '....DDDDDD......',
+    '..DDDDDDDDDDD...',
+    '.DDDDDDDDDDDDDD.',
+    'DDDDDDDDDDDDDDDD',
+    'DDDdDDDDDDdDDDDD',
+    '.DDDDDdddDDDDDD.',
+    '..dddddddddddd..',
+    '.......l........',
+  ], STORM_PAL),
+  sprite([
+    '....DDDDDD......',
+    '..DDDDDDDDDDD...',
+    '.DDDDDDDDDDDDDD.',
+    'DDDDDDDDDDDDDDDD',
+    'DDDdDDDDDDdDDDDD',
+    '.DDDDDdddDDDDDD.',
+    '..dddddddddddd..',
+    '........l.......',
+  ], STORM_PAL),
+];
+const CHERUB_PAL = { P: '#f0c8b0', p: '#d8a890', h: '#e8c66a', w: '#ffffff', b: '#8a6a4a' };
+const CHERUB_FRAMES = [
+  sprite([
+    '....hhhh....',
+    '...hPPPPh...',
+    'w..PPpPpP..w',
+    'ww.PPPPPP.ww',
+    'wwwwPPPPwwww',
+    '.wwPPPPPPww.',
+    '...PPPPPP...',
+    '...PPPPPP...',
+    '..bb....bb..',
+    '....PP.PP...',
+    '....pp.pp...',
+  ], CHERUB_PAL),
+  sprite([
+    '....hhhh....',
+    '...hPPPPh...',
+    '...PPpPpP...',
+    'ww.PPPPPP.ww',
+    'wwwwPPPPwwww',
+    'wwwPPPPPPwww',
+    '.w.PPPPPP.w.',
+    '...PPPPPP...',
+    '..bb....bb..',
+    '....PP.PP...',
+    '....pp.pp...',
+  ], CHERUB_PAL),
+];
+
 /* ---------------- the healthy kid (NPC) ---------------- */
 const KID_PAL = {
   C: '#c9903a',  // cap
@@ -690,6 +844,20 @@ const SNOW_GLIMPSE_LINES = [
   'a cave above. nowhere past it.',
 ];
 // and down among the old kings
+const CAVE_GLIMPSE_LINES = [
+  'the stone is warm here. he likes that.',
+  'something breathes under the floor.',
+  'the crystals watch him pass. they hum.',
+  'the hoard door is red, like a mouth.',
+  'he is not afraid of the dark. she is the dark.',
+];
+const CLOUD_GLIMPSE_LINES = [
+  'he runs on nothing. the nothing holds.',
+  'the wind knows his name. it says it.',
+  'three shadows cross the sun. then one.',
+  'the gate at the end has a crown on it.',
+  'there is nowhere higher. he runs anyway.',
+];
 const TOMB_GLIMPSE_LINES = [
   'the dead make room for him. odd.',
   'dust settles on everyone but her.',
@@ -906,7 +1074,7 @@ function updateSaucerFlight() {
   else                              saucer.vy = Math.sin(saucer.t / 16) * 0.3;
   saucer.x += saucer.vx; saucer.y += saucer.vy;
   saucer.x = Math.max(2, Math.min(LEVEL_W - 36, saucer.x));
-  saucer.y = Math.max(level === 2 || level === 5 ? 26 : 12, Math.min(saucer.y, 118));
+  saucer.y = Math.max(level === 2 || level === 5 || level === 6 ? 26 : 12, Math.min(saucer.y, 118));
 
   // she rides in the dome
   player.face = saucer.face;
@@ -1318,7 +1486,7 @@ function drawLevelIcicles() {
    L1's button eyes came first; deeper levels each hide one keepsake:
    braids in the house, ivory teeth in the woods, fingernails in the snow,
    and her porcelain heart in the tomb. Placed post-gen, no rng consumed. */
-const PART_KINDS = { 2: 'braids', 3: 'teeth', 4: 'nails', 5: 'heart' };
+const PART_KINDS = { 2: 'braids', 3: 'teeth', 4: 'nails', 5: 'heart', 6: 'key', 7: 'tears' };
 const part = { x: 0, y: 0, kind: null, taken: false, t: 0 };
 function placePart() {
   part.kind = PART_KINDS[level] || null;
@@ -1387,6 +1555,21 @@ function drawPartPickup() {
       ctx.fillStyle = '#c98f9a';
       ctx.fillRect(x + i * 2, y + (i % 2) + 2, 1, 1);
     }
+  } else if (part.kind === 'key') {                   // her winding key
+    ctx.fillStyle = '#e8c66a';
+    ctx.fillRect(x + 3, y, 2, 9);
+    ctx.fillRect(x, y, 8, 2); ctx.fillRect(x, y + 2, 2, 2); ctx.fillRect(x + 6, y + 2, 2, 2);
+    ctx.fillStyle = '#8a742a';
+    ctx.fillRect(x + 3, y + 6, 2, 1);
+    ctx.fillRect(x + 5, y + 8, 2, 1);
+  } else if (part.kind === 'tears') {                 // her glass tears
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = '#9fd8ff';
+      ctx.fillRect(x + i * 3, y + 3 + (i % 2) * 2, 2, 3);
+      ctx.fillRect(x + i * 3, y + 2 + (i % 2) * 2, 1, 1);
+      ctx.fillStyle = '#e8f8ff';
+      ctx.fillRect(x + i * 3, y + 3 + (i % 2) * 2, 1, 1);
+    }
   } else {                                            // her porcelain heart
     ctx.fillStyle = '#efe2cf';
     ctx.fillRect(x, y + 1, 3, 3); ctx.fillRect(x + 4, y + 1, 3, 3);
@@ -1401,7 +1584,9 @@ function drawPartPickup() {
 
 function genLevel() {
   FINALE_GY = 9 * TILE;
-  if (level === 5) genTomb();
+  if (level === 7) genClouds();
+  else if (level === 6) genCave();
+  else if (level === 5) genTomb();
   else if (level === 4) genSnow();
   else if (level === 3) genWoods();
   else if (level === 2) genHouse();
@@ -1410,6 +1595,179 @@ function genLevel() {
   seatGroundlings();
   buildLevelIcicles();
   placePart();
+}
+
+/* ---------------- level 6: the hollow mountain ---------------- */
+function genCave() {
+  map = [];
+  enemies.length = 0;
+  tables.length = 0;
+  rngState = 0xCA7E;
+  for (let r = 0; r < MAP_H; r++) map.push(new Array(MAP_W).fill(0));
+
+  for (let c = 0; c < MAP_W; c++) map[0][c] = 1;      // the mountain overhead
+
+  // basalt floor broken by lava
+  const segs = [];
+  let c = 0;
+  while (c < MAP_W) {
+    let run = rint(12, 22);
+    if (c < 18) run = 20;
+    if (c + run > MAP_W - 26) run = MAP_W - c;         // a long, solid walk to the door
+    for (let i = 0; i < run && c + i < MAP_W; i++) {
+      map[9][c + i] = 1; map[10][c + i] = 1;
+    }
+    segs.push({ s: c, e: Math.min(c + run, MAP_W) - 1 });
+    c += run;
+    if (c >= MAP_W - 26) break;
+    c += rint(2, 3);                                   // lava, patient and bright
+  }
+
+  // crystal pillars to vault (solid, two tall)
+  for (let pc = 36; pc < MAP_W - 30; pc += rint(22, 34)) {
+    let cc = pc;
+    while (cc < MAP_W - 26 &&
+           !(map[9][cc] === 1 && map[9][cc + 1] === 1 && map[9][cc + 2] === 1))
+      cc++;
+    let clear = true;
+    for (let i = 0; i < 2; i++) if (map[8][cc + i] || map[7][cc + i]) clear = false;
+    if (!clear) continue;
+    for (let i = 0; i < 2; i++) { map[7][cc + i] = 3; map[8][cc + i] = 3; }
+    tables.push(cc * TILE);
+  }
+
+  // ledges of old rock along the walls
+  for (let i = 0; i < 18; i++) {
+    const pc = rint(24, MAP_W - 24), pr = rint(4, 7), len = rint(3, 5);
+    let ok = true;
+    for (let j = 0; j < len; j++)
+      if (map[pr][pc + j] || map[pr + 1][pc + j] || map[pr - 1][pc + j]) ok = false;
+    if (!ok) continue;
+    for (let j = 0; j < len; j++) map[pr][pc + j] = 2;
+  }
+  headroomPass();
+
+  // three cracks in the rock, each with a game behind it
+  doors.length = 0;
+  [34, 92, 150].forEach((target, i) => {
+    let cc = target;
+    while (cc < MAP_W - 24 &&
+           !(map[9][cc] === 1 && map[9][cc + 1] === 1 &&
+             !map[8][cc] && !map[8][cc + 1] && !map[7][cc] && !map[7][cc + 1]))
+      cc++;
+    doors.push({ x: cc * TILE + 1, y: 9 * TILE - 22, w: 14, h: 22,
+                 kind: ['cart', 'fish', 'rockfall'][i], used: false });
+  });
+
+  // the tenants — trolls where the floor is wide, slugs near the lava,
+  // centipedes in the deep half, bats and spiders overhead
+  let count = 0;
+  for (const sg of segs) {
+    if (sg.s <= 14 || sg.e >= MAP_W - 24) continue;
+    const prog = sg.s / MAP_W;
+    if (prog < 0.12) continue;
+    count++;
+    const sx = (sg.s + 2) * TILE;
+    if (!nearDoors(sx) && sg.e - sg.s > 6) enemies.push(makeSlug(sx, sg.e));
+    const tx = (sg.s + 6) * TILE;
+    if (prog > 0.25 && !nearDoors(tx) && sg.e - sg.s > 10 && count % 2 === 0)
+      enemies.push(makeTroll(tx));
+    const cx2 = (sg.s + 9) * TILE;
+    if (prog > 0.45 && !nearDoors(cx2) && sg.e - sg.s > 12 && count % 2 === 1)
+      enemies.push(makeCentipede(cx2, sg.e));
+    const bx = (sg.s + 4) * TILE;
+    if (prog > 0.2 && count % 3 === 0) enemies.push(makeBat(bx, 30 + (count % 2) * 14));
+    if (prog > 0.3 && count % 3 === 1) enemies.push(makeSpider((sg.s + 8) * TILE, 0));
+  }
+
+  eyePickups.length = 0;
+  placeHeartOverGap();
+
+  // ember stones mark the way (and keep her warm)
+  placeCheckpoints(30, 30);
+
+  houseX = (MAP_W - 6) * TILE;                         // the hoard door
+  FINALE_GY = 9 * TILE;
+  resetKid();
+}
+
+/* ---------------- level 7: the high air ---------------- */
+function genClouds() {
+  map = [];
+  enemies.length = 0;
+  tables.length = 0;
+  rngState = 0xC10D;
+  for (let r = 0; r < MAP_H; r++) map.push(new Array(MAP_W).fill(0));
+
+  // islands of cloud, and the sky between them
+  const isles = [];
+  let c = 0, row = 8;
+  while (c < MAP_W) {
+    let run = rint(6, 12);
+    if (c < 14) { run = 16; row = 8; }
+    if (c + run > MAP_W - 30) { run = MAP_W - c; row = 6; }   // the last island is a long one
+    for (let i = 0; i < run && c + i < MAP_W; i++) {
+      map[row][c + i] = 1;
+      if (row + 1 < MAP_H) map[row + 1][c + i] = 1;
+    }
+    isles.push({ s: c, e: Math.min(c + run, MAP_W) - 1, row });
+    c += run;
+    if (c >= MAP_W - 30) break;
+    const gap = rint(2, 4);
+    // a wisp to step on when the gap is wide
+    if (gap >= 3) map[Math.max(3, row - 2)][c + 1] = 2;
+    c += gap;
+    row = Math.max(4, Math.min(9, row + rint(0, 2) - 1));
+  }
+  // higher wisps to climb, here and there
+  for (let i = 0; i < 14; i++) {
+    const pc = rint(20, MAP_W - 24), pr = rint(3, 5), len = rint(2, 4);
+    let ok = true;
+    for (let j = 0; j < len; j++)
+      if (map[pr][pc + j] || map[pr + 1][pc + j] || map[pr - 1][pc + j]) ok = false;
+    if (!ok) continue;
+    for (let j = 0; j < len; j++) map[pr][pc + j] = 2;
+  }
+  headroomPass();
+
+  // three rainbow gates
+  doors.length = 0;
+  [34, 92, 150].forEach((target, i) => {
+    let cc = target, gr = -1;
+    while (cc < MAP_W - 24) {
+      gr = groundTopRowAt(cc);
+      if (gr > 0 && groundTopRowAt(cc + 1) === gr &&
+          !map[gr - 1][cc] && !map[gr - 1][cc + 1] && !map[gr - 2][cc] && !map[gr - 2][cc + 1])
+        break;
+      cc++;
+    }
+    doors.push({ x: cc * TILE + 1, y: gr * TILE - 22, w: 14, h: 22,
+                 kind: ['stars', 'vane', 'hop'][i], used: false });
+  });
+
+  // the sky's tenants — harpies circle the islands, storm clouds hang
+  // over them, cherubs keep the edges
+  let n = 0;
+  for (const is of isles) {
+    if (is.s <= 14 || is.e >= MAP_W - 20) continue;
+    const prog = is.s / MAP_W;
+    if (prog < 0.12) continue;
+    n++;
+    const mx = ((is.s + is.e) / 2) * TILE, gy = is.row * TILE;
+    if (n % 3 === 0 && !nearDoors(mx)) enemies.push(makeHarpy(mx, gy - 60));
+    else if (n % 3 === 1 && prog > 0.25) enemies.push(makeStormcloud(mx, 22 + (n % 2) * 10, is.s * TILE, is.e * TILE));
+    else if (prog > 0.4 && !nearDoors(is.e * TILE)) enemies.push(makeCherub(is.e * TILE - 8, gy - 40));
+  }
+
+  eyePickups.length = 0;
+  placeHeartOverGap();
+
+  // wind chimes mark the way
+  placeCheckpoints(30, 30);
+
+  houseX = (MAP_W - 6) * TILE;                         // the crowned gate
+  FINALE_GY = 6 * TILE;
+  resetKid();
 }
 
 /* ---------------- level 4: the snowy mountain ---------------- */
@@ -1990,6 +2348,36 @@ function makeOwl(x, y) {
   return { kind: 'owl', x, y, w: 14, h: 7, hp: 2, homeY: y, vx: 0, vy: 0,
            diveCd: 0, t: rng() * 100, dead: 0, lastHit: -1, face: 1, flashT: 0 };
 }
+function makeTroll(x) {
+  return { kind: 'troll', x, y: 0, w: 20, h: 16, hp: 4, dir: -1, mode: 'walk',
+           vy: 0, windupT: 0, slamCd: 0, minX: x - 4 * TILE, maxX: x + 4 * TILE,
+           t: rng() * 100, dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeSlug(x, segEnd) {
+  return { kind: 'slug', x, y: 0, w: 14, h: 6, hp: 2, dir: 1, hotT: 0,
+           minX: x - TILE, maxX: (segEnd - 1) * TILE, t: rng() * 100,
+           dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeCentipede(x, segEnd) {
+  return { kind: 'centipede', x, y: 0, w: 24, h: 3, hp: 3, dir: -1,
+           minX: x - 3 * TILE, maxX: (segEnd - 2) * TILE, t: rng() * 100,
+           dead: 0, lastHit: -1, placed: false, flashT: 0 };
+}
+function makeHarpy(x, y) {
+  return { kind: 'harpy', x, y, w: 16, h: 10, hp: 2, homeX: x, homeY: y, vx: 0, vy: 0,
+           mode: 'circle', diveT: 0, diveCd: 0, t: rng() * 100, dead: 0, lastHit: -1,
+           face: 1, flashT: 0 };
+}
+function makeStormcloud(x, y, minX, maxX) {
+  return { kind: 'stormcloud', x, y, w: 16, h: 7, hp: 2, dir: 1, minX, maxX,
+           boltT: 0, boltCd: 90, t: rng() * 100, dead: 0, lastHit: -1, flashT: 0 };
+}
+function makeCherub(x, y) {
+  return { kind: 'cherub', x, y, w: 12, h: 11, hp: 2, homeY: y, shootCd: 100,
+           t: rng() * 100, dead: 0, lastHit: -1, face: -1, flashT: 0 };
+}
+const arrows = [];    // a cherub's: {x, y, vx}
+
 function makeRat(x, minX, maxX) {
   return { kind: 'rat', x, y: 0, w: 14, h: 8, hp: 2, dir: 1, minX, maxX,
            dashT: 0, lungeCd: 0, t: rng() * 100,
@@ -2088,6 +2476,23 @@ const TOMB = [
   41, -1, 48, -1, 53, -1, -1, -1,
 ];
 const TOMB_STEP = 0.34;
+
+// the hollow mountain: low, slow, and warm — a drip and a drone
+const CAVE = [
+  36, -1, -1, 43, -1, 41, -1, -1,
+  36, -1, -1, 46, -1, 43, -1, -1,
+  34, -1, -1, 41, -1, 39, -1, -1,
+  36, -1, 43, -1, 48, -1, -1, -1,
+];
+const CAVE_STEP = 0.36;
+// the high air: bright, thin, and far too cheerful for what lives there
+const CLOUD = [
+  69, -1, 72, -1, 76, -1, 74, 72,
+  69, -1, 71, -1, 74, -1, -1, -1,
+  67, -1, 71, -1, 74, -1, 76, 74,
+  72, -1, 71, -1, 69, -1, -1, -1,
+];
+const CLOUD_STEP = 0.26;
 
 // the mountain: high, thin, and slow — notes like breath in cold air
 const SNOW = [
@@ -2204,6 +2609,25 @@ function scheduleMusic() {
       }
       musicStep++;
       nextNoteTime += SNOW_STEP;
+    } else if (level === 6) {
+      // the mountain's hollow heart, breathing
+      const m = CAVE[musicStep % CAVE.length];
+      if (m > 0) {
+        musicBoxNote(m, nextNoteTime, 0.09, (Math.random() - 0.5) * 5, 'sawtooth', 0.6);
+        musicBoxNote(m + 12, nextNoteTime + 0.03, 0.02, 0, 'sine', 0.9);
+      }
+      musicStep++;
+      nextNoteTime += CAVE_STEP;
+    } else if (level === 7) {
+      // the sky hums to itself, high and thin
+      const m = CLOUD[musicStep % CLOUD.length];
+      if (m > 0) {
+        musicBoxNote(m, nextNoteTime, 0.07, (Math.random() - 0.5) * 4, 'triangle', 0.5);
+        if (Math.random() < 0.35)
+          musicBoxNote(m - 12, nextNoteTime + 0.02, 0.025, 0, 'sine', 0.7);
+      }
+      musicStep++;
+      nextNoteTime += CLOUD_STEP;
     } else if (level === 5) {
       // the tomb counts its own hours
       const m = TOMB[musicStep % TOMB.length];
@@ -2341,9 +2765,34 @@ const TOMB_AMBIENTS = [
       sfx(110, 1.2, 'triangle', 0.03, 4);
       setTimeout(() => sfx(147, 1.0, 'triangle', 0.025, -4), 500); } },
 ];
+const CAVE_AMBIENTS = [
+  { minStage: 0, name: 'drip', play: () => {                 // the mountain sweats
+      sfx(1100, 0.05, 'sine', 0.04, -400);
+      setTimeout(() => sfx(800, 0.06, 'sine', 0.03, -300), 500); } },
+  { minStage: 0, name: 'bubble', play: () => {               // lava, thinking
+      [0, 120, 300].forEach(d => setTimeout(() => sfx(160 + Math.random() * 60, 0.08, 'sine', 0.035, -60), d)); } },
+  { minStage: 0, name: 'rumble', play: () => {               // something very large turns over
+      sfx(40, 1.6, 'sawtooth', 0.05, 6); } },
+  { minStage: 2, name: 'roar', play: () => {                 // far off, and not far enough
+      sfx(90, 0.9, 'sawtooth', 0.04, -40);
+      setTimeout(() => sfx(70, 0.7, 'sawtooth', 0.03, -20), 300); } },
+];
+const CLOUD_AMBIENTS = [
+  { minStage: 0, name: 'wind', play: () => {                 // the high wind, passing through
+      sfx(300, 1.2, 'sine', 0.025, 120);
+      setTimeout(() => sfx(420, 1.0, 'sine', 0.02, -160), 400); } },
+  { minStage: 0, name: 'chime', play: () => {                // a chime with no house
+      [0, 90, 210].forEach((d, i) => setTimeout(() => sfx(1568 + i * 196, 0.4, 'triangle', 0.03, 0), d)); } },
+  { minStage: 1, name: 'thunder', play: () => {              // weather, somewhere below
+      sfx(60, 1.2, 'sawtooth', 0.04, -10); } },
+  { minStage: 2, name: 'threeCries', play: () => {           // three voices, one throat
+      [0, 140, 280].forEach((d, i) => setTimeout(() => sfx(500 - i * 80, 0.25, 'sawtooth', 0.03, -200), d)); } },
+];
 let ambientCd = 600;
 function playAmbient(stage) {
-  const pool = (level === 5 ? TOMB_AMBIENTS :
+  const pool = (level === 7 ? CLOUD_AMBIENTS :
+                level === 6 ? CAVE_AMBIENTS :
+                level === 5 ? TOMB_AMBIENTS :
                 level === 4 ? SNOW_AMBIENTS :
                 level === 3 ? WOODS_AMBIENTS :
                 level === 2 ? HOUSE_AMBIENTS : AMBIENTS)
@@ -2521,7 +2970,7 @@ function setCreep(v) {
 function heatNear() {
   if (dragon.ridden) return true;
   if (saucer.active && saucer.smokeT >= 0) return true;
-  if (level !== 2 && level !== 5) return false;
+  if (level !== 2 && level !== 5 && level !== 6) return false;   // ember stones, too
   if (state === 'boss') return true;               // his candlelit room; the torchlit tomb
   return checkpoints.some(c => Math.abs(c.x - (player.x + player.w / 2)) < 56);
 }
@@ -2763,9 +3212,14 @@ const ACHIEVEMENTS = {
   game_done:     { name: 'AND STILL HE RUNS',   line: 'the long walk ended.' },
   whole_again:   { name: 'WHOLE AGAIN',         line: 'she went back for herself.' },
   at_her_worst:  { name: 'AT HER WORST',        line: 'he saw what she is.' },
+  boss_wyrm:     { name: 'FIRE AND PORCELAIN',  line: 'the wyrm is spent.' },
+  boss_ghidorah: { name: 'THREE CROWNS',        line: 'the storm king kneels.' },
+  part_key:      { name: 'HER WINDING KEY',     line: 'found where the stone is warm.' },
+  part_tears:    { name: 'HER GLASS TEARS',     line: 'the sky was keeping them.' },
 };
 const MINI_KINDS = ['toss', 'balloon', 'coffin', 'tarot', 'bell',
-                    'crows', 'dig', 'glyphs', 'scarabs', 'spears'];
+                    'crows', 'dig', 'glyphs', 'scarabs', 'spears',
+                    'cart', 'fish', 'rockfall', 'stars', 'vane', 'hop'];
 const progress = {
   ach: Object.create(null),      // achievement id -> true
   parts: Object.create(null),    // eyes/braids/teeth/nails/heart -> true
@@ -2805,10 +3259,10 @@ function unlock(id) {
 // the single number behind "% finished" — same weights everywhere
 function completionPct() {
   let have = 0, total = 0;
-  for (const k of ['eyes', 'braids', 'teeth', 'nails', 'heart']) {
+  for (const k of ['eyes', 'braids', 'teeth', 'nails', 'heart', 'key', 'tears']) {
     total++; if (progress.parts[k]) have++;
   }
-  for (const k of ['dracula', 'werewolf', 'yeti', 'aztec']) {
+  for (const k of ['dracula', 'werewolf', 'yeti', 'aztec', 'wyrm', 'ghidorah']) {
     total++; if (progress.bosses[k]) have++;
   }
   for (const k of MINI_KINDS) { total++; if (progress.minis[k]) have++; }
@@ -2897,7 +3351,7 @@ function handleAssistKeys(key) {
     else if (assistSel === 2) assist.hearts = on;
     else if (assistSel === 3) assist.calm = on;
     else if (assistSel === 4) assist.skipMini = on;
-    else if (assistSel === 5) { warpLevel = Math.max(1, Math.min(5, warpLevel + (on ? 1 : -1))); }
+    else if (assistSel === 5) { warpLevel = Math.max(1, Math.min(7, warpLevel + (on ? 1 : -1))); }
     else { rideChoice = rideChoice === 'dragon' ? 'saucer' : 'dragon'; }
     saveAssist();
     sfx(500, 0.05, 'square', 0.03);
@@ -2941,7 +3395,7 @@ function resetGame() {
   saucer.active = false; saucer.doorX = -1; saucer.doorT = 0;
   saucer.doorCd = 1800; saucer.smokeT = -1; saucer.caught = null;
   jets.length = 0; missiles.length = 0; lasers.length = 0;
-  shards.length = 0; beamShots.length = 0;
+  shards.length = 0; beamShots.length = 0; arrows.length = 0;
   boss.active = false;
   bossBats.length = 0; bossRoaches.length = 0; thrown.length = 0;
   carrying = null;
@@ -3028,7 +3482,7 @@ function handleMenuKeys(key) {
     if (retry) runDeaths++;
     if (wasTitle || state === 'win') { setCreep(0); piece.active = false; }
     if (state === 'interlude') piece.active = false;   // a piece left behind stays behind
-    if (state === 'interlude') level = Math.min(5, level + 1);
+    if (state === 'interlude') level = Math.min(7, level + 1);
     else if (!retry) level = 1;                        // game over retries the level
     resetGame();
     // a slow-speed cheat saved last session shouldn't masquerade as lag
@@ -3359,7 +3813,9 @@ function updateKid() {
         kid.x = gs.c * TILE + 3; kid.y = gs.gr * TILE - kid.h - 1;
         kid.vx = 0; kid.vy = 0;
         kid.mode = 'peek'; kid.glimpseT = 0;
-        const lines = level === 5 ? TOMB_GLIMPSE_LINES :
+        const lines = level === 7 ? CLOUD_GLIMPSE_LINES :
+                      level === 6 ? CAVE_GLIMPSE_LINES :
+                      level === 5 ? TOMB_GLIMPSE_LINES :
                       level === 4 ? SNOW_GLIMPSE_LINES :
                       level === 3 ? WOODS_GLIMPSE_LINES :
                       level === 2 ? HOUSE_GLIMPSE_LINES : GLIMPSE_LINES;
@@ -3471,7 +3927,8 @@ function killEnemy(e) {
   e.dead = 1;
   const pts = { snake: 200, valkyrie: 300, rat: 150, roach: 100, ant: 50,
                 bear: 250, wolf: 200, lion: 250, goat: 200, owl: 200,
-                mummy: 250, scarab: 100, cobra: 200 }[e.kind] || 100;
+                mummy: 250, scarab: 100, cobra: 200, troll: 300, slug: 150,
+                centipede: 250, harpy: 250, stormcloud: 200, cherub: 200 }[e.kind] || 100;
   score += pts;
   addCreep(pts * CREEP.kill);
   sfx(90, 0.25, 'triangle', 0.07, -40);
@@ -3704,6 +4161,104 @@ function updateEnemies() {
       }
     }
 
+    if (e.kind === 'troll') {   // slow, and then it lands on you
+      if (e.mode === 'air') {
+        e.x += e.dir * 1.4;
+        e.vy = Math.min(e.vy + 0.32, 6);
+        e.y += e.vy;
+        if (e.vy > 0 && (solidAt(e.x + 2, e.y + e.h) || solidAt(e.x + e.w - 2, e.y + e.h))) {
+          e.y = Math.floor((e.y + e.h) / TILE) * TILE - e.h - 0.01;
+          e.mode = 'walk'; e.slamCd = 170;
+          addShake(3, 10);
+          sfx(60, 0.3, 'square', 0.08, -20);
+          burst(e.x + e.w / 2, e.y + e.h, '#5a6a4a', 8, 0, 1);
+          if (player.onGround && Math.abs(pcx - (e.x + e.w / 2)) < 36 &&
+              Math.abs((player.y + player.h) - (e.y + e.h)) < 10)
+            hurtPlayer(e.x + e.w / 2, 1);              // the floor itself bites
+        }
+        if (e.y > MAP_H * TILE + 20) e.dead = 26;
+      } else if (e.windupT > 0) {
+        if (--e.windupT === 0) { e.mode = 'air'; e.vy = -3.2; }
+      } else {
+        e.x += e.dir * 0.25;
+        if (e.slamCd > 0) e.slamCd--;
+        const dx = pcx - (e.x + e.w / 2);
+        if (e.slamCd <= 0 && Math.abs(dx) < 70 &&
+            Math.abs((player.y + player.h) - (e.y + e.h)) < 24) {
+          e.dir = Math.sign(dx) || 1;
+          e.windupT = 24;
+          sfx(90, 0.25, 'sawtooth', 0.06, -30);          // it gathers itself
+        }
+        edgeTurn(e, true, true, false);
+      }
+    }
+
+    if (e.kind === 'slug') {    // slow; hot in pulses — hit it while it's dim
+      e.x += e.dir * 0.2;
+      e.hotT = (e.hotT + 1) % 220;
+      edgeTurn(e, true, false, false);
+    }
+
+    if (e.kind === 'centipede') {   // quick, long, and it turns on a hit
+      e.x += e.dir * 0.9;
+      edgeTurn(e, true, true, false);
+    }
+
+    if (e.kind === 'harpy') {   // circles its island, then folds and drops
+      if (e.diveCd > 0) e.diveCd--;
+      if (e.mode === 'circle') {
+        e.x = e.homeX + Math.cos(e.t / 40) * 44;
+        e.y = e.homeY + Math.sin(e.t / 20) * 8;
+        e.face = Math.sin(e.t / 40) < 0 ? 1 : -1;
+        const dx = pcx - (e.x + e.w / 2);
+        if (e.diveCd <= 0 && Math.abs(dx) < 90 && player.y > e.y) {
+          e.mode = 'dive'; e.diveT = 36;
+          e.vx = Math.sign(dx) * 1.2 || 1; e.vy = 2.2;
+          e.face = e.vx > 0 ? 1 : -1;
+          sfx(1200, 0.2, 'sawtooth', 0.04, -600);      // a scream with wings
+        }
+      } else if (e.mode === 'dive') {
+        e.x += e.vx; e.y += e.vy;
+        if (--e.diveT <= 0 || e.y > player.y + 20) { e.mode = 'rise'; }
+      } else {
+        e.y -= 1.2; e.x += (e.homeX - e.x) * 0.04;
+        if (e.y <= e.homeY) { e.mode = 'circle'; e.diveCd = 150; }
+      }
+    }
+
+    if (e.kind === 'stormcloud') {  // drifts, darkens, and answers from above
+      if (e.boltT > 0) {
+        e.boltT--;
+        if (e.boltT === 12) {                          // the strike
+          sfx(1400, 0.1, 'sawtooth', 0.04, -900);
+          setTimeout(() => sfx(70, 0.5, 'sawtooth', 0.05, -15), 120);
+          addShake(2, 6);
+          const col = { x: e.x + 6, y: e.y + e.h, w: 4, h: MAP_H * TILE };
+          if (rectsOverlap(col, player)) hurtPlayer(e.x + 8, 1);
+        }
+      } else {
+        e.x += e.dir * 0.3;
+        if (e.x < e.minX) e.dir = 1;
+        if (e.x > e.maxX) e.dir = -1;
+        if (e.boltCd > 0) e.boltCd--;
+        if (e.boltCd <= 0 && Math.abs(pcx - (e.x + 8)) < 12 && player.y > e.y) {
+          e.boltT = 30; e.boltCd = 160;
+        }
+      }
+    }
+
+    if (e.kind === 'cherub') {  // hovers, and shoots what it loves
+      e.y = e.homeY + Math.sin(e.t / 22) * 4;
+      e.face = pcx < e.x ? -1 : 1;
+      if (--e.shootCd <= 0) {
+        e.shootCd = 150 + Math.random() * 60;
+        if (Math.abs(pcx - e.x) < 170 && Math.abs(player.y - e.y) < 60) {
+          arrows.push({ x: e.x + (e.face > 0 ? e.w : -6), y: e.y + 5, vx: e.face * 2.2 });
+          sfx(900, 0.08, 'triangle', 0.04, 300);
+        }
+      }
+    }
+
     if (e.kind === 'rat') {     // patrols, and lunges when she's close
       if (e.lungeCd > 0) e.lungeCd--;
       if (e.dashT > 0) { e.dashT--; e.x += e.dir * 2.2; }
@@ -3723,6 +4278,13 @@ function updateEnemies() {
     // the doll's fists and feet
     if (hb && e.lastHit !== hb.id && rectsOverlap(hb, e)) {
       e.lastHit = hb.id;
+      if (e.kind === 'slug' && e.hotT < 110) {         // too hot to touch — she learns
+        hurtPlayer(e.x + e.w / 2, 1);
+        burst(e.x + e.w / 2, e.y, '#ff9a3a', 8, 0, -1);
+        sfx(1200, 0.1, 'sawtooth', 0.05, -700);
+        continue;
+      }
+      if (e.kind === 'centipede') e.dir = -e.dir;
       e.hp -= hb.dmg;
       e.flashT = 6;
       sndHitE();
@@ -3734,6 +4296,7 @@ function updateEnemies() {
     // touching the doll — the small things only take half a heart,
     // and the bite is the last thing they do
     if (!e.dead && rectsOverlap(e, player)) {
+      if (e.kind === 'slug' && e.hotT < 110) burst(e.x + e.w / 2, e.y, '#ff9a3a', 6, 0, -1);
       const small = e.kind === 'ant' || e.kind === 'roach' || e.kind === 'scarab';
       hurtPlayer(e.x + e.w / 2, small ? 0.5 : 1);
       if (small && player.invuln === 80) {     // the bite landed; it is spent
@@ -3748,6 +4311,20 @@ function updateEnemies() {
   // sweep the long-dead
   for (let i = enemies.length - 1; i >= 0; i--)
     if (enemies[i].dead > 25) enemies.splice(i, 1);
+
+  // a cherub's arrows
+  for (let i = arrows.length - 1; i >= 0; i--) {
+    const a = arrows[i];
+    a.x += a.vx;
+    if (rectsOverlap({ x: a.x, y: a.y, w: 6, h: 2 }, player)) {
+      hurtPlayer(a.x, 1);
+      burst(a.x + 3, a.y + 1, '#e8c66a', 5);
+      arrows.splice(i, 1);
+    } else if (hardAt(a.x + (a.vx > 0 ? 6 : 0), a.y + 1) ||
+               Math.abs(a.x - player.x) > VIEW_W + 40) {
+      arrows.splice(i, 1);
+    }
+  }
 }
 
 function updateHeartPickup() {
@@ -3971,6 +4548,79 @@ function drawSnowBackground(st) {
 }
 
 /* ---------------- the tomb, drawn ---------------- */
+function drawCaveBackground(st) {
+  ctx.fillStyle = '#16121c'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  // the far wall, and the crystals in it
+  ctx.fillStyle = '#1f1a28';
+  for (let i = 0; i < 12; i++) {
+    const wx = ((i * 38 - camX * 0.5) % (VIEW_W + 38) + VIEW_W + 38) % (VIEW_W + 38) - 19;
+    ctx.fillRect(wx, 20 + (i % 3) * 8, 22, 110);
+  }
+  for (let gc = 6; gc < MAP_W; gc += 9) {
+    const gx = gc * TILE - camX * 0.7;
+    if (gx < -10 || gx > VIEW_W + 10) continue;
+    const hue = gc % 3;
+    ctx.fillStyle = hue === 0 ? '#5ad8e8' : hue === 1 ? '#c98fe8' : '#9fe88f';
+    const gy = 40 + (gc * 13) % 70;
+    ctx.fillRect(gx, gy, 2, 7); ctx.fillRect(gx - 1, gy + 2, 4, 3);
+    if ((frame + gc * 5) % 40 < 6) { ctx.fillStyle = '#ffffff'; ctx.fillRect(gx, gy + 1, 1, 1); }
+  }
+  // stalactites from the mountain overhead
+  ctx.fillStyle = '#2a2230';
+  for (let sc = 0; sc < MAP_W; sc += 3) {
+    const sx = sc * TILE - camX;
+    if (sx < -16 || sx > VIEW_W + 16) continue;
+    const h = 8 + (sc * 7) % 14;
+    ctx.beginPath(); ctx.moveTo(sx, 16); ctx.lineTo(sx + 8, 16); ctx.lineTo(sx + 4, 16 + h); ctx.fill();
+  }
+  // lava where the floor is not
+  const c0 = Math.max(0, Math.floor(camX / TILE)), c1 = Math.min(MAP_W - 1, c0 + 21);
+  for (let cc = c0; cc <= c1; cc++) {
+    if (map[9][cc] || map[10][cc]) continue;          // floor, or a pillar on it
+    const x = cc * TILE - camX;
+    ctx.fillStyle = '#c93a1a'; ctx.fillRect(x, 10 * TILE + 4, TILE, VIEW_H);
+    ctx.fillStyle = '#ff9a3a'; ctx.fillRect(x, 10 * TILE + 4, TILE, 2);
+    if ((frame + cc * 11) % 50 < 8) { ctx.fillStyle = '#ffe0a0'; ctx.fillRect(x + (cc * 5) % 12, 10 * TILE + 2, 3, 3); }
+    ctx.fillStyle = 'rgba(255,154,58,0.05)'; ctx.fillRect(x, 9 * TILE + 8, TILE, TILE - 4);   // a soft heat above it
+  }
+  ctx.fillStyle = 'rgba(10,6,14,' + (0.10 + st * 0.03) + ')';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+}
+
+function drawCloudBackground(st) {
+  // a dusk sky, high enough that the ground is a rumour
+  ctx.fillStyle = '#4a3a7a'; ctx.fillRect(0, 0, VIEW_W, 40);
+  ctx.fillStyle = '#7a4a8a'; ctx.fillRect(0, 40, VIEW_W, 50);
+  ctx.fillStyle = '#c96a6a'; ctx.fillRect(0, 90, VIEW_W, 46);
+  ctx.fillStyle = '#e8a060'; ctx.fillRect(0, 136, VIEW_W, VIEW_H - 136);
+  // the sun, low and enormous
+  const sx = 250 - camX * 0.03;
+  ctx.fillStyle = '#ffd88a';
+  ctx.beginPath(); ctx.arc(sx, 118, 26, 0, 7); ctx.fill();
+  ctx.fillStyle = '#ffe8b0';
+  ctx.beginPath(); ctx.arc(sx, 118, 18, 0, 7); ctx.fill();
+  // far cloud banks, two speeds
+  ctx.fillStyle = '#8a5a8a';
+  for (let i = 0; i < 9; i++) {
+    const px = ((i * 150 + 30 - camX * 0.15) % (VIEW_W + 150) + VIEW_W + 150) % (VIEW_W + 150) - 75;
+    ctx.fillRect(px, 100 + (i % 3) * 10, 60, 8); ctx.fillRect(px + 12, 96 + (i % 3) * 10, 30, 6);
+  }
+  ctx.fillStyle = '#b07a90';
+  for (let i = 0; i < 7; i++) {
+    const px = ((i * 190 + 70 - camX * 0.3) % (VIEW_W + 190) + VIEW_W + 190) % (VIEW_W + 190) - 95;
+    ctx.fillRect(px, 124 + (i % 2) * 8, 80, 10); ctx.fillRect(px + 20, 120 + (i % 2) * 8, 34, 6);
+  }
+  // far birds, going somewhere sensible
+  ctx.fillStyle = '#2a1a3a';
+  for (let i = 0; i < 4; i++) {
+    const bx = ((i * 97 + frame * 0.3 - camX * 0.1) % (VIEW_W + 40) + VIEW_W + 40) % (VIEW_W + 40) - 20;
+    const by = 30 + (i * 17) % 40 + Math.sin((frame + i * 30) / 15) * 2;
+    ctx.fillRect(bx, by, 2, 1); ctx.fillRect(bx + 3, by, 2, 1); ctx.fillRect(bx + 2, by - 1, 1, 1);
+  }
+  ctx.fillStyle = 'rgba(40,20,60,' + (st * 0.05) + ')';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+}
+
 function drawTombBackground(st) {
   ctx.fillStyle = '#2a2216'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   ctx.fillStyle = '#332a1c';
@@ -4023,7 +4673,7 @@ function drawTombBackground(st) {
 
 function drawTiles() {
   const indoor = level === 2, woods = level === 3, snow = level === 4,
-        tomb = level === 5;
+        tomb = level === 5, cave = level === 6, cloud = level === 7;
   const c0 = Math.max(0, Math.floor(camX / TILE));
   const c1 = Math.min(MAP_W - 1, Math.ceil((camX + VIEW_W) / TILE));
   for (let r = 0; r < MAP_H; r++) {
@@ -4031,16 +4681,35 @@ function drawTiles() {
       const t = map[r][cc];
       if (!t) continue;
       const x = cc * TILE - camX, y = r * TILE;
+      if (t === 1 && cloud) {
+        // a cloud bank: soft on top, shadowed beneath
+        const top = !map[r - 1][cc];
+        ctx.fillStyle = top ? '#e8eef8' : '#c8d2e8';
+        ctx.fillRect(x, y, TILE, TILE);
+        if (top) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(x + 1, y - 2, 6, 3); ctx.fillRect(x + 8, y - 3, 7, 4); ctx.fillRect(x, y, TILE, 3);
+        }
+        if (!map[r + 1] || !map[r + 1][cc]) {
+          ctx.fillStyle = '#a8b4d0';
+          ctx.fillRect(x + (cc % 2) * 4, y + TILE - 3, 8, 3);
+        }
+        continue;
+      }
       if (t === 1) {
         const top = r === 0 || !map[r - 1][cc];
-        ctx.fillStyle = tomb ? '#54442c' : snow ? '#3c4660' : woods ? '#343a42' :
+        ctx.fillStyle = cave ? '#2a2230' : tomb ? '#54442c' : snow ? '#3c4660' : woods ? '#343a42' :
                         indoor ? '#4a3626' : '#3a3244';
         ctx.fillRect(x, y, TILE, TILE);
+        if (cave && tileNoise(cc, r + 40) > 0.85) {      // a crystal vein in the basalt
+          ctx.fillStyle = (cc % 2) ? '#5ad8e8' : '#c98fe8';
+          ctx.fillRect(x + 4 + (cc % 3) * 3, y + 6 + (r % 2) * 4, 2, 4);
+        }
         if (top && r > 0) {
-          ctx.fillStyle = tomb ? '#6d5a30' : snow ? '#dce4ee' : woods ? '#48505c' :
+          ctx.fillStyle = cave ? '#4a3a58' : tomb ? '#6d5a30' : snow ? '#dce4ee' : woods ? '#48505c' :
                           indoor ? '#6d5138' : '#4b3f5c';
           ctx.fillRect(x, y, TILE, 4);
-          ctx.fillStyle = tomb ? '#7d693a' : snow ? '#b8c4d8' : woods ? '#59626e' :
+          ctx.fillStyle = cave ? '#5c4a6c' : tomb ? '#7d693a' : snow ? '#b8c4d8' : woods ? '#59626e' :
                           indoor ? '#7d5f42' : '#5d4f72';
           for (let i = 0; i < 4; i++)
             if (tileNoise(cc * 4 + i, r) > 0.4) ctx.fillRect(x + i * 4 + 1, y, 2, 2);
@@ -4073,6 +4742,19 @@ function drawTiles() {
           ctx.fillRect(x - 2, y + TILE - 4, 3, 4);
           ctx.fillRect(x + TILE - 1, y + TILE - 4, 3, 4);
         }
+      } else if (t === 3 && cave) {
+        // a crystal pillar, lit from inside
+        const top = !map[r - 1][cc] || map[r - 1][cc] !== 3;
+        ctx.fillStyle = '#3a5a6a'; ctx.fillRect(x + 1, y, TILE - 2, TILE);
+        ctx.fillStyle = '#5ad8e8'; ctx.fillRect(x + 4, y + (top ? 3 : 0), 3, TILE - 3);
+        ctx.fillStyle = '#9ff0ff'; ctx.fillRect(x + 5, y + (top ? 4 : 1), 1, 5);
+        if (top) { ctx.fillStyle = '#7ae8f8'; ctx.fillRect(x + 2, y, TILE - 4, 3); }
+      } else if (t === 2 && cloud) {
+        // a wisp: enough to stand on, barely
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.fillRect(x, y + 1, TILE, 3);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillRect(x + 2, y + 4, TILE - 4, 2);
       } else if (t === 3) {
         // solid furniture — a good oak table
         const top = !map[r - 1][cc] || map[r - 1][cc] !== 3;
@@ -4087,8 +4769,8 @@ function drawTiles() {
           ctx.fillRect(x + TILE - 5, y, 3, TILE);
         }
       } else {
-        // wooden platform / shelf
-        ctx.fillStyle = '#4d3a2e';
+        // wooden platform / shelf (or a ledge of old rock)
+        ctx.fillStyle = cave ? '#3e3248' : '#4d3a2e';
         ctx.fillRect(x, y, TILE, 6);
         ctx.fillStyle = '#6b5240';
         ctx.fillRect(x, y, TILE, 2);
@@ -4187,6 +4869,36 @@ function drawCheckpoints() {
   for (const cp of checkpoints) {
     const x = Math.round(cp.x - camX);
     if (x < -12 || x > VIEW_W + 12) continue;
+    if (level === 7) {                            // a wind chime, hung on nothing
+      const gy = cp.gy || 9 * TILE;
+      const y = gy - 26;
+      ctx.fillStyle = '#8a6a4a'; ctx.fillRect(x, y, 9, 2);
+      const lit = cp.reached;
+      for (let i = 0; i < 3; i++) {
+        const sway = lit ? Math.round(Math.sin((frame + i * 9) / 11) * 1.5) : 0;
+        ctx.fillStyle = lit ? '#e8c66a' : '#6a5f80';
+        ctx.fillRect(x + 1 + i * 3 + sway, y + 2, 1, 9 + i * 2);
+        ctx.fillRect(x + i * 3 + sway, y + 11 + i * 2, 3, 3);
+      }
+      if (cp.reached) {
+        ctx.fillStyle = 'rgba(232,198,106,0.10)';
+        ctx.fillRect(x - 4, y - 3, 17, 26);
+      }
+      continue;
+    }
+    if (level === 6) {                            // an ember stone, warm to stand by
+      const y = 9 * TILE - 8;
+      ctx.fillStyle = '#2a2230'; ctx.fillRect(x - 1, y + 3, 10, 5);
+      const lit = cp.reached && (frame >> 2) % 7 !== 6;
+      ctx.fillStyle = lit ? '#ff9a3a' : '#3a2a30';
+      ctx.fillRect(x + 1, y, 6, 4); ctx.fillRect(x + 3, y - 2, 2, 2);
+      if (cp.reached) {
+        ctx.fillStyle = '#ffe0a0'; ctx.fillRect(x + 3 + (frame >> 3) % 3, y + 1, 1, 1);
+        ctx.fillStyle = 'rgba(255,154,58,0.12)';
+        ctx.fillRect(x - 6, y - 8, 20, 18);
+      }
+      continue;
+    }
     if (level === 5) {                            // a floor torch, patient as stone
       const y = 9 * TILE - 16;
       ctx.fillStyle = '#3e2c18'; ctx.fillRect(x + 3, y + 4, 3, 12);
@@ -4259,6 +4971,8 @@ function drawCheckpoints() {
 }
 
 function drawHouse() {
+  if (level === 7) { drawCrownedGate(); return; }
+  if (level === 6) { drawHoardDoor(); return; }
   if (level === 5) { drawBurialDoor(); return; }
   if (level === 4) { drawCaveMouth(); return; }
   if (level === 3) { drawChapel(); return; }
@@ -4276,6 +4990,42 @@ function drawHouse() {
   ctx.fillRect(x + 32, y + 22, 8, 8);
   ctx.fillStyle = '#120c14'; ctx.fillRect(x + 20, y + 28, 9, 18);
   ctx.fillStyle = '#e8c66a'; ctx.fillRect(x + 26, y + 37, 2, 2); // doorknob
+}
+
+function drawHoardDoor() {
+  const x = houseX - camX, y = 9 * TILE - 52;
+  if (x < -70 || x > VIEW_W) return;
+  // an arch of red scales over a mouth of gold
+  ctx.fillStyle = '#2a2230'; ctx.fillRect(x - 8, y - 2, 46, 54);
+  ctx.fillStyle = '#8a2a1a';
+  ctx.fillRect(x - 4, y + 4, 38, 48);
+  for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? '#a83a22' : '#6a1e12'; ctx.fillRect(x - 4 + (i % 3) * 13, y + 6 + Math.floor(i / 3) * 20, 11, 8); }
+  ctx.fillStyle = '#0c0810'; ctx.fillRect(x + 2, y + 14, 26, 38);
+  ctx.fillStyle = '#e8c66a';
+  for (let i = 0; i < 9; i++) ctx.fillRect(x + 2 + (i * 7) % 24, y + 46 - (i % 3) * 3, 3, 2);
+  ctx.fillStyle = (frame >> 3) % 5 ? '#ff9a3a' : '#ffe0a0';    // a breath of heat from inside
+  ctx.fillRect(x + 8 + (frame >> 4) % 10, y + 30, 2, 2);
+  ctx.fillStyle = '#c93a1a';                                   // and a tooth, either side
+  ctx.fillRect(x + 1, y + 14, 3, 6); ctx.fillRect(x + 26, y + 14, 3, 6);
+}
+
+function drawCrownedGate() {
+  const x = houseX - camX, y = FINALE_GY - 56;
+  if (x < -70 || x > VIEW_W) return;
+  // a gate of gold on the last cloud, three crowns across its lintel
+  ctx.fillStyle = '#c8d2e8'; ctx.fillRect(x - 6, y + 50, 44, 6);
+  ctx.fillStyle = '#8a742a'; ctx.fillRect(x - 4, y + 4, 6, 50); ctx.fillRect(x + 28, y + 4, 6, 50);
+  ctx.fillStyle = '#d8b23a'; ctx.fillRect(x - 6, y, 42, 6);
+  ctx.fillStyle = '#e8c66a';
+  for (let i = 0; i < 3; i++) {
+    const cx = x + i * 13;
+    ctx.fillRect(cx, y - 6, 8, 6);
+    ctx.fillRect(cx, y - 9, 2, 3); ctx.fillRect(cx + 3, y - 10, 2, 4); ctx.fillRect(cx + 6, y - 9, 2, 3);
+  }
+  ctx.fillStyle = '#c93a3a';
+  for (let i = 0; i < 3; i++) ctx.fillRect(x + 3 + i * 13, y - 4, 2, 2);   // three red eyes in the crowns
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(x + 2, y + 6, 26, 44);
+  if ((frame >> 4) % 6 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 8 + (frame >> 2) % 12, y + 12 + (frame >> 3) % 30, 1, 1); }
 }
 
 function drawBurialDoor() {
@@ -4511,13 +5261,32 @@ function drawEnemies() {
       if (e.dir < 0) ctx.drawImage(img, x - 2, y);
       else { ctx.translate(x + 22, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
       ctx.restore();
+    } else if (e.kind === 'harpy') {
+      let img = HARPY_FRAMES[e.mode === 'dive' ? 1 : (e.t >> 3) % 2];
+      if (flash) img = whiten(img);
+      ctx.save();
+      if (e.face < 0) { ctx.translate(x + 16, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
+      else ctx.drawImage(img, x, y);
+      ctx.restore();
     } else if (ENEMY_SPRITES[e.kind]) {
       const spec = ENEMY_SPRITES[e.kind];
       const frames = typeof spec.frames === 'function' ? spec.frames() : spec.frames;
       let img = frames[(e.t >> spec.shift) % 2];
       if (flash) img = whiten(img);
-      const mirror = (e.kind === 'owl' ? e.face : e.dir) < 0;
+      const mirror = (e.kind === 'owl' || e.kind === 'cherub' ? e.face : e.dir) < 0;
       ctx.save();
+      if (e.kind === 'slug' && e.hotT < 110 && (frame >> 2) % 2) {   // a magma glow
+        ctx.fillStyle = 'rgba(255,154,58,0.22)';
+        ctx.fillRect(x - 3, y - 4, e.w + 6, e.h + 6);
+      }
+      if (e.kind === 'stormcloud' && e.boltT > 0) {
+        if (e.boltT > 12) {                            // the warning: it darkens and crackles
+          if ((frame >> 1) % 2) { ctx.fillStyle = '#ffe86a'; ctx.fillRect(x + 7, y + 8, 2, 3); }
+        } else {                                       // the bolt itself
+          ctx.fillStyle = assist.calm ? '#c8c890' : '#fff8c0';
+          for (let s = 0; s < 6; s++) ctx.fillRect(x + 6 + (s % 2 ? 2 : 0), y + e.h + s * 24, 3, 24);
+        }
+      }
       if (e.kind === 'goat' && e.windupT > 0) ctx.translate(-e.dir, 0);  // rearing back
       if (mirror) { ctx.translate(x + img.width, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); }
       else ctx.drawImage(img, x, y);
@@ -4538,7 +5307,16 @@ const ENEMY_SPRITES = {
   owl:    { frames: OWL_FRAMES, shift: 3 },
   mummy:  { frames: MUMMY_FRAMES, shift: 3 },
   scarab: { frames: SCARAB_FRAMES, shift: 3 },
+  troll:  { frames: TROLL_FRAMES, shift: 4 },
+  slug:   { frames: SLUG_FRAMES, shift: 4 },
+  centipede: { frames: CENT_FRAMES, shift: 2 },
+  stormcloud: { frames: STORM_FRAMES, shift: 4 },
+  cherub: { frames: CHERUB_FRAMES, shift: 3 },
 };
+function drawArrows() {
+  ctx.fillStyle = '#c9b26b';
+  for (const a of arrows) ctx.fillRect(Math.round(a.x - camX), Math.round(a.y), 6, 1);
+}
 
 function drawParticles() {
   for (const p of particles) {
@@ -4909,6 +5687,9 @@ const bossRoaches = [];  // {x,y,dir,t,w,h,state:'run'|'down'}
 const thrown = [];       // {kind,x,y,vx,vy}
 let carrying = null;     // 'bat' | 'roach'
 const cat = { x: -40, t: 0 };
+const pick = { x: 250, y: 132, vx: 0, vy: 0, state: 'ground' };    // the miner's pick
+const embers = [];       // the wyrm's: {x, y, vy}
+const headBox = h => ({ x: h.x, y: h.y, w: 16, h: 12 });
 
 function bEdge(name, cur) {
   const was = boss.held[name];
@@ -4937,6 +5718,9 @@ const RELICS = {
   werewolf: { obj: candel, name: 'candelabra', w: 12, h: 10, g: 0.08,
               tvx: 3.6, tvy: -1.2, throwF: 300, throwS: 180, pickF: 700,
               clinkF: 600, clinkD: 0.1, clinkS: -200, onHit: () => wolfHit() },
+  wyrm:     { obj: pick,   name: 'pick',       w: 10, h: 8,  g: 0.085,
+              tvx: 3.6, tvy: -1.5, throwF: 300, throwS: 180, pickF: 720,
+              clinkF: 650, clinkD: 0.09, clinkS: -220, onHit: () => wyrmStruck() },
 };
 
 function updateRelicFlight(rc) {
@@ -4997,9 +5781,10 @@ function drawBoyAt(x, y, pose) {
 function startBoss() {
   state = 'boss';
   boss.active = true;
-  boss.kind = level === 5 ? 'aztec' : level === 4 ? 'yeti' :
+  boss.kind = level === 7 ? 'ghidorah' : level === 6 ? 'wyrm' :
+              level === 5 ? 'aztec' : level === 4 ? 'yeti' :
               level === 3 ? 'werewolf' : 'dracula';
-  boss.hp = boss.kind === 'dracula' ? 3 : 4;
+  boss.hp = boss.kind === 'ghidorah' ? 6 : boss.kind === 'dracula' ? 3 : 4;
   // a piece of her left in this room comes back to her at the door
   if (piece.active && piece.inBoss && piece.level === level) pieceRestore();
   // arriving at her worst: he sees what she is, and he already bleeds
@@ -5009,9 +5794,11 @@ function startBoss() {
     unlock('at_her_worst');
     flashText = { msg: 'he sees what she is.', t: 150, hold: true };
   }
-  boss.w = boss.kind === 'yeti' ? 38 : boss.kind === 'werewolf' ? 34 :
+  boss.w = boss.kind === 'ghidorah' ? 70 : boss.kind === 'wyrm' ? 56 :
+           boss.kind === 'yeti' ? 38 : boss.kind === 'werewolf' ? 34 :
            boss.kind === 'aztec' ? 30 : 40;
-  boss.h = boss.kind === 'yeti' ? 44 : boss.kind === 'werewolf' ? 34 :
+  boss.h = boss.kind === 'ghidorah' ? 60 : boss.kind === 'wyrm' ? 44 :
+           boss.kind === 'yeti' ? 44 : boss.kind === 'werewolf' ? 34 :
            boss.kind === 'aztec' ? 46 : 56;
   // the dagger waits mounted at the heart of the sun stone
   dag.x = 210; dag.y = 70; dag.vx = 0; dag.vy = 0; dag.state = 'wall';
@@ -5034,13 +5821,27 @@ function startBoss() {
   carrying = null;
   candel.x = 250; candel.y = 132; candel.vx = 0; candel.vy = 0; candel.state = 'ground';
   cat.x = -40; cat.t = 0;
+  // the wyrm: a pick on the floor, a mouth that opens before it burns
+  pick.x = 120; pick.y = 132; pick.vx = 0; pick.vy = 0; pick.state = 'ground';
+  embers.length = 0;
+  boss.mouth = 0; boss.fireT = 0; boss.breathCd = 150; boss.emberCd = 90; boss.climbY = 0;
+  // the storm king: three heads, two crowns of life each
+  boss.heads = boss.kind === 'ghidorah'
+    ? [70, 150, 230].map(x => ({ x, y: 52, baseY: 52, hp: 2, mode: 'idle', t: 0, cd: 0 }))
+    : [];
+  if (boss.kind === 'ghidorah' && boss.marked) boss.heads[1].hp = 1;   // one crown already cracked
+  boss.gustT = 0; boss.gustCd = 240; boss.pickCd = 70;
   camX = 0;
   particles.length = 0;
   player.x = 30; player.y = 126; player.vx = 0; player.vy = 0; player.face = 1;
   player.crouch = false; player.h = 18; player.attack = null; player.chargeT = 0;
   player.invuln = 60;
   musicStep = 0;
-  flashText = boss.kind === 'aztec'
+  flashText = boss.kind === 'ghidorah'
+    ? { msg: 'three heads. one boy. all of them laughing.', t: 150 }
+    : boss.kind === 'wyrm'
+    ? { msg: 'the boy has scales now. and a furnace.', t: 150 }
+    : boss.kind === 'aztec'
     ? { msg: 'the boy wears a god\'s gold face.', t: 150 }
     : boss.kind === 'yeti'
       ? { msg: 'the cave breathes. so does something else.', t: 150 }
@@ -5052,6 +5853,66 @@ function startBoss() {
     setTimeout(() => { sfx(280, 1.1, 'triangle', 0.05, 160); }, 400);   // the first howl
   if (boss.kind === 'yeti')
     setTimeout(() => { sfx(70, 1.2, 'sawtooth', 0.08, 25); }, 400);     // something answers
+  if (boss.kind === 'wyrm')
+    setTimeout(() => { sfx(50, 1.4, 'sawtooth', 0.09, 30); sfx(900, 0.6, 'sawtooth', 0.03, -500); }, 400);
+  if (boss.kind === 'ghidorah')
+    [0, 180, 360].forEach((d, i) => setTimeout(() => sfx(520 - i * 70, 0.3, 'sawtooth', 0.05, -220), 400 + d));
+}
+
+function wyrmStruck() {
+  if (boss.mouth > 0) { wyrmHit(); return; }
+  // scales: the pick glances off and drops
+  pick.vx = pick.vx > 0 ? -0.9 : 0.9;
+  pick.vy = -1.3;
+  pick.state = 'loose';
+  sfx(900, 0.08, 'triangle', 0.05, -300);
+  burst(pick.x + 5, pick.y + 4, '#c9cede', 5, -1);
+  if (!(flashText && flashText.hold)) flashText = { msg: 'scales. wait for the mouth.', t: 70 };
+}
+
+function wyrmHit() {
+  boss.hp--;
+  boss.hurtT = 26;
+  boss.mouth = 0; boss.fireT = 0;                     // the breath dies in its throat
+  boss.breathCd = 120;
+  score += 400;
+  addCreep(CREEP.event);
+  addShake(3, 12);
+  burst(boss.x + 8, 112, '#ff9a3a', 12, -1.4);
+  sfx(120, 0.5, 'sawtooth', 0.09, -40);                // a furnace, coughing
+  sfx(1000, 0.15, 'triangle', 0.05, -400);
+  pick.vx = -0.8; pick.vy = -1.4; pick.state = 'loose';
+  if (boss.hp <= 0) {
+    bossDown();
+    boss.phase = 'crumple'; boss.phaseT = 0;
+    flashText = { msg: 'the fire goes out.', t: 110 };
+  } else {
+    flashText = { msg: boss.hp === 3 ? 'iron in the throat. it noticed.' :
+                       boss.hp === 2 ? 'smoke where fire was.' :
+                                       'one more. into the mouth.', t: 100 };
+  }
+}
+
+function ghidorahHit(h) {
+  h.hp--;
+  boss.hurtT = 22;
+  boss.hp = boss.heads.reduce((s, x) => s + Math.max(0, x.hp), 0);
+  score += 400;
+  addCreep(CREEP.event);
+  addShake(3, 10);
+  burst(h.x + 8, h.y + 6, '#e8c66a', 10, 0, -1);
+  sfx(700, 0.12, 'square', 0.06, -300);
+  sfx(160, 0.4, 'sawtooth', 0.07, -60);
+  if (h.hp <= 0) { h.mode = 'limp'; h.t = 0; }
+  if (boss.hp <= 0) {
+    bossDown();
+    boss.phase = 'crumple'; boss.phaseT = 0;
+    flashText = { msg: 'three crowns, all fallen.', t: 110 };
+  } else {
+    const live = boss.heads.filter(x => x.hp > 0).length;
+    flashText = { msg: h.hp <= 0 ? (live === 2 ? 'one head hangs. two still laugh.' : 'one head left. it has stopped laughing.')
+                                 : 'gold cracks. a crown slips.', t: 90 };
+  }
 }
 
 function aztecHit() {
@@ -5189,6 +6050,93 @@ function updateBoss() {
       if (sk.x < -12 || sk.x > VIEW_W + 12) skulls.splice(i, 1);
     }
     updateRelicFlight(RELICS.aztec);
+  } else if (boss.phase === 'fight' && boss.kind === 'wyrm') {
+    // it hangs at the back of its hoard, and it breathes in before it breathes out
+    boss.x = 236 + Math.sin(boss.t / 30) * 8;
+    boss.dir = -1;
+    if (boss.fireT > 0) {
+      boss.fireT--;
+      if (boss.fireT % 5 === 0) burst(40 + Math.random() * (boss.x - 50), 136, '#ff9a3a', 2, -1, -0.5);
+      const strip = { x: 24, y: 128, w: boss.x - 6 - 24, h: 16 };
+      if (rectsOverlap(strip, player)) hurtPlayer(boss.x, 1);
+    } else if (boss.mouth > 0) {
+      boss.mouth--;
+      if (boss.mouth % 6 === 0) burst(boss.x + 4, 110, '#ffe0a0', 1, -0.6, 0);   // embers drawn in
+      if (boss.mouth === 0) {
+        boss.fireT = 45;
+        addShake(2, 8);
+        sfx(80, 0.6, 'sawtooth', 0.09, 60);              // the furnace opens
+      }
+    } else if (--boss.breathCd <= 0) {
+      boss.mouth = 50 - (4 - boss.hp) * 6;
+      boss.breathCd = 210 - (4 - boss.hp) * 30 + Math.random() * 40;
+      sfx(200, 0.5, 'sine', 0.05, -120);                // the long breath in
+    }
+    if (--boss.emberCd <= 0) {                         // the ceiling sheds
+      boss.emberCd = 70 - (4 - boss.hp) * 10 + Math.random() * 40;
+      embers.push({ x: 30 + Math.random() * 180, y: 20, vy: 0.6 + Math.random() * 0.6 });
+    }
+    for (let i = embers.length - 1; i >= 0; i--) {
+      const em = embers[i];
+      em.y += em.vy; em.vy = Math.min(em.vy + 0.02, 2.2);
+      if (rectsOverlap({ x: em.x, y: em.y, w: 5, h: 5 }, player)) {
+        hurtPlayer(em.x + 2, 1);
+        burst(em.x + 2, em.y + 2, '#ff9a3a', 6);
+        embers.splice(i, 1);
+      } else if (em.y >= 140) {
+        burst(em.x + 2, 142, '#ff9a3a', 3, 0, -0.4);
+        embers.splice(i, 1);
+      }
+    }
+    if (rectsOverlap(bossBox(), player)) hurtPlayer(boss.x + boss.w / 2, 1);
+    updateRelicFlight(RELICS.wyrm);
+  } else if (boss.phase === 'fight' && boss.kind === 'ghidorah') {
+    // three heads on long necks: they dip to aim, and that is when they can be reached
+    boss.x = 236; boss.dir = -1;
+    const live = boss.heads.filter(h => h.hp > 0);
+    if (boss.gustT > 0) {                              // the wings, pushing her toward the edge
+      boss.gustT--;
+      player.x = Math.max(2, player.x - 0.9);            // she can walk into it, barely
+      if (boss.gustT % 3 === 0) burst(VIEW_W - 30, 40 + Math.random() * 90, '#ffffff', 1, -3, 0);
+    } else if (--boss.gustCd <= 0) {
+      boss.gustT = 60; boss.gustCd = 260 - (6 - boss.hp) * 20;
+      sfx(200, 0.8, 'sine', 0.05, -120);
+      if (!(flashText && flashText.hold)) flashText = { msg: 'the wings.', t: 60 };
+    }
+    if (--boss.pickCd <= 0 && live.length) {           // one head takes aim
+      boss.pickCd = 95 - (6 - boss.hp) * 7;
+      const idle = live.filter(h => h.mode === 'idle');
+      if (idle.length) {
+        const near = idle.slice().sort((a, b) => Math.abs(a.x - player.x) - Math.abs(b.x - player.x))[0];
+        const h = Math.random() < 0.6 ? near : idle[Math.floor(Math.random() * idle.length)];
+        h.mode = 'charge'; h.t = 0;
+        sfx(1200, 0.25, 'sawtooth', 0.035, 400);        // a whine, building
+      }
+    }
+    for (const h of boss.heads) {
+      h.t++;
+      if (h.mode === 'idle') {
+        h.y = h.baseY + Math.sin(h.t / 18) * 4;
+      } else if (h.mode === 'charge') {                // it lowers to look at her
+        h.y = Math.min(96, h.y + 1.6);
+        if (h.t > 50) { h.mode = 'beam'; h.t = 0; addShake(2, 8); sfx(1400, 0.15, 'sawtooth', 0.05, -900); }
+      } else if (h.mode === 'beam') {
+        if (h.t > 3 && h.t < 22) {
+          const col = { x: h.x + 6, y: h.y + 12, w: 5, h: 144 - h.y - 12 };
+          if (rectsOverlap(col, player)) hurtPlayer(h.x + 8, 1);
+        }
+        if (h.t > 26) { h.mode = 'rise'; h.t = 0; }
+      } else if (h.mode === 'rise') {
+        h.y = Math.max(h.baseY, h.y - 1.2);
+        if (h.y <= h.baseY) { h.mode = 'idle'; h.t = 0; }
+      } else {                                         // limp: it hangs, and it is nothing now
+        h.y = Math.min(118, h.y + 0.8);
+      }
+      // a live head is a bad thing to walk into (from above is another matter)
+      if (h.hp > 0 && rectsOverlap(headBox(h), player) && !(player.vy > 0.5 && player.y + player.h < h.y + 8))
+        hurtPlayer(h.x + 8, 1);
+    }
+    if (rectsOverlap(bossBox(), player)) hurtPlayer(boss.x + boss.w / 2, 1);
   } else if (boss.phase === 'fight' && boss.kind === 'yeti') {
     // he lumbers, and the cave lumbers with him
     const spd = 0.4 + (4 - Math.ceil(boss.hp)) * 0.15;
@@ -5428,6 +6376,13 @@ function updateBossDoll() {
         sfx(300, 0.06, 'square', 0.05, -150);
         burst(r.x + 5, r.y + 2, '#5a3a1e', 6, 0, 1);
       }
+    // and on the storm king, her heels are the only weapon there is
+    if (boss.kind === 'ghidorah' && boss.phase === 'fight')
+      for (const h of boss.heads)
+        if (h.hp > 0 && rectsOverlap(feet, headBox(h)) && player.y + player.h < h.y + 9) {
+          player.vy = -3.2;
+          ghidorahHit(h);
+        }
   }
 
   // her attacks live here in the cave (fists, and boots against ice)
@@ -5445,6 +6400,13 @@ function updateBossDoll() {
       fi.vx = (player.face || 1) * 3;
       sfx(700, 0.1, 'triangle', 0.05, -200);           // ice given purpose
     } else if (!player.attack) {
+      player.attack = { type: pz ? 'punch' : 'kick', t: 0, id: ++player.attackId };
+      (pz ? sndPunch : sndKick)();
+    }
+  } else if ((pz || px) && boss.phase === 'fight' && boss.kind === 'wyrm') {
+    relicPickOrThrow(RELICS.wyrm);
+  } else if ((pz || px) && boss.phase === 'fight' && boss.kind === 'ghidorah') {
+    if (!player.attack) {                              // fists, for form's sake
       player.attack = { type: pz ? 'punch' : 'kick', t: 0, id: ++player.attackId };
       (pz ? sndPunch : sndKick)();
     }
@@ -5473,6 +6435,48 @@ function updateBossDoll() {
 
 // after the last hit: each monster leaves in its own way
 function updateBossOutro() {
+  if (boss.kind === 'wyrm') {
+    boss.phaseT++;
+    if (boss.phase === 'crumple' && boss.phaseT > 90) {
+      boss.phase = 'revert'; boss.phaseT = 0;
+      sfx(320, 0.6, 'sine', 0.05, -140);               // the scales let go of him
+    } else if (boss.phase === 'revert' && boss.phaseT > 80) {
+      boss.phase = 'climb'; boss.phaseT = 0;
+      sfx(600, 0.5, 'sine', 0.04, 500);                // the light takes him
+    } else if (boss.phase === 'climb') {
+      boss.climbY += 1.4;                              // up the chimney of light
+      if (boss.phaseT > 100) { boss.phase = 'gone'; boss.phaseT = 0; }
+    } else if (boss.phase === 'gone' && boss.phaseT > 80) {
+      levelClean();
+      state = 'interlude';                             // up, into the clouds
+      score += 1500;
+      sndWin();
+    }
+    return;
+  }
+  if (boss.kind === 'ghidorah') {
+    boss.phaseT++;
+    for (const h of boss.heads) h.y = Math.min(118, h.y + 0.8);
+    if (boss.phase === 'crumple' && boss.phaseT > 100) {
+      boss.phase = 'revert'; boss.phaseT = 0;
+      sfx(320, 0.6, 'sine', 0.05, -140);               // the gold peels
+    } else if (boss.phase === 'revert' && boss.phaseT > 90) {
+      boss.phase = 'run'; boss.phaseT = 0;
+      [0, 160, 320].forEach((d, i) =>
+        setTimeout(() => sfx(500 - i * 60, 0.12, 'square', 0.06, -80), d));
+      flashText = { msg: 'ha. ha. ha.', t: 90 };
+    } else if (boss.phase === 'run') {
+      boss.x += 2.4;                                   // off the edge of the last cloud
+      if (boss.phaseT > 60) { boss.phase = 'gone'; boss.phaseT = 0; }
+    } else if (boss.phase === 'gone' && boss.phaseT > 100) {
+      levelClean();
+      unlock('game_done');
+      state = 'win';                                   // the true, final ending
+      score += 3000;
+      sndWin();
+    }
+    return;
+  }
   if (boss.kind === 'aztec') {
     boss.phaseT++;
     if (boss.phase === 'crumple' && boss.phaseT > 90) {
@@ -5484,8 +6488,7 @@ function updateBossOutro() {
       burst(boss.x + 10, 120, '#2a2216', 10, 1);
     } else if (boss.phase === 'gone' && boss.phaseT > 100) {
       levelClean();
-      unlock('game_done');
-      state = 'win';                                   // the true, final ending
+      state = 'interlude';                             // and the floor gives way beneath him
       score += 2000;
       sndWin();
     }
@@ -5571,6 +6574,8 @@ function drawBoss() {
   const [shX, shY] = shakeOffset();
   ctx.save();
   ctx.translate(shX, shY);
+  if (boss.kind === 'ghidorah') { drawSkyThrone(); drawBossEntitiesGhidorah(); return endBossDraw(); }
+  if (boss.kind === 'wyrm') { drawWyrmLair(); drawBossEntitiesWyrm(); return endBossDraw(); }
   if (boss.kind === 'aztec') { drawGoldChamber(); drawBossEntitiesAztec(); return endBossDraw(); }
   if (boss.kind === 'yeti') { drawIceCave(); drawBossEntitiesYeti(); return endBossDraw(); }
   if (boss.kind === 'werewolf') { drawChapelArena(); drawBossEntitiesWolf(); return endBossDraw(); }
@@ -5678,6 +6683,217 @@ function drawBoss() {
 function endBossDraw() {
   ctx.restore();
   drawHUD();
+}
+
+/* --- the wyrm's hoard --- */
+function drawWyrmLair() {
+  ctx.fillStyle = '#16121c'; ctx.fillRect(-8, -8, VIEW_W + 16, VIEW_H + 16);
+  ctx.fillStyle = '#1f1a28';
+  for (let i = 0; i < 10; i++) ctx.fillRect(i * 34, 10 + (i % 2) * 6, 17, 124);
+  // the mountain overhead, and its teeth
+  ctx.fillStyle = '#2a2230'; ctx.fillRect(-8, -8, VIEW_W + 16, 24);
+  for (let i = 0; i < 12; i++) {
+    const sx = i * 28 + 4, h = 8 + (i * 7) % 12;
+    ctx.beginPath(); ctx.moveTo(sx, 16); ctx.lineTo(sx + 8, 16); ctx.lineTo(sx + 4, 16 + h); ctx.fill();
+  }
+  // the chimney of light, at the back
+  const climbing = boss.phase === 'climb' || boss.phase === 'gone';
+  ctx.fillStyle = climbing ? 'rgba(255,240,200,0.28)' : 'rgba(255,240,200,0.07)';
+  ctx.fillRect(VIEW_W - 44, -8, 24, 152);
+  // crystals in the walls
+  for (let i = 0; i < 7; i++) {
+    ctx.fillStyle = i % 3 === 0 ? '#5ad8e8' : i % 3 === 1 ? '#c98fe8' : '#9fe88f';
+    ctx.fillRect(14 + i * 44, 34 + (i * 13) % 50, 2, 7);
+  }
+  // the hoard: the floor is money
+  ctx.fillStyle = '#2a2230'; ctx.fillRect(-8, 144, VIEW_W + 16, 40);
+  ctx.fillStyle = '#e8c66a';
+  for (let i = 0; i < 40; i++) ctx.fillRect((i * 29) % VIEW_W, 141 + (i % 4), 4, 2);
+  ctx.fillStyle = '#d8b23a';
+  for (let i = 0; i < 6; i++) { const gx = 20 + i * 52; ctx.fillRect(gx, 136, 12, 8); ctx.fillRect(gx + 3, 132, 6, 4); }
+  // lava, in the wings
+  ctx.fillStyle = '#c93a1a'; ctx.fillRect(-8, 152, 20, 30); ctx.fillRect(VIEW_W - 8, 152, 20, 30);
+  ctx.fillStyle = 'rgba(255,154,58,0.10)'; ctx.fillRect(-8, 120, 30, 40);
+  // the flame strip, when it comes
+  if (boss.fireT > 0) {
+    const w = boss.x - 6 - 24;
+    for (let i = 0; i < w; i += 6) {
+      const fh = 8 + ((i * 7 + frame * 5) % 10);
+      ctx.fillStyle = (i + frame) % 3 ? '#ff9a3a' : '#ffe0a0';
+      ctx.fillRect(24 + i, 144 - fh, 5, fh);
+      ctx.fillStyle = '#c93a1a'; ctx.fillRect(24 + i, 144 - 3, 5, 3);
+    }
+  }
+}
+
+function drawPick(x, y) {
+  ctx.fillStyle = '#6a4a30'; ctx.fillRect(x + 4, y, 2, 9);          // haft
+  ctx.fillStyle = '#c9cede'; ctx.fillRect(x, y, 10, 2); ctx.fillRect(x, y + 2, 2, 2); ctx.fillRect(x + 8, y + 2, 2, 2);
+  ctx.fillStyle = '#eef6fc'; ctx.fillRect(x + 1, y, 3, 1);
+}
+
+function drawBossEntitiesWyrm() {
+  if (pick.state === 'ground') {
+    const g = 0.2 + 0.12 * Math.sin(frame / 9);
+    ctx.fillStyle = 'rgba(201,206,222,' + g.toFixed(3) + ')';
+    ctx.fillRect(Math.round(pick.x) - 4, Math.round(pick.y) - 3, 18, 13);
+  }
+  if (pick.state !== 'held') drawPick(Math.round(pick.x), Math.round(pick.y));
+  for (const em of embers) {
+    ctx.fillStyle = (frame >> 1) % 2 ? '#ff9a3a' : '#ffe0a0';
+    ctx.fillRect(Math.round(em.x), Math.round(em.y), 4, 4);
+  }
+  drawWyrm();
+  drawPlayer();
+  if (carrying === 'pick') drawPick(Math.round(player.x), Math.round(player.y) - 12);
+  drawParticles();
+}
+
+function drawWyrm() {
+  const P = boss;
+  if (P.phase === 'revert' || P.phase === 'climb' || P.phase === 'gone') {
+    if (P.phase === 'gone') return;
+    const x = VIEW_W - 38, y = 124 - P.climbY;
+    ctx.fillStyle = 'rgba(255,240,200,0.5)'; ctx.fillRect(x - 4, y - 4, 20, 26);
+    drawBoyAt(x, y, P.phase === 'revert' ? 'crouch' : 'idle');
+    ctx.fillStyle = '#3a2a20'; ctx.fillRect(x + 2, y + 10, 8, 2);   // scorched
+    return;
+  }
+  const crumpled = P.phase === 'crumple';
+  const hov = crumpled ? 0 : Math.sin(frame / 22) * 3;
+  const x = Math.round(P.x), y = Math.round((crumpled ? 144 - 30 : 144 - P.h) - hov);
+  ctx.save();
+  ctx.translate(x, y);
+  if (P.hurtT > 0 && (frame >> 1) % 2) ctx.globalAlpha = 0.55;
+  const R = '#a83a22', r = '#6a1e12', B = '#e8a050';
+  if (crumpled) {
+    ctx.fillStyle = r; ctx.fillRect(4, 10, 52, 20);
+    ctx.fillStyle = R; ctx.fillRect(8, 6, 44, 10);
+    ctx.fillStyle = '#2a2230'; ctx.fillRect(2, 14, 10, 8);          // the head, down
+    ctx.fillStyle = '#5a5a5a'; ctx.fillRect(10, 2 + (frame >> 3) % 3, 2, 2);  // smoke
+    ctx.restore();
+    return;
+  }
+  // wings
+  const flap = Math.sin(frame / 9) * 6;
+  ctx.fillStyle = r;
+  ctx.beginPath(); ctx.moveTo(30, 12); ctx.lineTo(62, -6 + flap); ctx.lineTo(56, 18); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(26, 14); ctx.lineTo(54, -2 + flap); ctx.lineTo(50, 22); ctx.fill();
+  // body and tail
+  ctx.fillStyle = R; ctx.fillRect(18, 12, 40, 24);
+  ctx.fillStyle = r; ctx.fillRect(22, 30, 32, 6);
+  ctx.fillRect(50, 20, 18, 5); ctx.fillRect(62, 16, 10, 4);          // the tail, out of frame
+  ctx.fillStyle = B;
+  for (let i = 0; i < 4; i++) ctx.fillRect(22 + i * 9, 24, 6, 4);   // belly plates
+  // legs
+  ctx.fillStyle = r; ctx.fillRect(24, 36, 8, 8); ctx.fillRect(44, 36, 8, 8);
+  ctx.fillStyle = '#2a2230'; ctx.fillRect(22, 42, 12, 2); ctx.fillRect(42, 42, 12, 2);
+  // neck and head, facing her
+  ctx.fillStyle = R; ctx.fillRect(6, 4, 16, 14); ctx.fillRect(-4, 0, 20, 12);
+  ctx.fillStyle = r; ctx.fillRect(-6, 2, 4, 3); ctx.fillRect(8, -4, 3, 5); ctx.fillRect(13, -5, 3, 6);   // horns
+  ctx.fillStyle = '#ffe040'; ctx.fillRect(4, 3, 3, 3);                  // the eye
+  ctx.fillStyle = '#000000'; ctx.fillRect(5, 4, 1, 2);
+  // the mouth: shut, or open and glowing
+  const open = P.mouth > 0 || P.fireT > 0;
+  if (open) {
+    ctx.fillStyle = r; ctx.fillRect(-6, 12, 18, 4);
+    ctx.fillStyle = P.fireT > 0 ? '#ffe0a0' : '#ff9a3a';
+    ctx.fillRect(-4, 8, 14, 5);
+    ctx.fillStyle = '#efe2cf'; ctx.fillRect(-3, 8, 2, 2); ctx.fillRect(3, 8, 2, 2); ctx.fillRect(-3, 12, 2, 2); ctx.fillRect(3, 12, 2, 2);
+  } else {
+    ctx.fillStyle = r; ctx.fillRect(-4, 9, 14, 3);
+  }
+  ctx.restore();
+}
+
+/* --- the storm king's throne, which is the sky --- */
+function drawSkyThrone() {
+  ctx.fillStyle = '#4a3a7a'; ctx.fillRect(-8, -8, VIEW_W + 16, 48);
+  ctx.fillStyle = '#7a4a8a'; ctx.fillRect(-8, 40, VIEW_W + 16, 50);
+  ctx.fillStyle = '#c96a6a'; ctx.fillRect(-8, 90, VIEW_W + 16, 54);
+  const sx = 90;
+  ctx.fillStyle = '#ffd88a'; ctx.beginPath(); ctx.arc(sx, 96, 30, 0, 7); ctx.fill();
+  ctx.fillStyle = '#ffe8b0'; ctx.beginPath(); ctx.arc(sx, 96, 20, 0, 7); ctx.fill();
+  ctx.fillStyle = '#8a5a8a';
+  for (let i = 0; i < 6; i++) { const px = i * 60 - (frame * 0.2) % 60; ctx.fillRect(px, 104 + (i % 2) * 8, 44, 7); }
+  // the last cloud, which is the floor
+  ctx.fillStyle = '#e8eef8'; ctx.fillRect(-8, 144, VIEW_W + 16, 40);
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 12; i++) ctx.fillRect(i * 28 + (i % 2) * 6, 140, 18, 6);
+  ctx.fillStyle = '#c8d2e8'; ctx.fillRect(-8, 160, VIEW_W + 16, 24);
+  // the wind, when it blows
+  if (boss.gustT > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    for (let i = 0; i < 8; i++) ctx.fillRect(((i * 47 - frame * 6) % (VIEW_W + 40) + VIEW_W + 40) % (VIEW_W + 40) - 20, 30 + (i * 17) % 100, 22, 1);
+  }
+}
+
+function drawBossEntitiesGhidorah() {
+  drawGhidorah();
+  drawPlayer();
+  drawParticles();
+}
+
+function drawGhidorah() {
+  const P = boss;
+  const G = '#d8b23a', g = '#8a742a', D = '#e8c66a';
+  if (P.phase === 'run' || P.phase === 'gone') {
+    if (P.phase === 'run') drawBoyAt(Math.round(P.x), 124, 'run');
+    return;
+  }
+  const crumpled = P.phase === 'crumple', revert = P.phase === 'revert';
+  const bx = Math.round(P.x), by = crumpled || revert ? 144 - 34 : 144 - P.h;
+  // wings, wide
+  if (!revert) {
+    const flap = crumpled ? 10 : Math.sin(frame / 8) * 8;
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(bx + 30, by + 14); ctx.lineTo(bx + 84, by - 30 + flap); ctx.lineTo(bx + 76, by + 24); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(bx + 34, by + 18); ctx.lineTo(bx - 20, by - 26 + flap); ctx.lineTo(bx - 4, by + 26); ctx.fill();
+  }
+  // body
+  if (revert) {
+    drawBoyAt(bx + 20, 124, 'crouch');
+    ctx.fillStyle = G; for (let i = 0; i < 3; i++) ctx.fillRect(bx + 4 + i * 14, 138, 10, 4);   // three crowns, on the floor
+    ctx.fillStyle = '#c93a3a'; for (let i = 0; i < 3; i++) ctx.fillRect(bx + 8 + i * 14, 139, 2, 2);
+  } else {
+    ctx.save();
+    if (P.hurtT > 0 && (frame >> 1) % 2) ctx.globalAlpha = 0.55;
+    ctx.fillStyle = G; ctx.fillRect(bx + 10, by + 10, 50, 30);
+    ctx.fillStyle = g; ctx.fillRect(bx + 14, by + 34, 42, 8);
+    ctx.fillStyle = D; for (let i = 0; i < 5; i++) ctx.fillRect(bx + 14 + i * 9, by + 22, 6, 4);
+    ctx.fillStyle = g; ctx.fillRect(bx + 16, by + 42, 10, 10); ctx.fillRect(bx + 42, by + 42, 10, 10);   // legs
+    ctx.fillRect(bx + 56, by + 20, 30, 5); ctx.fillRect(bx + 80, by + 14, 10, 4);                        // tails
+    ctx.restore();
+  }
+  // necks and heads
+  for (const h of P.heads) {
+    const hx = Math.round(h.x), hy = Math.round(h.y);
+    if (!revert) {
+      ctx.strokeStyle = h.hp > 0 ? G : g; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(bx + 24, by + 14);
+      ctx.quadraticCurveTo((bx + 24 + hx + 8) / 2, Math.min(hy, by) - 20, hx + 8, hy + 6);
+      ctx.stroke(); ctx.lineWidth = 1;
+    }
+    if (revert) continue;
+    ctx.save();
+    if (P.hurtT > 0 && (frame >> 1) % 2) ctx.globalAlpha = 0.55;
+    const limp = h.hp <= 0;
+    ctx.fillStyle = limp ? g : G;
+    ctx.fillRect(hx, hy, 16, 12);
+    ctx.fillRect(hx - 6, hy + 5, 8, 6);                        // the snout, toward her
+    ctx.fillStyle = limp ? '#5a4a1a' : D;                       // the crown
+    ctx.fillRect(hx + 2, hy - 5, 12, 5); ctx.fillRect(hx + 3, hy - 8, 2, 3); ctx.fillRect(hx + 7, hy - 9, 2, 4); ctx.fillRect(hx + 11, hy - 8, 2, 3);
+    ctx.fillStyle = limp ? '#3a2a20' : (h.mode === 'charge' || h.mode === 'beam') ? '#ffffff' : '#c93a3a';
+    ctx.fillRect(hx + 3, hy + 3, 3, 2);                        // the eye
+    if (h.hp === 1 && !limp) { ctx.fillStyle = g; ctx.fillRect(hx + 6, hy - 5, 1, 5); ctx.fillRect(hx + 9, hy, 1, 6); }   // cracked
+    if (h.mode === 'charge' && (frame >> 1) % 2) { ctx.fillStyle = '#fff8c0'; ctx.fillRect(hx - 6, hy + 7, 4, 2); }
+    if (h.mode === 'beam' && h.t > 3 && h.t < 22) {
+      ctx.fillStyle = assist.calm ? '#d8d8a0' : (frame % 2 ? '#fff8c0' : '#ffe86a');
+      ctx.fillRect(hx + 6, hy + 12, 5, 144 - hy - 12);
+      ctx.fillStyle = 'rgba(255,248,192,0.25)'; ctx.fillRect(hx + 2, hy + 12, 13, 144 - hy - 12);
+    }
+    ctx.restore();
+  }
 }
 
 /* --- the burial chamber, and its gold --- */
@@ -6288,6 +7504,43 @@ function drawDoors() {
   for (const d of doors) {
     const x = Math.round(d.x - camX);
     if (x < -22 || x > VIEW_W + 22) continue;
+    if (level === 7) {
+      // a rainbow gate, a little embarrassed to be here
+      const cols = ['#e05060', '#e8a050', '#e8e050', '#9fe88f', '#7ec9e8', '#c98fe8'];
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = d.used ? '#8a8aa0' : cols[i];
+        ctx.fillRect(x - 3 + i, d.y - 4 + i, 1, 26 - i * 2);
+        ctx.fillRect(x + 16 - i, d.y - 4 + i, 1, 26 - i * 2);
+        ctx.fillRect(x - 3 + i, d.y - 4 + i, 20 - i * 2, 1);
+      }
+      if (d.used) continue;
+      const rp = (Math.sin(frame / 15) + 1) / 2;
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.15 + rp * 0.25) + ')';
+      ctx.fillRect(x + 3, d.y + 2, 8, 20);
+      ctx.fillStyle = d.kind === 'stars' ? '#ffe86a' : d.kind === 'vane' ? '#c9cede' : '#ffffff';
+      ctx.fillRect(x + 5, d.y + 8, 4, 4);
+      if (state === 'play' && player.onGround &&
+          player.x + player.w > d.x && player.x < d.x + d.w && (frame >> 5) % 2)
+        pixelText('UP', x + 2, d.y - 15, '#ffffff');
+      continue;
+    }
+    if (level === 6) {
+      // a crack in the rock, lit from behind
+      ctx.fillStyle = d.used ? '#1c1624' : '#2a2230';
+      ctx.fillRect(x - 3, d.y - 4, 20, 26);
+      ctx.fillStyle = d.used ? '#0c0810' : '#3a2a20';
+      ctx.fillRect(x + 2, d.y - 2, 4, 24); ctx.fillRect(x + 5, d.y + 4, 5, 18); ctx.fillRect(x + 9, d.y + 10, 3, 12);
+      if (d.used) continue;
+      const cp = (Math.sin(frame / 12) + 1) / 2;
+      ctx.fillStyle = 'rgba(255,154,58,' + (0.18 + cp * 0.22) + ')';
+      ctx.fillRect(x + 3, d.y, 8, 22);
+      ctx.fillStyle = d.kind === 'cart' ? '#c9cede' : d.kind === 'fish' ? '#5ad8e8' : '#8a7a6a';
+      ctx.fillRect(x + 5, d.y + 8, 4, 4);
+      if (state === 'play' && player.onGround &&
+          player.x + player.w > d.x && player.x < d.x + d.w && (frame >> 5) % 2)
+        pixelText('UP', x + 2, d.y - 15, '#ff9a3a');
+      continue;
+    }
     if (level === 5) {
       // a doorway older than doors
       ctx.fillStyle = d.used ? '#3a2f1c' : '#54442c';
@@ -6408,6 +7661,26 @@ function startMini(door) {
                           racers: [{ x: 46 }, { x: 46 }, { x: 46 }] });
   if (door.kind === 'spears')
     Object.assign(mini, { dollX: 36, gate: 0, attempts: 5, dashT: 0, ow: 0 });
+  if (door.kind === 'cart')
+    Object.assign(mini, { cartX: 30, cartVy: 0, cartY: 0, air: false, crashed: false,
+                          gaps: [110, 172, 234] });
+  if (door.kind === 'fish')
+    Object.assign(mini, { phase: 'wait', waitT: 60 + Math.floor(Math.random() * 100), tugT: 0,
+                          baits: 5, caught: 0, fishT: 0 });
+  if (door.kind === 'rockfall')
+    Object.assign(mini, { dollX: 150, rocks: [], hits: 0, timeLeft: 480, spawnCd: 20, owT: 0 });
+  if (door.kind === 'stars')
+    Object.assign(mini, { dollX: 150, stars: [], caught: 0, dropped: 0, left: 10, spawnCd: 30 });
+  if (door.kind === 'vane')
+    Object.assign(mini, { ang: 0, spd: 0.22 + Math.random() * 0.1, spins: 3, gold: 0, stopT: 0 });
+  if (door.kind === 'hop') {
+    const wisps = [1, 0, 1, 0, 0, 1];
+    for (let i = wisps.length - 1; i > 0; i--) {         // which clouds are thin
+      const j = Math.floor(Math.random() * (i + 1));
+      [wisps[i], wisps[j]] = [wisps[j], wisps[i]];
+    }
+    Object.assign(mini, { wisps, idx: -1, hopT: 0, dollX: 30, dollY: 124, kicked: false, fell: false });
+  }
   if (door.kind === 'coffin') {
     const swaps = [];
     for (let i = 0; i < 8; i++) {
@@ -6475,6 +7748,12 @@ function updateMini() {
   else if (mini.kind === 'glyphs') updateGlyphs();
   else if (mini.kind === 'scarabs') updateScarabs();
   else if (mini.kind === 'spears') updateSpears();
+  else if (mini.kind === 'cart') updateCart();
+  else if (mini.kind === 'fish') updateFish();
+  else if (mini.kind === 'rockfall') updateRockfall();
+  else if (mini.kind === 'stars') updateStars();
+  else if (mini.kind === 'vane') updateVane();
+  else if (mini.kind === 'hop') updateHop();
   else updateCoffin();
 }
 
@@ -6642,6 +7921,337 @@ function miniBackdropTomb(title) {
   ctx.fillStyle = '#1c1408'; ctx.fillRect(0, 150, VIEW_W, 26);
   ctx.fillStyle = '#2e2414'; ctx.fillRect(0, 150, VIEW_W, 2);
   pixelText(title, (VIEW_W - title.length * 6) / 2 + 8, 34, '#e8c66a');
+}
+
+/* --- the minecart rush: three gaps in the rail, and one button --- */
+function updateCart() {
+  const z = mEdge('z', kPunch());
+  if (mini.crashed) return;
+  mini.cartX += 1.5;
+  if (mini.air) {
+    mini.cartY += mini.cartVy; mini.cartVy += 0.16;
+    if (mini.cartY >= 0) { mini.cartY = 0; mini.air = false; sfx(200, 0.06, 'square', 0.04, -80); }
+  } else if (z) {
+    mini.air = true; mini.cartVy = -2.4;
+    sfx(400, 0.1, 'square', 0.05, 200);
+  }
+  const cx = mini.cartX + 8;
+  for (const g of mini.gaps)
+    if (!mini.air && cx > g && cx < g + 22) {
+      mini.crashed = true; mini.over = true; mini.won = false;
+      mpBurst(cx, 130, '#c9cede', 10);
+      sfx(120, 0.4, 'sawtooth', 0.07, -60);
+      mini.msg = 'THE RAIL RAN OUT.';
+      return;
+    }
+  if (mini.cartX > 284) {
+    mini.over = true; mini.won = true;
+    score += 400;
+    healOne();
+    mini.msg = 'THE CART CAME THROUGH   +400';
+    sfx(660, 0.3, 'triangle', 0.06);
+  }
+}
+
+function drawCart() {
+  miniBackdropCave('THE MINECART RUSH');
+  // the rail, with what it lacks
+  for (let x = 20; x < 300; x += 4) {
+    if (mini.gaps.some(g => x >= g && x < g + 22)) continue;
+    ctx.fillStyle = '#8a8a94'; ctx.fillRect(x, 134, 3, 2);
+    if (x % 12 === 0) { ctx.fillStyle = '#4a3a30'; ctx.fillRect(x, 136, 3, 4); }
+  }
+  for (const g of mini.gaps) {                          // lava, seen from above
+    ctx.fillStyle = '#c93a1a'; ctx.fillRect(g, 140, 22, 10);
+    ctx.fillStyle = (frame >> 3) % 2 ? '#ff9a3a' : '#ffe0a0'; ctx.fillRect(g + 4 + (frame >> 4) % 10, 140, 3, 2);
+  }
+  const x = Math.round(mini.cartX), y = Math.round(120 + mini.cartY);
+  ctx.fillStyle = '#5a4a40'; ctx.fillRect(x, y, 18, 10);
+  ctx.fillStyle = '#7a6a58'; ctx.fillRect(x + 2, y, 14, 3);
+  ctx.fillStyle = '#2a2230'; ctx.fillRect(x + 2, y + 10, 4, 4); ctx.fillRect(x + 12, y + 10, 4, 4);
+  ctx.drawImage(DOLL[dollStage()].idle, x + 2, y - 16);
+  pixelText('Z JUMPS THE CART OVER THE GAPS', 76, 156, '#9a8fb0');
+}
+
+/* --- the blind pool: a line, a tug, a window --- */
+function updateFish() {
+  const z = mEdge('z', kPunch());
+  if (mini.fishT > 0) mini.fishT--;
+  if (mini.phase === 'wait') {
+    if (--mini.waitT <= 0) { mini.phase = 'tug'; mini.tugT = 20; sfx(300, 0.08, 'sine', 0.05, -100); }
+    else if (z) {                                     // too soon: the pool goes quiet
+      mini.baits--;
+      mini.waitT = 60 + Math.floor(Math.random() * 100);
+      sfx(150, 0.15, 'square', 0.04, -80);
+      mini.msg2 = 'NOTHING BIT.'; mini.msg2T = 50;
+    }
+  } else if (mini.phase === 'tug') {
+    if (z) {
+      mini.caught++; mini.fishT = 40;
+      score += 150;
+      sfx(880, 0.15, 'triangle', 0.06); sfx(1320, 0.25, 'sine', 0.04);
+      mpBurst(160, 100, '#9fd8ff', 8);
+      mini.phase = 'wait'; mini.waitT = 60 + Math.floor(Math.random() * 100);
+    } else if (--mini.tugT <= 0) {
+      mini.baits--;
+      mini.phase = 'wait'; mini.waitT = 60 + Math.floor(Math.random() * 100);
+      sfx(150, 0.15, 'square', 0.04, -80);
+      mini.msg2 = 'IT TOOK THE BAIT.'; mini.msg2T = 50;
+    }
+  }
+  if (mini.caught >= 3) {
+    mini.over = true; mini.won = true;
+    score += 300;
+    healOne();
+    mini.msg = 'THREE FROM THE DARK   +300';
+  } else if (mini.baits <= 0 && mini.phase === 'wait') {
+    mini.over = true; mini.won = false;
+    mini.msg = 'THE POOL KEEPS ITS OWN.';
+  }
+}
+
+function drawFish() {
+  miniBackdropCave('THE BLIND POOL');
+  ctx.fillStyle = '#0c1a24'; ctx.fillRect(40, 100, 240, 48);
+  ctx.fillStyle = '#16303e'; ctx.fillRect(40, 100, 240, 3);
+  for (let i = 0; i < 5; i++) { ctx.fillStyle = 'rgba(159,216,255,0.12)'; ctx.fillRect(60 + i * 44 + (frame >> 3) % 8, 108 + (i % 3) * 10, 20, 1); }
+  // her, on the bank, with a line
+  ctx.drawImage(DOLL[dollStage()].idle, 24, 78);
+  const dip = mini.phase === 'tug' ? 4 : Math.round(Math.sin(frame / 14));
+  ctx.strokeStyle = '#8a8a94'; ctx.beginPath(); ctx.moveTo(36, 84); ctx.lineTo(160, 96 + dip); ctx.stroke();
+  ctx.fillStyle = mini.phase === 'tug' ? '#ff9a3a' : '#c93a3a'; ctx.fillRect(158, 94 + dip, 5, 5);
+  if (mini.fishT > 0) {                                  // the catch, eyeless and white
+    const fy = 70 - (40 - mini.fishT);
+    ctx.fillStyle = '#e8eef0'; ctx.fillRect(150, fy, 12, 5); ctx.fillRect(162, fy + 1, 3, 3); ctx.fillRect(146, fy - 1, 4, 7);
+  }
+  for (let i = 0; i < mini.baits; i++) { ctx.fillStyle = '#c9b26b'; ctx.fillRect(10 + i * 8, 46, 4, 4); }
+  pixelText('CAUGHT ' + mini.caught + '/3', 246, 46, '#9fd8ff');
+  pixelText(mini.phase === 'tug' ? 'NOW. Z.' : 'WAIT FOR THE TUG, THEN Z', 96, 156, mini.phase === 'tug' ? '#ff9a3a' : '#9a8fb0');
+}
+
+/* --- the rockfall: eight seconds under a ceiling that disagrees --- */
+function updateRockfall() {
+  if (mini.owT > 0) mini.owT--;
+  if (kLeft()) mini.dollX -= 1.6;
+  if (kRight()) mini.dollX += 1.6;
+  mini.dollX = Math.max(30, Math.min(276, mini.dollX));
+  if (--mini.spawnCd <= 0) {
+    mini.spawnCd = Math.max(9, 22 - Math.floor((480 - mini.timeLeft) / 40));
+    mini.rocks.push({ x: 30 + Math.random() * 250, y: 20, vy: 0.8 + Math.random() * 0.8 });
+  }
+  const doll = { x: mini.dollX, y: 124, w: 10, h: 18 };
+  for (let i = mini.rocks.length - 1; i >= 0; i--) {
+    const r = mini.rocks[i];
+    r.y += r.vy; r.vy = Math.min(r.vy + 0.05, 3.2);
+    if (mini.owT <= 0 && rectsOverlap({ x: r.x, y: r.y, w: 8, h: 8 }, doll)) {
+      mini.hits++; mini.owT = 30;
+      sfx(200, 0.15, 'square', 0.06, -100);
+      mpBurst(r.x + 4, r.y + 4, '#8a7a6a', 6);
+      mini.rocks.splice(i, 1);
+      if (mini.hits >= 3) {
+        mini.over = true; mini.won = false;
+        mini.msg = 'THE CEILING WON.';
+        return;
+      }
+      continue;
+    }
+    if (r.y > 140) { mpBurst(r.x + 4, 142, '#8a7a6a', 3); mini.rocks.splice(i, 1); }
+  }
+  if (--mini.timeLeft <= 0) {
+    mini.over = true; mini.won = true;
+    score += 400;
+    healOne();
+    mini.msg = 'SHE OUTLASTED THE STONE   +400';
+  }
+}
+
+function drawRockfall() {
+  miniBackdropCave('THE ROCKFALL');
+  ctx.fillStyle = '#2a2230'; ctx.fillRect(0, 14, VIEW_W, 10);
+  for (let i = 0; i < 20; i++) { ctx.fillStyle = '#3a2a40'; ctx.fillRect(i * 16 + (frame >> 4) % 2, 24, 6, 4 + (i * 5) % 6); }
+  for (const r of mini.rocks) {
+    ctx.fillStyle = '#6a5a4a'; ctx.fillRect(Math.round(r.x), Math.round(r.y), 8, 8);
+    ctx.fillStyle = '#8a7a6a'; ctx.fillRect(Math.round(r.x) + 1, Math.round(r.y) + 1, 3, 2);
+  }
+  if (!(mini.owT > 0 && (frame >> 2) % 2)) ctx.drawImage(DOLL[dollStage()].idle, Math.round(mini.dollX), 124);
+  ctx.fillStyle = '#3a2a40'; ctx.fillRect(40, 46, 240, 4);
+  ctx.fillStyle = '#ff9a3a'; ctx.fillRect(40, 46, Math.round(240 * mini.timeLeft / 480), 4);
+  for (let i = 0; i < 3 - mini.hits; i++) { ctx.fillStyle = '#c9304a'; ctx.fillRect(10 + i * 8, 46, 5, 5); }
+  pixelText('LEFT RIGHT — STAY UNDER NOTHING', 70, 156, '#9a8fb0');
+}
+
+/* --- the star catch: they fall, she is a basket --- */
+function updateStars() {
+  if (kLeft()) mini.dollX -= 1.8;
+  if (kRight()) mini.dollX += 1.8;
+  mini.dollX = Math.max(30, Math.min(276, mini.dollX));
+  if (mini.left > 0 && --mini.spawnCd <= 0) {
+    mini.spawnCd = 38;
+    mini.left--;
+    mini.stars.push({ x: 34 + Math.random() * 240, y: 26, vy: 0.9 + Math.random() * 0.5, ph: Math.random() * 6 });
+  }
+  const basket = { x: mini.dollX - 4, y: 118, w: 18, h: 8 };
+  for (let i = mini.stars.length - 1; i >= 0; i--) {
+    const s = mini.stars[i];
+    s.y += s.vy; s.x += Math.sin(s.y / 12 + s.ph) * 0.4;
+    if (rectsOverlap({ x: s.x, y: s.y, w: 6, h: 6 }, basket)) {
+      mini.caught++;
+      score += 100;
+      sfx(1046 + mini.caught * 60, 0.15, 'triangle', 0.05);
+      mpBurst(s.x + 3, s.y + 3, '#ffe86a', 6);
+      mini.stars.splice(i, 1);
+    } else if (s.y > 144) {
+      mini.dropped++;
+      mpBurst(s.x + 3, 144, '#8a8aa0', 3);
+      mini.stars.splice(i, 1);
+    }
+  }
+  if (mini.left <= 0 && mini.stars.length === 0) {
+    mini.over = true; mini.won = mini.caught >= 6;
+    if (mini.won) { score += 300; healOne(); }
+    mini.msg = mini.won ? mini.caught + ' STARS IN HER LAP   +' + (300 + mini.caught * 100)
+                        : 'THE SKY KEPT ' + mini.dropped + '.';
+  }
+}
+
+function drawStars() {
+  miniBackdropCloud('THE STAR CATCH');
+  for (const s of mini.stars) {
+    ctx.fillStyle = (frame + Math.round(s.ph * 10)) % 8 < 6 ? '#ffe86a' : '#ffffff';
+    const x = Math.round(s.x), y = Math.round(s.y);
+    ctx.fillRect(x + 2, y, 2, 6); ctx.fillRect(x, y + 2, 6, 2);
+  }
+  const x = Math.round(mini.dollX);
+  ctx.drawImage(DOLL[dollStage()].idle, x, 124);
+  ctx.fillStyle = '#8a6a4a'; ctx.fillRect(x - 4, 120, 18, 3); ctx.fillRect(x - 5, 117, 2, 4); ctx.fillRect(x + 13, 117, 2, 4);
+  pixelText('CAUGHT ' + mini.caught + '/' + (10 - mini.left + mini.stars.length), 224, 46, '#ffe86a');
+  pixelText('LEFT RIGHT — SIX OF TEN', 94, 156, '#9a8fb0');
+}
+
+/* --- the weathervane: stop it on the east wind --- */
+function updateVane() {
+  const z = mEdge('z', kPunch());
+  if (mini.stopT > 0) {
+    if (--mini.stopT === 0) {
+      mini.spd = 0.22 + Math.random() * 0.1;
+      if (mini.spins === 0) {
+        mini.over = true; mini.won = mini.gold > 0;
+        if (mini.won) healOne();
+        mini.msg = mini.gold + ' EAST WIND' + (mini.gold === 1 ? '' : 'S') + (mini.won ? '   +' + mini.gold * 300 : '');
+      }
+    }
+    return;
+  }
+  mini.ang = (mini.ang + mini.spd) % (Math.PI * 2);
+  if (mini.spins > 0 && z) {
+    mini.spins--; mini.stopT = 50;
+    // east is 0 rad; the gold quarter is a sixteenth either side
+    const d = Math.abs(((mini.ang + Math.PI) % (Math.PI * 2)) - Math.PI);
+    if (d < Math.PI / 8) {
+      mini.gold++;
+      score += 300;
+      sfx(880, 0.3, 'triangle', 0.07); sfx(1320, 0.4, 'sine', 0.04);
+      mpBurst(160, 90, '#e8c66a', 12);
+      mini.msg2 = 'THE EAST WIND.'; mini.msg2T = 60;
+    } else if (d < Math.PI / 3) {
+      score += 100;
+      sfx(500, 0.2, 'triangle', 0.05);
+      mini.msg2 = 'NEAR ENOUGH FOR SILVER.'; mini.msg2T = 60;
+    } else {
+      sfx(110, 0.2, 'square', 0.05, -60);
+    }
+  }
+}
+
+function drawVane() {
+  miniBackdropCloud('THE WEATHERVANE');
+  const cx = 160, cy = 92;
+  ctx.fillStyle = '#8a6a4a'; ctx.fillRect(cx - 2, cy, 4, 50);
+  ctx.fillStyle = '#e8c66a'; ctx.fillRect(cx + 14, cy - 12, 22, 24);            // the gold quarter, east
+  ctx.fillStyle = '#c9cede'; ctx.fillRect(cx - 36, cy - 12, 22, 24);            // west, silver
+  ctx.fillStyle = '#8a8aa0'; ctx.fillRect(cx - 11, cy - 36, 22, 22); ctx.fillRect(cx - 11, cy + 14, 22, 22);
+  pixelText('E', cx + 22, cy - 3, '#4a3a20'); pixelText('W', cx - 28, cy - 3, '#4a3a60');
+  const ax = Math.cos(mini.ang), ay = Math.sin(mini.ang);
+  ctx.strokeStyle = '#2a2230'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx - ax * 14, cy - ay * 14); ctx.lineTo(cx + ax * 30, cy + ay * 30); ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#c93a3a'; ctx.fillRect(Math.round(cx + ax * 30) - 2, Math.round(cy + ay * 30) - 2, 5, 5);
+  for (let i = 0; i < mini.spins; i++) { ctx.fillStyle = '#e8c66a'; ctx.fillRect(10 + i * 8, 46, 5, 5); }
+  pixelText('GOLD ' + mini.gold, 262, 46, '#e8c66a');
+  pixelText('Z STOPS THE VANE ON THE EAST WIND', 64, 156, '#9a8fb0');
+}
+
+/* --- the cloud hop: six clouds, three of them lies --- */
+const HOP_X = [30, 76, 122, 168, 214, 260];
+function updateHop() {
+  if (mini.fell) return;
+  mini.hopT++;
+  const T = 40, ph = mini.hopT % T;
+  if (ph === 0) {                                      // a landing
+    if (mini.idx >= 0 && mini.wisps[mini.idx] && !mini.kicked) {
+      mini.fell = true; mini.over = true; mini.won = false;
+      sfx(200, 0.5, 'sawtooth', 0.06, -150);
+      mini.msg = 'THAT ONE WAS ONLY WEATHER.';
+      return;
+    }
+    mini.idx++;
+    mini.kicked = false;
+    if (mini.idx >= HOP_X.length) {
+      mini.over = true; mini.won = true;
+      score += 400;
+      healOne();
+      mini.msg = 'SIX CLOUDS, ALL HELD   +400';
+      return;
+    }
+    sfx(mini.wisps[mini.idx] ? 500 : 300, 0.06, 'square', 0.04, 80);
+  }
+  const a = ph / T;
+  mini.dollX = HOP_X[Math.max(0, mini.idx)] + (mini.idx < HOP_X.length - 1 ? (HOP_X[mini.idx + 1] - HOP_X[Math.max(0, mini.idx)]) * a : 0);
+  mini.dollY = 124 - Math.sin(a * Math.PI) * 36;
+  // a wisp only holds if she kicks off it in the moment she lands
+  if (mEdge('z', kPunch()) && mini.idx >= 0 && mini.wisps[mini.idx] && (ph < 8 || ph > T - 8)) {
+    mini.kicked = true;
+    sfx(700, 0.08, 'triangle', 0.05, 200);
+    mpBurst(HOP_X[mini.idx] + 8, 130, '#ffffff', 6);
+  }
+}
+
+function drawHop() {
+  miniBackdropCloud('THE CLOUD HOP');
+  for (let i = 0; i < HOP_X.length; i++) {
+    const x = HOP_X[i], thin = mini.wisps[i];
+    ctx.fillStyle = thin ? 'rgba(255,255,255,0.55)' : '#e8eef8';
+    ctx.fillRect(x - 2, 132, 20, thin ? 3 : 8);
+    if (!thin) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x, 130, 8, 3); ctx.fillRect(x + 9, 129, 8, 4); }
+    if (i === mini.idx && thin && mini.kicked) { ctx.fillStyle = '#e8c66a'; ctx.fillRect(x + 6, 136, 6, 2); }
+  }
+  ctx.drawImage(DOLL[dollStage()].jump, Math.round(mini.dollX), Math.round(mini.dollY));
+  pixelText('CLOUDS ' + Math.max(0, mini.idx) + '/6', 250, 46, '#ffffff');
+  pixelText('THIN CLOUDS: Z AS SHE LANDS', 86, 156, '#9a8fb0');
+}
+
+function miniBackdropCave(title) {
+  ctx.fillStyle = '#16121c'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  ctx.fillStyle = '#1f1a28';
+  for (let i = 0; i < 10; i++) ctx.fillRect(i * 34, 14, 17, 120);
+  for (let i = 0; i < 6; i++) {                        // crystals
+    ctx.fillStyle = i % 3 === 0 ? '#5ad8e8' : i % 3 === 1 ? '#c98fe8' : '#9fe88f';
+    ctx.fillRect(20 + i * 52, 30 + (i * 11) % 40, 2, 7);
+  }
+  ctx.fillStyle = '#2a2230'; ctx.fillRect(0, 150, VIEW_W, 26);
+  ctx.fillStyle = '#3e3248'; ctx.fillRect(0, 150, VIEW_W, 2);
+  pixelText(title, (VIEW_W - title.length * 6) / 2 + 8, 34, '#ff9a3a');
+}
+
+function miniBackdropCloud(title) {
+  ctx.fillStyle = '#4a3a7a'; ctx.fillRect(0, 0, VIEW_W, 50);
+  ctx.fillStyle = '#7a4a8a'; ctx.fillRect(0, 50, VIEW_W, 50);
+  ctx.fillStyle = '#c96a6a'; ctx.fillRect(0, 100, VIEW_W, 50);
+  ctx.fillStyle = '#8a5a8a';
+  for (let i = 0; i < 6; i++) ctx.fillRect(i * 60 - (frame * 0.15) % 60, 108 + (i % 2) * 10, 40, 6);
+  ctx.fillStyle = '#e8eef8'; ctx.fillRect(0, 150, VIEW_W, 26);
+  ctx.fillStyle = '#ffffff'; for (let i = 0; i < 10; i++) ctx.fillRect(i * 34 + 6, 147, 16, 5);
+  pixelText(title, (VIEW_W - title.length * 6) / 2 + 8, 34, '#ffffff');
 }
 
 /* --- the fortune teller: four pairs, face down, patient --- */
@@ -7355,6 +8965,12 @@ function drawMini() {
   else if (mini.kind === 'glyphs') drawGlyphs();
   else if (mini.kind === 'scarabs') drawScarabs();
   else if (mini.kind === 'spears') drawSpears();
+  else if (mini.kind === 'cart') drawCart();
+  else if (mini.kind === 'fish') drawFish();
+  else if (mini.kind === 'rockfall') drawRockfall();
+  else if (mini.kind === 'stars') drawStars();
+  else if (mini.kind === 'vane') drawVane();
+  else if (mini.kind === 'hop') drawHop();
   else drawCoffin();
   for (const q of mini.parts) {
     ctx.fillStyle = q.color;
@@ -7493,6 +9109,18 @@ function drawInterlude() {
     pixelText('up where the air goes thin and quiet.', 54, 86, '#cfc3e8');
     pixelText('porcelain does not feel the cold.', 66, 102, '#e8d8f0');
     if ((frame >> 5) % 2) pixelText('press ENTER — up the mountain', 88, 140, '#9a8fb0');
+  } else if (level === 5) {
+    bigText('THE MASK FALLS.', 64, 42, '#e8c66a', 20);
+    pixelText('behind the sarcophagus the floor gives way,', 40, 74, '#cfc3e8');
+    pixelText('down into the hollow of the mountain,', 52, 86, '#cfc3e8');
+    pixelText('where the stone is warm and something breathes.', 22, 102, '#e8d8f0');
+    if ((frame >> 5) % 2) pixelText('press ENTER — into the hollow mountain', 58, 140, '#9a8fb0');
+  } else if (level === 6) {
+    bigText('THE WYRM IS SPENT.', 34, 42, '#e8c66a', 20);
+    pixelText('he climbs the chimney of light, up and up,', 40, 74, '#cfc3e8');
+    pixelText('past the peaks, into the clouds themselves.', 40, 86, '#cfc3e8');
+    pixelText('porcelain does not fear heights.', 70, 102, '#e8d8f0');
+    if ((frame >> 5) % 2) pixelText('press ENTER — into the high air', 82, 140, '#9a8fb0');
   } else {
     bigText('THE MOUNTAIN IS QUIET.', 16, 42, '#e8c66a', 20);
     pixelText('the tunnel winds down and down and down,', 46, 74, '#cfc3e8');
@@ -7507,7 +9135,7 @@ function drawWin() {
   ctx.fillStyle = 'rgba(4,2,10,0.55)';
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   bigText('AND STILL HE RUNS.', 34, 46, '#e8c66a', 20);
-  pixelText('past the gold, past the dead, gone again.', 46, 76, '#cfc3e8');
+  pixelText('past the gold, the fire, the sky itself. gone again.', 16, 76, '#cfc3e8');
   pixelText('she is patient. she is porcelain.', 66, 88, '#cfc3e8');
   pixelText('some friendships take forever.', 76, 100, '#e8d8f0');
   if (eyesFound >= EYES_TOTAL)
@@ -7616,7 +9244,9 @@ function tick(now) {
   const [shX, shY] = shakeOffset();
   ctx.save();
   ctx.translate(shX, shY);
-  if (level === 5) drawTombBackground(st);
+  if (level === 7) drawCloudBackground(st);
+  else if (level === 6) drawCaveBackground(st);
+  else if (level === 5) drawTombBackground(st);
   else if (level === 4) drawSnowBackground(st);
   else if (level === 3) drawWoodsBackground(st);
   else if (level === 2) drawHouseBackground(st);
@@ -7641,6 +9271,7 @@ function tick(now) {
   drawJets();
   drawFireballs();
   drawShards();
+  drawArrows();
   drawParticles();
   ctx.restore();
   // near the summit the snow itself takes the view
