@@ -377,31 +377,146 @@ function section(name) { console.log('\n== ' + name + ' =='); }
                    flashText = null; });
 
   /* ---------- creep resets when every heart is lost ---------- */
-  section('creep reset');
-  await ev(() => { level = 2; resetGame(); state = 'play'; });
+  section('the creep');
+  await ev(() => { setCreep(65); level = 2; resetGame(); state = 'play'; });
   await frames(3);
-  check(await ev(() => creepStage() === 3),
-        'entering the house the story way, she is still very wrong');
-  await ev(() => { assist.invuln = false; assist.hearts = false;
-                   player.invuln = 0; player.hp = 1;
+  check(await ev(() => creep > 64 && creepStage() === 3),
+        'entering the house the story way, the meter follows her — nothing forced');
+  // the arithmetic
+  await ev(() => { setCreep(0); creepStreak = 0; flashText = null; player.invuln = 999999;
+                   player.x = 200; player.maxX = 4000; player.y = 100; player.vy = 0; });
+  await ev(() => { addCreep(10); });
+  check(await ev(() => creep === 10), 'ten points, clean and cold, are ten points');
+  await ev(() => { creepStreak = 3600; addCreep(10); });
+  check(await ev(() => creep === 30), 'a minute unhit doubles the rate');
+  await ev(() => { creepStreak = 0; setCreep(70); addCreep(20); });
+  check(await ev(() => creep === 79 && !inkMelt),
+        'away from heat the meter stops just short of the melt');
+  await ev(() => { player.x = checkpoints[1].x; addCreep(20); });
+  check(await ev(() => creep >= 80 && inkMelt && creepStage() === 4),
+        'beside a candle it melts — heat, doubled');
+  await frames(3);
+  check(await ev(() => flashText && flashText.msg === 'she is annoyed.' && flashText.hold === true),
+        'and she is annoyed');
+  // new ground
+  await ev(() => { setCreep(0); creepStreak = 0; flashText = null;
+                   player.x = 300; player.maxX = 300; player.y = 100; player.vy = 0; });
+  await frames(2);
+  await ev(() => { player.x = 400; });                      // a stride of new ground
+  await frames(2);
+  const walkGain = await ev(() => creep);
+  check(walkGain > 1 && walkGain < 4,
+        'a hundred pixels of new ground is worth about one and a half (' + walkGain.toFixed(2) + ')');
+  // a kill
+  const killGain = await ev(() => {
+    setCreep(0); creepStreak = 0; player.maxX = 4000;
+    const e = enemies.find(e => !e.dead);
+    if (!e) return -1;
+    e.hp = 1; killEnemy(e);
+    return creep;
+  });
+  check(killGain > 0, 'a kill feeds the meter (+' + killGain + ')');
+  // a hit
+  await ev(() => { setCreep(45); creepStreak = 3000; flashText = null; player.invuln = 0;
+                   assist.invuln = false; assist.hearts = false; player.hp = 5;
                    hurtPlayer(player.x - 10); });
-  await frames(3);
-  check(await ev(() => state === 'gameover'), 'her last heart goes to the dog\'s house');
+  check(await ev(() => creep === 25 && creepStage() === 1 && creepStreak === 0),
+        'a hit costs a full notch and breaks the streak');
+  check(await ev(() => flashText && flashText.msg === 'she is less than she was.'),
+        'and she knows it');
+  await ev(() => { setCreep(45); player.invuln = 0; hurtPlayer(player.x - 10, 0.5); });
+  check(await ev(() => creep === 35), 'a vermin bite costs half a notch');
+  // a pit is a hit — unless she is melted, then the ink pours back
+  await ev(() => { setCreep(45); player.hp = 3; player.invuln = 0; player.y = 400; player.vy = 3; });
+  await page.waitForFunction(() => player.respawnT > 0, null, { timeout: 5000 });
+  check(await ev(() => player.hp === 2 && creep === 25), 'the dark takes a heart and a notch');
+  await page.waitForFunction(() => player.respawnT === 0, null, { timeout: 5000 });
+  await ev(() => { setCreep(85); player.hp = 3; player.invuln = 0; player.y = 400; player.vy = 3; });
+  await page.waitForFunction(() => player.respawnT > 0, null, { timeout: 5000 });
+  check(await ev(() => player.hp === 3 && creep === 85 && flashText &&
+                       flashText.msg === 'the ink pours back.'),
+        'melted, a pit costs nothing — the ink pours back');
+  await page.waitForFunction(() => player.respawnT === 0, null, { timeout: 5000 });
+  // breaking: the meter empties, and a piece of her waits where she fell
+  await ev(() => { setCreep(70); player.hp = 1; player.invuln = 0; player.x = 700;
+                   player.y = 100; player.vy = 0; hurtPlayer(player.x - 10); });
+  await frames(2);
+  check(await ev(() => state === 'gameover' && creep === 0 && piece.active &&
+                       piece.creep === 70 && piece.level === 2),
+        'her last heart empties the meter, and a piece of her stays behind');
   await page.keyboard.press('Enter');
   await frames(5);
-  check(await ev(() => state === 'play' && level === 2 && player.hp === 5 &&
-                       creepStage() === 0 && !inkMelt),
-        'the retry starts her porcelain-clean — creep and ink wiped');
-  await ev(() => { player.maxX = LEVEL_W; });
-  await frames(2);
-  check(await ev(() => creepStage() === 3),
-        'and she earns the cracks all over again as she advances');
-  // a plain (non-retry) entry into a later level still locks stage 3
-  await ev(() => { level = 3; resetGame(); state = 'play'; });
+  check(await ev(() => state === 'play' && level === 2 && creep < 2 && piece.active),
+        'the retry starts her porcelain-clean; the piece still waits');
+  const pieceX = await ev(() => piece.x);
+  check(pieceX > 600 && pieceX < 800, 'it lies where she broke');
+  await ev(() => { player.invuln = 999999; player.x = piece.x; player.y = piece.y - 6;
+                   player.vy = 0; });
   await frames(3);
-  check(await ev(() => creepStage() === 3 && inkMelt),
-        'a fresh story entry into the woods keeps her very wrong and melted');
-  await ev(() => { level = 1; resetGame(); state = 'play';
+  check(await ev(() => !piece.active && creep === 70 && progress.ach.whole_again === true &&
+                       flashText && flashText.msg === 'she is whole again.'),
+        'walking over it, she is whole again');
+  // breaking again before she reaches it loses the piece
+  await ev(() => { setCreep(30); player.hp = 1; player.invuln = 0; hurtPlayer(player.x - 10); });
+  await frames(2);
+  check(await ev(() => piece.active && piece.creep === 30),
+        'a second breaking leaves a new piece — the old one is gone');
+  await page.keyboard.press('Enter');
+  await frames(5);
+  await ev(() => { setCreep(0); player.hp = 1; player.invuln = 0; hurtPlayer(player.x - 10); });
+  await frames(2);
+  check(await ev(() => !piece.active && creep === 0), 'breaking with nothing leaves nothing');
+  await page.keyboard.press('Enter');
+  await frames(5);
+  // the snow won't hold the melt; the boss reads the meter
+  await ev(() => { level = 4; resetGame(); state = 'play'; setCreep(90); player.invuln = 999999; });
+  await frames(40);
+  check(await ev(() => creep < 80 && !inkMelt && creepStage() === 3),
+        'on the mountain the melt drains back to very wrong');
+  await ev(() => { level = 2; resetGame(); state = 'play'; setCreep(85); startBoss(); });
+  check(await ev(() => state === 'boss' && boss.marked === true && boss.hp === 2 &&
+                       progress.ach.at_her_worst === true),
+        'arriving melted, the pale boy already bleeds');
+  await ev(() => { level = 1; resetGame(); state = 'play'; setCreep(0);
+                   piece.active = false; flashText = null; player.invuln = 999999; });
+  await frames(3);
+  // the perks
+  check(await ev(() => { player.attack = { type: 'kick', t: 6, id: 1 };
+                         const hb = attackHitbox(); player.attack = null; return hb && hb.kick === true; }),
+        'a kick knows it is a kick (chipped, it carries further)');
+  await ev(() => { setCreep(45); player.chargeT = 0; player.crouch = false; });
+  await page.keyboard.down('ArrowDown');
+  await frames(85);
+  check(await ev(() => chargeFrames() === 60 && player.chargeT >= 60),
+        'one-eyed, she coils in a second');
+  await page.keyboard.down('Space');
+  await frames(2);
+  await page.keyboard.up('Space');
+  await page.keyboard.up('ArrowDown');
+  await frames(2);
+  check(await ev(() => player.vy < -4), 'and the coiled jump launches');
+  await frames(40);
+  const slickTest = await page.evaluate(async () => {
+    setCreep(85);
+    const s = enemies.find(e => e.kind === 'snake' && !e.dead);
+    if (!s) return 'no-snake';
+    slicks.length = 0;
+    for (const dx of [-28, -12, 4, 20])
+      slicks.push({ x: s.x + dx, y: s.y + s.h, t: 600 });
+    player.x = s.x - 200; player.y = 100; player.vy = 0;
+    let x0 = s.x;
+    for (let i = 0; i < 12; i++) await new Promise(r => requestAnimationFrame(r));
+    const dSlow = Math.abs(s.x - x0);
+    slicks.length = 0;
+    x0 = s.x;
+    for (let i = 0; i < 12; i++) await new Promise(r => requestAnimationFrame(r));
+    const dFree = Math.abs(s.x - x0);
+    setCreep(0);
+    return { dSlow, dFree };
+  });
+  check(slickTest !== 'no-snake' && slickTest.dSlow < slickTest.dFree,
+        'melted, her ink slows what wades through it (' + JSON.stringify(slickTest) + ')');
+  await ev(() => { slicks.length = 0; setCreep(0); player.x = 40; player.y = 100; player.vy = 0;
                    player.invuln = 999999; });
   await frames(3);
 
@@ -896,13 +1011,13 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   /* ---------- porcelain shards ---------- */
   section('porcelain shards');
   await ev(() => { player.x = 300; player.y = 126; player.vy = 0;
-                   player.maxX = 200; player.attack = null; shards.length = 0; });
+                   setCreep(0); player.attack = null; shards.length = 0; });
   await tap('x');
   await frames(4);
   check(await ev(() => shards.length === 0),
         'no shards before full creep — kicks are just kicks');
   const shardKill = await page.evaluate(async () => {
-    player.maxX = LEVEL_W;                       // full creep
+    setCreep(65);                                // full creep
     const b = enemies.find(e => e.kind === 'bat' && !e.dead);
     if (!b) return 'no-bat';
     player.x = b.x - 60; player.y = b.y - 4; player.vy = 0; player.face = 1;
@@ -927,7 +1042,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   });
   check(shardKill !== 'no-bat' && shardKill.threw && shardKill.hit,
         'at full creep a kick throws porcelain, and it lands');
-  await ev(() => { player.maxX = 200; shards.length = 0; player.invuln = 999999; });
+  await ev(() => { setCreep(0); shards.length = 0; player.invuln = 999999; });
 
   section('pit');
   await ev(() => { player.invuln = 0; player.hp = 3; player.x = 670; player.y = 126; player.vy = 0; });
@@ -1183,7 +1298,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await frames(3);
   check(await ev(() => state === 'play'), 'the kid cannot be tagged while roaming');
   // cross into the finale
-  await ev(() => { player.x = houseX - 250; player.y = 100; player.vy = 0; player.maxX = houseX - 250; });
+  await ev(() => { player.x = houseX - 250; player.y = 100; player.vy = 0; player.maxX = houseX - 250; setCreep(0); });
   await frames(4);
   check(await ev(() => kid.stage === 'final'), 'the kid waits at the dollhouse for the finale');
   await ev(() => { player.x = kid.x - 80; player.y = 100; player.vy = 0; });
@@ -1205,34 +1320,21 @@ function section(name) { console.log('\n== ' + name + ' =='); }
 
   /* ---------- level 2: the house ---------- */
   section('level 2');
+  const creepPre2 = await ev(() => creep);
   await page.keyboard.press('Enter');
   await frames(5);
   check(await ev(() => level === 2 && state === 'play' && player.x === 40),
         'she follows him home — level 2 begins');
   check((await ev(() => score)) >= preWin + 2000, 'the score follows her inside');
   check(await ev(() => map[0].every(t => t === 1)), 'the house has a ceiling');
-  check(await ev(() => creepStage() === 3 && !inkMelt),
-        'she arrives already far gone — something is very wrong');
-  // the saucer's dome keeps the candlelight off her — until she steps out
-  const domeMelt = await page.evaluate(async () => {
-    player.invuln = 999999;
-    enterSaucer();
-    saucer.x = checkpoints[1].x + 20;      // glide past the first two candles
-    for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
-    const litAloft = checkpoints.filter(c => c.reached).length >= 2;
-    const dryAloft = !inkMelt;
-    exitSaucer(false);
-    for (let i = 0; i < 8; i++) await new Promise(r => requestAnimationFrame(r));
-    const meltAfter = inkMelt;
-    // put the house back the way the section expects it
-    checkpoints.forEach(c => { c.reached = false; });
-    inkMelt = false; flashText = null;
-    player.x = 40; player.y = 100; player.vy = 0; player.hp = 5;
-    saucer.doorCd = 1800;
-    return { litAloft, dryAloft, meltAfter };
-  });
-  check(domeMelt.litAloft && domeMelt.dryAloft && domeMelt.meltAfter,
-        'flying past the candles lights them — the melt waits for her feet');
+  check(Math.abs((await ev(() => creep)) - creepPre2) < 2,
+        'the creep follows her inside — nothing forced, nothing wiped');
+  // heat: the candles double what she earns, and only heat can melt her
+  check(await ev(() => { player.x = 200; return !heatNear(); }),
+        'between candles the house is cold');
+  check(await ev(() => { player.x = checkpoints[1].x; return heatNear() && creepRate() >= 2; }),
+        'beside a candle the meter runs at double speed');
+  await ev(() => { player.x = 40; player.y = 100; player.vy = 0; });
   check(await ev(() => tables.length >= 3 && tables[0] <= 26 * TILE),
         'tables to jump, the first just past the start');
   check(await ev(() => doors.length === 0 && eyePickups.length === 0),
@@ -1244,13 +1346,15 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         if (map[r][c] === 2 && map[r + 2][c]) return false;
     return true;
   }), 'every shelf leaves standing room beneath it');
-  // the house's second candle takes half of her
-  await ev(() => { player.invuln = 999999;
-                   player.x = checkpoints[1].x + 8; player.y = 126; player.vy = 0; });
+  // the house's candlelight finishes what the road began: past 80, half of her runs to ink
+  await ev(() => { player.invuln = 999999; setCreep(79); flashText = null;
+                   player.x = checkpoints[1].x + 8; player.maxX = checkpoints[1].x - 40;
+                   player.y = 126; player.vy = 0; });
   await frames(4);
-  check(await ev(() => inkMelt && flashText && flashText.msg === 'she is annoyed.' &&
-        flashText.hold === true),
-        'the second candle melts half of her to ink — she is annoyed');
+  check(await ev(() => inkMelt && creepStage() === 4 && flashText &&
+        flashText.msg === 'she is annoyed.' && flashText.hold === true),
+        'by candlelight the meter crosses into the melt — she is annoyed');
+  await page.evaluate(v => { setCreep(v); flashText = null; }, creepPre2);
   await ev(() => { playTime = 4000; });
   await frames(4);
   check(await ev(() => !dragon.active), 'a minute passes; no wings in the house');
@@ -1440,7 +1544,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'game over retries the house, not the road');
   // reach him at his bedroom door
   await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
-                   player.vy = 0; player.maxX = houseX - 250; });
+                   player.vy = 0; player.maxX = houseX - 250; setCreep(0); });
   await frames(4);
   check(await ev(() => kid.stage === 'final'), 'the boy waits at his bedroom door');
   await page.keyboard.down('ArrowRight');
@@ -1557,13 +1661,14 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   /* ---------- level 3: the deep woods ---------- */
   section('level 3');
   const preWoods = await ev(() => score);
+  const creepPre3 = await ev(() => creep);
   await page.keyboard.press('Enter');
   await frames(5);
   check(await ev(() => level === 3 && state === 'play' && player.x === 40),
         'she follows him into the deep woods');
   check((await ev(() => score)) >= preWoods, 'the score follows her under the trees');
-  check(await ev(() => creepStage() === 3 && inkMelt),
-        'she arrives far gone and half ink');
+  check(Math.abs((await ev(() => creep)) - creepPre3) < 2,
+        'the creep follows her under the trees');
   check(await ev(() => map.some(row => row.includes(4))),
         'giant trees stand in the woods');
   check(await ev(() => {
@@ -1758,11 +1863,11 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   await page.keyboard.press('Enter');
   await frames(4);
   check(await ev(() => level === 3 && state === 'play' &&
-                       creepStage() === 0 && inkMelt),
-        'game over retries the woods — cracks wiped, but the melt is forever');
+                       creep < 2 && piece.active && piece.level === 3),
+        'game over retries the woods — the meter empties, a piece of her waits');
   // corner him at the chapel (the werewolf will land here next)
   await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
-                   player.vy = 0; player.maxX = houseX - 250; });
+                   player.vy = 0; player.maxX = houseX - 250; setCreep(0); });
   await frames(4);
   check(await ev(() => kid.stage === 'final'), 'the boy waits at the old chapel');
   await page.keyboard.down('ArrowRight');
@@ -1917,7 +2022,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(beastsMove !== 'no-beasts' && beastsMove.stuck === 0,
         'every wolf and goat patrols its shelf — none frozen (' +
         beastsMove.count + ' checked)');
-  check(await ev(() => creepStage() === 3 && inkMelt), 'still far gone, still half ink');
+  check(await ev(() => creep < 80 && !inkMelt), 'the mountain holds no melt');
   // a raised checkpoint catches her fall at its own height
   const raisedRespawn = await page.evaluate(async () => {
     const cp = checkpoints.find(c => c.gy < 9 * TILE);
@@ -1939,7 +2044,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
         'the crystal pulls her back at its own height');
   // the summit
   await ev(() => { player.invuln = 999999; player.x = houseX - 250;
-                   player.y = FINALE_GY - 40; player.vy = 0; player.maxX = houseX - 250; });
+                   player.y = FINALE_GY - 40; player.vy = 0; player.maxX = houseX - 250; setCreep(0); });
   await frames(4);
   check(await ev(() => kid.stage === 'final' &&
         Math.abs(kid.y - (FINALE_GY - kid.h)) < 4),
@@ -2153,7 +2258,7 @@ function section(name) { console.log('\n== ' + name + ' =='); }
 
   // the burial door (the god arrives next)
   await ev(() => { player.invuln = 999999; player.x = houseX - 250; player.y = 100;
-                   player.vy = 0; player.maxX = houseX - 250; });
+                   player.vy = 0; player.maxX = houseX - 250; setCreep(0); });
   await frames(4);
   check(await ev(() => kid.stage === 'final'), 'the boy waits at the burial door');
   await page.keyboard.down('ArrowRight');
@@ -2268,8 +2373,9 @@ function section(name) { console.log('\n== ' + name + ' =='); }
   check(posted && posted.body.name === 'NasiR', 'Enter posts the run under her name');
   check(posted && posted.body.score === finalScore, 'the posted score is the real score');
   check(posted && posted.body.deaths === 2 && posted.body.seconds === 754 &&
-        posted.body.minis === 3 && posted.body.untouched === 1,
-        'deaths, seconds, and accolades ride along');
+        posted.body.minis === 3 && posted.body.untouched === 1 &&
+        Number.isInteger(posted.body.creep) && posted.body.creep >= 0 && posted.body.creep <= 4,
+        'deaths, seconds, accolades, and her final stage ride along');
   check(posted && posted.headers.apikey === 'anon-test' &&
         posted.headers.authorization === 'Bearer anon-test',
         'the anon key rides in the headers');

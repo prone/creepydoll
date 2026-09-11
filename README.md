@@ -60,12 +60,25 @@ jump launches her about twice as high.
   ravines, one impossibly high, one behind the dollhouse, and one somewhere the
   wall is cracked. Entirely optional: 200 points each, and finding any four of
   the five is worth an extra +1000 at the end... and she gets to see again.
-- **Creep meter:** advancing through the level raises her creepiness through four
-  stages. Each stage cracks the porcelain a little more, stains the dress, reddens
-  the moon — and sours the lullaby. Losing every heart wipes it: the retry starts
-  her porcelain-clean, and she earns the cracks all over again. The ink melt is
-  different — it's the house's doing, story-bound: level 2 re-earns it at the
-  second candle, and the deeper levels keep it (that candle already burned).
+- **Creep meter:** her power is her decay. One meter, 0 to 100, five notches
+  every twenty: porcelain, chipped, one-eyed, very wrong, melted. It fills
+  from anything she does while alive — new ground (5 a screen), kills, a
+  minigame won, a part found, a boss wounded (10 each), a lantern lit (3) —
+  and fills faster the longer she goes unhurt (double after a minute). Each
+  stage cracks the porcelain, stains the dress, reddens the moon, sours the
+  lullaby — and grants something: chipped kicks carry enemies further,
+  one-eyed she coils for the power jump in one second, very wrong she throws
+  porcelain shards, melted her shards leave slowing ink and pits cost
+  nothing. **A hit knocks a notch off** (a pit too). **Losing her last heart
+  empties it**, but a glinting piece of her stays where she fell, holding
+  what she had: retry, walk over it, and she is whole again. Break again
+  first and it is gone. It carries across levels and is never forced.
+- **The melt:** the fifth notch, at 80, takes **heat** — a candle in the
+  house, a torch in the tomb, the dragon, a burning saucer — where the meter
+  runs at double speed. Lanterns, wisps, and crystals are cold light: the
+  road cracks her but cannot melt her. The mountain drains the melt away;
+  the tomb's torches bring it back. Reach a boss door melted and he starts
+  the fight already wounded.
 - **The goal:** reach the dollhouse at the end. The kid will run. Catch them.
 - **Carnival doors:** three glowing doorways stand along the road, a few screens
   apart. Press **↑** in front of one to step into a minigame world (each door
@@ -154,7 +167,7 @@ jump launches her about twice as high.
   silver-and-jade dagger thrown in a true arc — every hit cracks his mask,
   and the dagger drops right where it struck, waiting in the danger zone. Four hits and the mask falls, and the boy slips into the dark
   behind the sarcophagus. And still he runs.
-- **Achievements:** nineteen of them, from TAG. YOU'RE IT. to AND STILL HE
+- **Achievements:** twenty-one of them, from TAG. YOU'RE IT. to AND STILL HE
   RUNS — bosses, rides, minigame sweeps, a deathless level, ten hearts, and
   more. Unlocks announce themselves with a gold banner, persist across
   deaths and sessions, and press **Tab** on the pause screen to see the

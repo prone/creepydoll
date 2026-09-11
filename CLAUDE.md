@@ -17,11 +17,19 @@ These are the rules the file already follows; keep following them.
 - **Test-visible surface.** `test/e2e.js` reaches into top-level bindings
   (`player`, `boss`, `mini`, `dag`, `candel`, `checkpoints`, `doors`,
   `enemies`, `assist`, `dog`, `kid`, `level`, `state`, `board`, `BOARD`,
-  `runAssisted`, `runDeaths`, `runFrames`, …) and their field names, including `boss.phase`/`boss.kind`/`mini.kind` string values and
+  `runAssisted`, `runDeaths`, `runFrames`, `creep`, `piece`, `slicks`,
+  `boss.marked`, …) and their field names, including `boss.phase`/`boss.kind`/`mini.kind` string values and
   `carrying` item names. Renaming any of these is a breaking change; mutate
   the existing array/object bindings (`arr.length = 0`), never reassign them.
 - **localStorage** (`creepydoll-assist`) is loaded field-by-field with
   validation, never merged wholesale — stored data is untrusted.
+- **The creep is one number.** `creep` (0..100) is the only source of truth;
+  `creepStage()`, `inkMelt`, and `dollStage()` derive from it and nothing
+  may set `inkMelt` directly — go through `setCreep`/`addCreep`/`loseCreep`.
+  Gains go through `addCreep` (which applies streak, heat, and the snow, and
+  refuses to cross 80 without `heatNear()`); a hit is `loseCreep(CREEP.hit)`;
+  a last heart is `sheBroke()`, never `setCreep(0)` by hand, so the piece is
+  left behind. No level may require a stage perk to be finishable.
 - **The board is opt-in and honest.** The only network request in the game
   is `submitRun()`, and it fires only from Enter on the win screen with a
   typed name. Anything that makes a run easier (a cheat toggle, a warp, a

@@ -849,7 +849,8 @@ function explodeSaucer(aboard) {
     player.hp -= 1;                                      // one breath too long
     flashText = { msg: 'she stayed one breath too long.', t: 110, hold: true };
     sndHurt();
-    if (player.hp <= 0) { state = 'gameover'; sfx(120, 1.2, 'sawtooth', 0.09, -90); }
+    if (player.hp <= 0) { sheBroke(false); state = 'gameover'; sfx(120, 1.2, 'sawtooth', 0.09, -90); }
+    else loseCreep(CREEP.hit);
   }
 }
 
@@ -973,6 +974,7 @@ function updateBeamShots() {
       if (!j.dead && rectsOverlap({ x: j.x, y: j.y, w: 18, h: 7 }, e)) {
         j.dead = 1;
         score += 300;
+        addCreep(300 * CREEP.kill);
         unlock('jet_down');
         addShake(1.5, 5);
         burst(j.x + 9, j.y + 3, '#ffa030', 10, Math.sign(e.shotVx));
@@ -1052,6 +1054,7 @@ function updateJets() {
                                   { x: j.x, y: j.y, w: 18, h: 7 })) {
         j.dead = 1;
         score += 300;
+        addCreep(300 * CREEP.kill);
         unlock('jet_down');
         addShake(1.5, 5);
         burst(j.x + 9, j.y + 3, '#ffa030', 10, Math.sign(L.vx));
@@ -1345,6 +1348,7 @@ function updatePartPickup() {
   if (rectsOverlap({ x: part.x - 1, y: py - 1, w: 10, h: 10 }, player)) {
     part.taken = true;
     runParts++;
+    addCreep(CREEP.event);
     score += 500;
     progress.parts[part.kind] = true;
     saveProgress();
@@ -2479,8 +2483,126 @@ function shakeOffset() {
        Math.round((Math.random() - 0.5) * shakeMag)]
     : [0, 0];
 }
-let inkMelt = false;            // past the second lantern, half of her runs to ink
-let creepClean = false;         // a lost-all-hearts retry starts the creep meter over
+/* ---------------- the creep: her power, earned by staying alive ----------------
+   One meter, 0..100, five stages every 20 (porcelain, chipped, one-eyed,
+   very wrong, melted). It grows from anything she does while alive — new
+   ground, kills, wins, finds — faster on a clean streak and near heat, and
+   it stalls in the snow; crossing into the melt takes heat. A hit knocks a
+   notch off. Breaking (her last heart) empties it, but a piece of her stays
+   where she fell, holding what she had: walk over it and she is whole
+   again. Break again first and the piece is gone. Nothing the meter grants
+   is required to finish a level — the perks are a reward, never a key. */
+const CREEP = {
+  max: 100, stageW: 20, meltAt: 80,
+  walk: 5 / VIEW_W,        // points per pixel of new ground (5 a screen)
+  kill: 1 / 50,            // points per score point of a kill
+  event: 10,               // a minigame win, a lost part, a boss wound, the dog sent off
+  lantern: 3,              // a checkpoint lit
+  eye: 2,                  // one button eye (all four is an event)
+  hit: 20,                 // a full stage, per heart of damage
+  heatMul: 2, snowMul: 0.5,
+  streakStep: 900,         // frames unhit per multiplier step (15 s)
+  streakSteps: 4,          // ... up to 2x
+};
+let creep = 0;                  // her power: 0..100
+let creepStreak = 0;            // frames since she was last hurt
+let stageSeen = 0;              // the stage last announced (or fallen to)
+let inkMelt = false;            // creep >= CREEP.meltAt: half of her runs to ink
+const piece = { active: false, x: 0, y: 0, creep: 0, level: 0, inBoss: false };
+const slicks = [];              // ink left where shards land at full melt: {x, y, t}
+function creepStage() { return Math.min(4, Math.floor(creep / CREEP.stageW)); }
+const dollStage = () => Math.min(3, creepStage());   // the sprite sets stop at 3
+function setCreep(v) {
+  creep = Math.max(0, Math.min(CREEP.max, v));
+  inkMelt = creep >= CREEP.meltAt;
+}
+// heat melts her: candles, torches, dragonfire, a burning saucer.
+// Lanterns, wisps, and crystals are cold light.
+function heatNear() {
+  if (dragon.ridden) return true;
+  if (saucer.active && saucer.smokeT >= 0) return true;
+  if (level !== 2 && level !== 5) return false;
+  if (state === 'boss') return true;               // his candlelit room; the torchlit tomb
+  return checkpoints.some(c => Math.abs(c.x - (player.x + player.w / 2)) < 56);
+}
+const inSnow = () => level === 4;
+function creepRate() {
+  const streak = 1 + 0.25 * Math.min(CREEP.streakSteps,
+                                     Math.floor(creepStreak / CREEP.streakStep));
+  return streak * (heatNear() ? CREEP.heatMul : 1) * (inSnow() ? CREEP.snowMul : 1);
+}
+function addCreep(n) {
+  if (n <= 0) return;
+  const cap = heatNear() && !inSnow() ? CREEP.max : CREEP.meltAt - 1;   // melting takes heat
+  setCreep(Math.min(creep + n * creepRate(), Math.max(creep, cap)));
+}
+function loseCreep(n) {
+  const before = creepStage();
+  creepStreak = 0;
+  setCreep(creep - n);
+  if (creepStage() < before && !(flashText && flashText.hold))
+    flashText = { msg: 'she is less than she was.', t: 70 };
+}
+// her last heart: the meter empties, but a piece of her stays where she fell.
+// A second breaking replaces the piece — an empty one is no piece at all.
+function sheBroke(pit) {
+  let c = Math.floor((player.x + player.w / 2) / TILE);
+  if (pit) while (c > 0 && groundTopRowAt(c) < 0) c--;      // the pit's near edge
+  const gr = state === 'boss' ? -1 : groundTopRowAt(c);
+  piece.active = creep > 0; piece.creep = creep; piece.level = level;
+  piece.inBoss = state === 'boss';
+  piece.x = c * TILE + 3;
+  piece.y = gr >= 0 ? gr * TILE - 12 : Math.min(player.y, 140);
+  setCreep(0);
+  creepStreak = 0;
+}
+function pieceRestore() {
+  piece.active = false;
+  setCreep(Math.max(creep, piece.creep));
+  creepStreak = 0;
+  flashText = { msg: 'she is whole again.', t: 120, hold: true };
+  unlock('whole_again');
+  burst(player.x + 5, player.y + 8, '#efe2cf', 14);
+  sfx(880, 0.3, 'triangle', 0.06); sfx(1320, 0.5, 'sine', 0.04);
+}
+function updatePiece() {
+  if (!piece.active || piece.level !== level || piece.inBoss) return;
+  if (rectsOverlap({ x: piece.x - 2, y: piece.y - 4, w: 12, h: 20 }, player)) pieceRestore();
+}
+function drawPiece() {
+  if (!piece.active || piece.level !== level || piece.inBoss) return;
+  const x = Math.round(piece.x - camX), y = Math.round(piece.y + Math.sin(frame / 20) * 2);
+  if (x < -12 || x > VIEW_W + 12) return;
+  ctx.fillStyle = 'rgba(239,226,207,0.10)';
+  ctx.fillRect(x - 3, y - 3, 14, 14);
+  ctx.fillStyle = (frame >> 4) % 2 ? '#efe2cf' : '#d9c8b2';   // a glinting shard of her
+  ctx.fillRect(x + 2, y, 4, 2); ctx.fillRect(x + 1, y + 2, 6, 3);
+  ctx.fillRect(x + 2, y + 5, 4, 2); ctx.fillRect(x + 3, y + 7, 2, 1);
+  ctx.fillStyle = '#3b3b3b';
+  ctx.fillRect(x + 3, y + 3, 1, 2);
+}
+// melted, her shards leave ink where they land; anything wading through it slows
+function applySlicks(preX) {
+  for (let i = slicks.length - 1; i >= 0; i--)
+    if (--slicks[i].t <= 0) slicks.splice(i, 1);
+  if (!slicks.length) return;
+  for (const e of enemies) {
+    if (e.dead || !preX.has(e)) continue;
+    const feet = { x: e.x, y: e.y + e.h - 2, w: e.w, h: 4 };
+    if (slicks.some(s => rectsOverlap(feet, { x: s.x, y: s.y - 2, w: 16, h: 4 })))
+      e.x = preX.get(e) + (e.x - preX.get(e)) * 0.5;
+  }
+}
+function drawSlicks() {
+  for (const s of slicks) {
+    const x = Math.round(s.x - camX);
+    if (x < -16 || x > VIEW_W) continue;
+    ctx.fillStyle = '#0c0a12';
+    ctx.fillRect(x, s.y, 16, 2);
+    ctx.fillStyle = '#2a2436';
+    ctx.fillRect(x + 3 + (frame >> 5) % 5, s.y, 2, 1);
+  }
+}
 let hurtThisLevel = false;      // clean-run tracking for the UNTOUCHED badge
 function levelClean() {
   if (!hurtThisLevel) { unlock('no_hurt_level'); runUntouched++; }
@@ -2535,7 +2657,7 @@ function boardSign() {                  // true when Enter was spent on signing
 function runPayload() {
   return { name: board.name.trim(), score, seconds: Math.round(runFrames / 60),
            deaths: runDeaths, minis: runMinis, parts: runParts,
-           untouched: runUntouched, hearts: player.hp,
+           untouched: runUntouched, hearts: player.hp, creep: creepStage(),
            completion: completionPct(), version: BOARD_VERSION };
 }
 function submitRun() {
@@ -2639,6 +2761,8 @@ const ACHIEVEMENTS = {
   mini_all:      { name: 'CARNIVAL ROYALTY',    line: 'every game, won once.' },
   no_hurt_level: { name: 'UNTOUCHED',           line: 'a whole level without a scratch.' },
   game_done:     { name: 'AND STILL HE RUNS',   line: 'the long walk ended.' },
+  whole_again:   { name: 'WHOLE AGAIN',         line: 'she went back for herself.' },
+  at_her_worst:  { name: 'AT HER WORST',        line: 'he saw what she is.' },
 };
 const MINI_KINDS = ['toss', 'balloon', 'coffin', 'tarot', 'bell',
                     'crows', 'dig', 'glyphs', 'scarabs', 'spears'];
@@ -2735,6 +2859,7 @@ function handleAssistKeys(key) {
     // warp: a fresh run of the chosen level
     level = warpLevel;
     runAssisted = true;
+    piece.active = false;
     resetGame();
     state = 'play';
     paused = false;
@@ -2787,14 +2912,8 @@ const STAGE_MSGS = [
   'the paint begins to chip...',
   'her button eye is gone.',
   'something is very wrong.',
+  'she is annoyed.',
 ];
-
-function creepStage() {
-  // past the road she stays as she left it: very wrong — unless she lost
-  // every heart, in which case the retry starts porcelain-clean
-  if (level >= 2 && !creepClean) return 3;
-  return Math.min(3, Math.floor(player.maxX / (LEVEL_W / 4.2)));
-}
 
 function resetGame() {
   genLevel();
@@ -2805,8 +2924,7 @@ function resetGame() {
   player.stretchT = 0; player.squashT = 0; player.respawnT = 0;
   player.face = 1; player.maxX = 0;
   score = 0; camX = 0; flashText = null;
-  inkMelt = level >= 3;         // the house's candle already took half of her
-  creepClean = false;           // a gameover retry flips this back on after the reset
+  slicks.length = 0;
   hurtThisLevel = false;        // every level starts with a clean record
   shakeT = 0; shakeMag = 0;
   particles.length = 0;
@@ -2908,6 +3026,8 @@ function handleMenuKeys(key) {
     const wasTitle = state === 'title';
     if (wasTitle || state === 'win') newRun();      // a fresh story, fresh stats
     if (retry) runDeaths++;
+    if (wasTitle || state === 'win') { setCreep(0); piece.active = false; }
+    if (state === 'interlude') piece.active = false;   // a piece left behind stays behind
     if (state === 'interlude') level = Math.min(5, level + 1);
     else if (!retry) level = 1;                        // game over retries the level
     resetGame();
@@ -2915,11 +3035,6 @@ function handleMenuKeys(key) {
     if (wasTitle && assist.speed < 1)
       flashText = { msg: 'game speed ' + Math.round(assist.speed * 100) +
                          '% cheat is on — esc to change', t: 240, hold: true };
-    // losing every heart wipes the creep: she retries with clean porcelain
-    // and earns the cracks again. The melt is different — it's the house's
-    // doing, part of the story: level 2 re-earns it (its candles relight),
-    // deeper levels keep it (that candle already burned).
-    if (retry) creepClean = true;
     score = carry;
     state = 'play';
   }
@@ -2976,7 +3091,9 @@ function hurtPlayer(fromX, dmg) {
   sndHurt();
   addShake(3, 14);
   burst(player.x + 5, player.y + 8, '#efe2cf', 8, player.vx * 0.6);
+  if (player.hp > 0) loseCreep(CREEP.hit * Math.min(1, dmg || 1));   // a notch, gone
   if (player.hp <= 0) {
+    sheBroke(false);
     state = 'gameover';
     addShake(5, 25);
     sfx(120, 1.2, 'sawtooth', 0.09, -90);
@@ -2984,6 +3101,8 @@ function hurtPlayer(fromX, dmg) {
 }
 
 /* ---------------- update ---------------- */
+// one-eyed, she coils for the power jump in half the time
+function chargeFrames() { return creepStage() >= 2 ? 60 : 120; }
 function tickAttack() {
   if (!player.attack) return;
   player.attack.t++;
@@ -2999,7 +3118,7 @@ function attackHitbox() {
   const reach = a.type === 'punch' ? 13 : 16;
   const hy = a.type === 'punch' ? player.y + 6 : player.y + 11;
   const hx = player.face > 0 ? player.x + player.w : player.x - reach;
-  return { x: hx, y: hy, w: reach, h: 7, id: a.id, dmg: 1 };
+  return { x: hx, y: hy, w: reach, h: 7, id: a.id, dmg: 1, kick: a.type === 'kick' };
 }
 
 function updatePlayer() {
@@ -3064,7 +3183,7 @@ function updatePlayer() {
   } else player.vx *= icy ? 0.955 : player.onGround ? 0.6 : 0.95;
 
   // power-jump charge: hold Down on the ground for 2 seconds to coil up
-  const CHARGE_FRAMES = 120;
+  const CHARGE_FRAMES = chargeFrames();
   if (kDown() && player.onGround && !player.crouch && !player.attack) {
     player.chargeT++;
     player.vx *= 0.5;                                  // she plants her feet
@@ -3143,15 +3262,19 @@ function updatePlayer() {
   // fell into a pit — a heart for the dark, and the lantern pulls her back.
   // on her last heart the dark keeps her.
   if (player.y > MAP_H * TILE + 30) {
-    if (!assist.invuln) player.hp--;
+    const pours = inkMelt;                          // melted, she pours back out
+    if (!assist.invuln && !pours) player.hp--;
     if (assist.hearts && player.hp < 5) player.hp = 5;
     sndHurt();
     addShake(5, 25);
     if (player.hp <= 0) {
+      sheBroke(true);
       state = 'gameover';
       sfx(120, 1.2, 'sawtooth', 0.09, -90);
       return;
     }
+    if (pours) flashText = { msg: 'the ink pours back.', t: 90 };
+    else if (!assist.invuln) loseCreep(CREEP.hit);
     player.respawnT = 55;
     player.x = lastCP.x; player.y = lastCP.y;
     player.vx = 0; player.vy = 0;
@@ -3174,24 +3297,18 @@ function afterMove(prevStage) {
   for (const cp of checkpoints) {
     if (!cp.reached && player.x + player.w > cp.x) {
       cp.reached = true;
+      addCreep(CREEP.lantern);
       lastCP.x = cp.x - 2; lastCP.y = (cp.gy || 9 * TILE) - 19;
       sfx(660, 0.12, 'triangle', 0.05);
       sfx(990, 0.2, 'sine', 0.03);
       burst(cp.x + 4, 9 * TILE - 20, '#e8c66a', 8);
     }
   }
-  // the house's candlelight does its work while she walks among them:
-  // two lit is one too many. The saucer's dome keeps the light off her —
-  // if she flew past the candles, the melt waits until she steps out.
-  if (!inkMelt && level === 2 && !saucer.active &&
-      checkpoints.filter(c => c.reached).length >= 2) {
-    inkMelt = true;
-    flashText = { msg: 'she is annoyed.', t: 120, hold: true };
-    addShake(2, 10);
-    sfx(120, 0.5, 'sawtooth', 0.05, -60);
-    sfx(90, 0.7, 'sine', 0.06, -30);
-    burst(player.x + 5, player.y + 14, '#0c0a12', 12, 0, 1);
-  }
+  // the creep grows with every step of new ground; the snow won't hold the melt
+  if (player.x > player.maxX) addCreep((player.x - player.maxX) * CREEP.walk);
+  if (inSnow() && creep >= CREEP.meltAt) setCreep(creep - 0.5);
+  if (state === 'play') creepStreak++;
+  updatePiece();
   // and the ink never stops dripping
   if (inkMelt && Math.random() < 0.06)
     particles.push({ x: player.x + 2 + Math.random() * 8,
@@ -3200,15 +3317,24 @@ function afterMove(prevStage) {
   player.maxX = Math.max(player.maxX, player.x);
   player.animT += Math.abs(player.vx) > 0.3 ? 1 : 0;
 
-  // creepiness advances
+  // creepiness advances — measured against the last stage she was seen at,
+  // so a kill or a win that crosses a line announces itself next frame
   const st = creepStage();
-  if (st > prevStage && STAGE_MSGS[st] && !(flashText && flashText.hold)) {
-    flashText = { msg: STAGE_MSGS[st], t: 150 };
+  if (st > stageSeen && STAGE_MSGS[st] && !(flashText && flashText.hold)) {
+    flashText = { msg: STAGE_MSGS[st], t: 150, hold: st === 4 };
     if (st >= 3) unlock('full_creep');
-    sndStage();
-    addShake(2, 12);
-    burst(player.x + 5, player.y + 6, '#3b3b3b', 12);
+    if (st === 4) {                            // the melt: half of her runs to ink
+      addShake(2, 10);
+      sfx(120, 0.5, 'sawtooth', 0.05, -60);
+      sfx(90, 0.7, 'sine', 0.06, -30);
+      burst(player.x + 5, player.y + 14, '#0c0a12', 12, 0, 1);
+    } else {
+      sndStage();
+      addShake(2, 12);
+      burst(player.x + 5, player.y + 6, '#3b3b3b', 12);
+    }
   }
+  stageSeen = st;
   // she twitches when she's far gone
   if (st >= 2 && Math.random() < 0.006 * st) player.twitch = 6;
   if (player.twitch > 0) player.twitch--;
@@ -3343,9 +3469,11 @@ function updateKid() {
 
 function killEnemy(e) {
   e.dead = 1;
-  score += { snake: 200, valkyrie: 300, rat: 150, roach: 100, ant: 50,
-             bear: 250, wolf: 200, lion: 250, goat: 200, owl: 200,
-             mummy: 250, scarab: 100, cobra: 200 }[e.kind] || 100;
+  const pts = { snake: 200, valkyrie: 300, rat: 150, roach: 100, ant: 50,
+                bear: 250, wolf: 200, lion: 250, goat: 200, owl: 200,
+                mummy: 250, scarab: 100, cobra: 200 }[e.kind] || 100;
+  score += pts;
+  addCreep(pts * CREEP.kill);
   sfx(90, 0.25, 'triangle', 0.07, -40);
   addShake(2, 8);
   // a bat's life feeds hers — one heart, always, no ceiling
@@ -3426,6 +3554,7 @@ function updateEnemies() {
           if (e.webHp <= 0) {                        // the web and the spider die
             e.dead = 1;
             score += 200;
+            addCreep(200 * CREEP.kill);
             addShake(2, 8);
             sfx(220, 0.2, 'sawtooth', 0.06, -160);   // snap
             burst(e.x + 5, e.y + 4, '#cfc9dd', 8);
@@ -3599,7 +3728,7 @@ function updateEnemies() {
       sndHitE();
       burst(e.x + e.w / 2, e.y + e.h / 2, '#ff3040', 6, player.face * 1.6);
       if (e.hp <= 0) killEnemy(e);
-      else e.x += player.face * 6;
+      else e.x += player.face * (hb.kick && creepStage() >= 1 ? 14 : 6);   // chipped, she kicks harder
     }
 
     // touching the doll — the small things only take half a heart,
@@ -3642,6 +3771,7 @@ function updateEyePickups() {
       ep.taken = true;
       eyesFound++;
       score += 200;
+      addCreep(CREEP.eye);
       sfx(1046, 0.15, 'triangle', 0.06);
       sfx(1568, 0.25, 'sine', 0.04);
       burst(ep.x + 3, ey + 3, '#e8c66a', 10);
@@ -3649,6 +3779,7 @@ function updateEyePickups() {
         flashText = { msg: 'all her eyes... she sees.', t: 120, hold: true };
         progress.parts.eyes = true;
         runParts++;
+        addCreep(CREEP.event);
         saveProgress();
         unlock('eyes_all');
       } else {
@@ -3683,7 +3814,7 @@ function tileNoise(cx, cy) {  // deterministic per-tile hash
 }
 
 function drawBackground(st) {
-  const sky = SKY[st];
+  const sky = SKY[Math.min(3, st)];          // the sky stops at very wrong
   ctx.fillStyle = sky[0]; ctx.fillRect(0, 0, VIEW_W, 60);
   ctx.fillStyle = sky[1]; ctx.fillRect(0, 60, VIEW_W, 60);
   ctx.fillStyle = sky[2]; ctx.fillRect(0, 120, VIEW_W, VIEW_H - 120);
@@ -3700,7 +3831,7 @@ function drawBackground(st) {
 
   // moon — it stains red as the doll decays
   const moonX = 250 - camX * 0.05;
-  ctx.fillStyle = ['#e8e4d5', '#e3d9c2', '#d8b9a5', '#c96a5a'][st];
+  ctx.fillStyle = ['#e8e4d5', '#e3d9c2', '#d8b9a5', '#c96a5a'][Math.min(3, st)];
   ctx.beginPath(); ctx.arc(moonX, 32, 14, 0, 7); ctx.fill();
   ctx.fillStyle = sky[0];
   ctx.beginPath(); ctx.arc(moonX - 6, 28, 12, 0, 7); ctx.fill();
@@ -3996,11 +4127,11 @@ function drawHouseBackground(st) {
     const wx = wc * TILE - camX;
     if (wx > -40 && wx < VIEW_W + 40) {
       ctx.fillStyle = '#2e2018'; ctx.fillRect(wx - 3, 30, 34, 44);
-      ctx.fillStyle = ['#1a1430', '#191028', '#170c20', '#160814'][st];
+      ctx.fillStyle = ['#1a1430', '#191028', '#170c20', '#160814'][Math.min(3, st)];
       ctx.fillRect(wx, 33, 28, 38);
       ctx.fillStyle = '#2e2018';
       ctx.fillRect(wx + 13, 33, 2, 38); ctx.fillRect(wx, 50, 28, 2);
-      ctx.fillStyle = ['#e8e4d5', '#e3d9c2', '#d8b9a5', '#c96a5a'][st];
+      ctx.fillStyle = ['#e8e4d5', '#e3d9c2', '#d8b9a5', '#c96a5a'][Math.min(3, st)];
       ctx.fillRect(wx + 19, 38, 5, 5);                 // the moon looks in
     }
     const px = (wc - 22) * TILE - camX;
@@ -4231,7 +4362,7 @@ function drawPlayer() {
   if (player.respawnT > 0) return;                    // still in the dark
   if (player.invuln > 0 && (frame >> 2) % 2) return;  // hit flicker
   const st = creepStage();
-  const set = DOLL[st];
+  const set = DOLL[Math.min(3, st)];
   const charging = player.chargeT > 0 && player.onGround;
   let img;
   if (dragon.ridden) img = set.jump;                    // legs tucked, riding
@@ -4241,7 +4372,7 @@ function drawPlayer() {
   else if (Math.abs(player.vx) > 0.3) img = set.walk[(player.animT >> 4) % 2];
   else img = set.idle;
 
-  const tremble = player.chargeT >= 120 ? ((frame >> 1) % 2 ? 1 : -1) : 0;
+  const tremble = player.chargeT >= chargeFrames() ? ((frame >> 1) % 2 ? 1 : -1) : 0;
   const dx = Math.round(player.x - camX - 2) + tremble;
   const dy = Math.round(player.y - (player.crouch ? 4 : charging ? 0 : 2)) +
              (player.twitch > 3 ? 1 : 0);
@@ -4487,6 +4618,11 @@ function drawHUD() {
     ctx.fillStyle = i <= st ? ['#8878a8', '#a06888', '#b04858', '#d02838'][i] : '#241c30';
     ctx.fillRect(42 + i * 8, VIEW_H - 12, 6, 5);
   }
+  // the meter itself, a hair beneath the notches
+  ctx.fillStyle = '#241c30';
+  ctx.fillRect(42, VIEW_H - 5, 46, 1);
+  ctx.fillStyle = inkMelt ? '#6a1018' : '#b04858';
+  ctx.fillRect(42, VIEW_H - 5, Math.round(46 * creep / CREEP.max), 1);
   // the fifth notch marks the melt — a red gone almost black
   const ix = 42 + 4 * 8;
   ctx.fillStyle = inkMelt ? '#3a0408' : '#241c30';
@@ -4864,6 +5000,15 @@ function startBoss() {
   boss.kind = level === 5 ? 'aztec' : level === 4 ? 'yeti' :
               level === 3 ? 'werewolf' : 'dracula';
   boss.hp = boss.kind === 'dracula' ? 3 : 4;
+  // a piece of her left in this room comes back to her at the door
+  if (piece.active && piece.inBoss && piece.level === level) pieceRestore();
+  // arriving at her worst: he sees what she is, and he already bleeds
+  boss.marked = creepStage() >= 4;
+  if (boss.marked) {
+    boss.hp -= 1;
+    unlock('at_her_worst');
+    flashText = { msg: 'he sees what she is.', t: 150, hold: true };
+  }
   boss.w = boss.kind === 'yeti' ? 38 : boss.kind === 'werewolf' ? 34 :
            boss.kind === 'aztec' ? 30 : 40;
   boss.h = boss.kind === 'yeti' ? 44 : boss.kind === 'werewolf' ? 34 :
@@ -4913,6 +5058,7 @@ function aztecHit() {
   boss.hp--;
   boss.hurtT = 26;
   score += 400;
+  addCreep(CREEP.event);
   addShake(3, 12);
   burst(boss.x + boss.w / 2, 110, '#d8b23a', 12, -1.4);
   sfx(140, 0.5, 'sawtooth', 0.09, -50);                // a voice too old for the room
@@ -4937,6 +5083,7 @@ function yetiHit(dmg) {
   boss.hp -= dmg;
   boss.hurtT = 24;
   score += dmg >= 1 ? 400 : 150;
+  addCreep(dmg >= 1 ? CREEP.event : CREEP.event / 2);
   addShake(dmg >= 1 ? 3 : 1.5, dmg >= 1 ? 12 : 6);
   burst(boss.x + boss.w / 2, 120, dmg >= 1 ? '#9fe8ff' : '#a01828', 10, -1.2);
   sfx(100, 0.4, 'sawtooth', 0.08, -35);                // a roar off the ice
@@ -4954,6 +5101,7 @@ function wolfHit() {
   boss.hp--;
   boss.hurtT = 30;
   score += 400;
+  addCreep(CREEP.event);
   addShake(3, 12);
   burst(boss.x + boss.w / 2, 120, '#a01828', 12, -1.5);
   sfx(120, 0.5, 'sawtooth', 0.09, -40);                // a howl with a hole in it
@@ -4977,6 +5125,7 @@ function bossHit() {
   boss.hp--;
   boss.hurtT = 30;
   score += 500;
+  addCreep(CREEP.event);
   addShake(3, 12);
   boss.boltCd = Math.min(boss.boltCd, 18);           // the sky answers
   burst(boss.x + 18, 110, '#a01828', 12, -1.5);
@@ -6059,6 +6208,7 @@ function dogStruck(dir) {
     dog.retreatT = 0;
     dog.barkCd = 0;
     score += 250;
+    addCreep(CREEP.event);
     sfx(210, 0.07, 'sawtooth', 0.055, 170);              // two sharp barks
     setTimeout(() => sfx(230, 0.07, 'sawtooth', 0.05, 160), 120);
     flashText = { msg: 'it barks, and thinks better of it.', t: 110 };
@@ -6090,6 +6240,8 @@ function updateShards() {
     }
     if (gone) {
       burst(s.x + 2, s.y + 2, '#efe2cf', 5, Math.sign(s.vx) * 0.8);
+      if (inkMelt && hardAt(s.x + 2, s.y + 2))       // melted, the shard leaves ink
+        slicks.push({ x: s.x - 6, y: Math.floor((s.y + 2) / TILE) * TILE - 2, t: 420 });
       shards.splice(i, 1);
     }
   }
@@ -6270,7 +6422,7 @@ function startMini(door) {
 }
 
 function endMini() {
-  if (mini && mini.won) runMinis++;
+  if (mini && mini.won) { runMinis++; addCreep(CREEP.event); }
   mini = null;
   state = 'play';
   jumpHeld = punchHeld = kickHeld = true;
@@ -6470,7 +6622,7 @@ function drawSpears() {
       ctx.fillRect(sx - 6, 48, 18, 96);
     }
   }
-  ctx.drawImage(DOLL[creepStage()].idle, Math.round(mini.dollX), 124);
+  ctx.drawImage(DOLL[dollStage()].idle, Math.round(mini.dollX), 124);
   for (let i = 0; i < mini.attempts; i++) {
     ctx.fillStyle = '#c9304a'; ctx.fillRect(10 + i * 8, 46, 5, 5);
   }
@@ -6687,7 +6839,7 @@ function drawCrows() {
       ctx.fillStyle = '#22222c'; ctx.fillRect(p.x - 2, p.y - 5, 5, 2);
     }
   }
-  ctx.drawImage(DOLL[creepStage()].idle, 6, Math.round(mini.aimY) - 16);
+  ctx.drawImage(DOLL[dollStage()].idle, 6, Math.round(mini.aimY) - 16);
   if (!mini.dart) {
     ctx.fillStyle = '#c9cede'; ctx.fillRect(24, Math.round(mini.aimY), 6, 2);
   } else {
@@ -6779,7 +6931,7 @@ function drawDig() {
     ctx.fillRect(90 + Math.round((mini.digT / 300) * 140), 52, 2, 16);
     pixelText('MASH Z BEFORE THE MARK RUNS OUT', 68, 148, '#9a8fb0');
   }
-  ctx.drawImage(DOLL[creepStage()].idle, 40 + (mini.sel * 80), 128);
+  ctx.drawImage(DOLL[dollStage()].idle, 40 + (mini.sel * 80), 128);
 }
 
 function miniBackdropWoods(title) {
@@ -6807,6 +6959,7 @@ function updateHollow() {
     mini.eyeTaken = true;
     eyesFound++;
     score += 200;
+    addCreep(CREEP.eye);
     healOne();
     sfx(880, 0.3, 'sine', 0.06); sfx(1320, 0.4, 'sine', 0.04);
     mpBurst(160, 118, '#e8c66a', 12);
@@ -6845,7 +6998,7 @@ function drawHollow() {
   ctx.fillRect(151, 124, 18, 3);
   if (!mini.eyeTaken)
     drawButtonEye(157, 115 + Math.round(Math.sin(mini.t / 25) * 2), true);
-  ctx.drawImage(DOLL[creepStage()].idle, Math.round(mini.dollX), 130);
+  ctx.drawImage(DOLL[dollStage()].idle, Math.round(mini.dollX), 130);
   if (!mini.eyeTaken) pixelText('ARROWS WALK', 128, 160, '#6a5f80');
 }
 
@@ -6955,7 +7108,7 @@ function drawToss() {
     drawMiniDoll(bkx - 8, bky + 2);
   }
   // the doll herself, mid-carnival
-  ctx.drawImage(DOLL[creepStage()].idle, 22, 130);
+  ctx.drawImage(DOLL[dollStage()].idle, 22, 130);
   // power meter — frozen and flashing once locked
   const locked = mini.aimPhase === 'locked';
   const p = locked ? mini.lockedP : mini.p;
@@ -7066,7 +7219,7 @@ function drawBalloon() {
   for (const dr of mini.drips)
     ctx.fillRect(dr.x, Math.round(dr.y), 1, Math.round(dr.len));
   // the doll aims
-  ctx.drawImage(DOLL[creepStage()].idle, 6, Math.round(mini.aimY) - 16);
+  ctx.drawImage(DOLL[dollStage()].idle, 6, Math.round(mini.aimY) - 16);
   if (!mini.dart) {
     ctx.fillStyle = '#c9cede'; ctx.fillRect(24, Math.round(mini.aimY), 6, 2);
     ctx.fillStyle = '#d04040'; ctx.fillRect(22, Math.round(mini.aimY) - 1, 2, 4);
@@ -7436,7 +7589,7 @@ function tick(now) {
       particles.push({ x: camX + Math.random() * VIEW_W, y: -4,
                        vx: (Math.random() - 0.5) * 0.3, vy: 0.25 + Math.random() * 0.2,
                        t: 400, float: true,
-                       color: ['', '#4a4238', '#5a3a34', '#6a2a26'][ast] });
+                       color: ['', '#4a4238', '#5a3a34', '#6a2a26'][Math.min(3, ast)] });
     updatePlayer();
     if (state === 'play') {
       updateDragon();
@@ -7444,7 +7597,9 @@ function tick(now) {
       updateSaucerDoor();
       updateKid();
     }
+    const preX = new Map(enemies.map(e => [e, e.x]));
     updateEnemies();
+    applySlicks(preX);
     updateFireballs();
     updateShards();
     updateLevelIcicles();
@@ -7472,6 +7627,8 @@ function tick(now) {
   drawDoors();
   drawHouse();
   drawHeartPickup();
+  drawSlicks();
+  drawPiece();
   drawEyePickups();
   drawPartPickup();
   drawKid();
