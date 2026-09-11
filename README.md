@@ -34,6 +34,8 @@ browsers require a keypress before audio can play), then **Enter** to begin.
 | ↓ (or S), held 2s | charge a power jump |
 | ↑ at a glowing door | enter a minigame world |
 | Esc | pause / resume |
+| Shift+M | mute |
+| Shift+P | performance readout: FPS, ms per frame, game steps per frame, draw time, speed setting |
 
 That's everything she can do. Crouching shrinks her, lets her duck under
 swooping bats, and slows her walk to a wary shuffle. Holding ↓ on the

@@ -2811,6 +2811,11 @@ window.addEventListener('keydown', e => {
     if (masterGain) masterGain.gain.value = muted ? 0 : 0.5;
     return;
   }
+  if (e.key === 'P' && e.shiftKey) {          // Shift+P: the performance readout
+    perfOn = !perfOn;
+    try { localStorage.setItem('creepydoll-perf', perfOn ? '1' : '0'); } catch (err) {}
+    return;
+  }
   if (e.key === 'Escape') { togglePause(); return; }
   if (paused && e.key === 'Tab') {            // pause screen: flip to her keepsakes
     e.preventDefault();
@@ -3156,6 +3161,31 @@ function drawBoardLines() {             // the two lines under the win score
 }
 let speedAcc = 0;               // fractional update accumulator for game speed
 let lastTickT = 0;              // rAF timestamp of the previous tick
+/* ---------------- the readout (Shift+P) ----------------
+   What the browser is actually giving us: frame interval (so, FPS), how
+   many fixed game steps ran this frame, how long our own update+draw
+   took, and the speed setting — the four numbers that explain "slow". */
+let perfOn = false;
+try { perfOn = localStorage.getItem('creepydoll-perf') === '1'; } catch (e) {}
+const perf = { dt: 16.7, ms: 0, steps: 1, worst: 0, worstT: 0 };
+function perfSample(dt, ms, steps) {
+  if (dt > 0 && dt < 1000) perf.dt = perf.dt * 0.9 + dt * 0.1;
+  perf.ms = perf.ms * 0.9 + ms * 0.1;
+  perf.steps = steps;
+  if (ms >= perf.worst || frame - perf.worstT > 180) { perf.worst = ms; perf.worstT = frame; }
+}
+function drawPerf() {
+  const fps = Math.round(1000 / perf.dt);
+  const l1 = 'FPS ' + fps + '  ' + perf.dt.toFixed(1) + 'MS  STEPS ' + perf.steps;
+  const l2 = 'DRAW ' + perf.ms.toFixed(1) + 'MS  PEAK ' + perf.worst.toFixed(1) +
+             '  SPEED ' + Math.round(assist.speed * 100) + '%';
+  const w = Math.max(l1.length, l2.length) * 6 + 8;
+  ctx.fillStyle = 'rgba(10,6,16,0.85)';
+  ctx.fillRect(VIEW_W - w - 2, 14, w, 20);
+  const warn = fps < 50 || perf.steps > 1 || assist.speed < 1;
+  pixelText(l1, VIEW_W - w + 2, 16, warn ? '#e8a050' : '#9fe88f');
+  pixelText(l2, VIEW_W - w + 2, 25, warn ? '#e8a050' : '#9fe88f');
+}
 // game speed must not follow the display: when the browser hands us long
 // frames (low-power mode, energy saver, 30Hz panels) run catch-up steps so
 // the night never plays in slow motion. Capped so a backgrounded tab
@@ -9146,11 +9176,20 @@ function drawWin() {
 
 /* ---------------- main loop ---------------- */
 function tick(now) {
+  const t0 = performance.now();
+  const dt = lastTickT > 0 && now > 0 ? now - lastTickT : 0;
+  tickInner(now);
+  perfSample(dt, performance.now() - t0, perfSteps);
+  if (perfOn) drawPerf();
+}
+let perfSteps = 1;
+function tickInner(now) {
   frame++;
   pollGamepad();
   if (assist.invuln || assist.hearts || assist.speed < 1 || assist.skipMini)
     runAssisted = true;                  // any cheat on: the run can't sign
   const steps = lastTickT > 0 && now > 0 ? catchupSteps(now - lastTickT) : 1;
+  perfSteps = steps;
   if (now > 0) lastTickT = now;
 
   if (state === 'title') {

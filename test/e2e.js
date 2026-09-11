@@ -520,6 +520,18 @@ function section(name) { console.log('\n== ' + name + ' =='); }
                    player.invuln = 999999; });
   await frames(3);
 
+  /* ---------- the readout ---------- */
+  section('the readout');
+  check(await ev(() => perfOn === false), 'the readout starts hidden');
+  await page.keyboard.press('Shift+P');
+  await frames(20);
+  check(await ev(() => perfOn === true && perf.dt > 0 && perf.ms >= 0 && perf.steps >= 1),
+        'Shift+P shows it, and it has been counting frames');
+  check(await ev(() => localStorage.getItem('creepydoll-perf') === '1'), 'the choice is remembered');
+  await page.keyboard.press('Shift+P');
+  await frames(2);
+  check(await ev(() => perfOn === false), 'Shift+P hides it again');
+
   /* ---------- frame pacing & the speed cheat ---------- */
   section('frame pacing');
   check(await ev(() => catchupSteps(8) === 1 && catchupSteps(17) === 1 &&
